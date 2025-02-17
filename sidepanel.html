@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Action Panel | MyVideoResu.ME Job Tracker & AI Resume Builder</title>
+
+  <!-- Latest compiled and minified CSS -->
+  <link rel="stylesheet" href="libs/bootstrap.min.css" crossorigin="anonymous">
+
+  <!-- Latest compiled and minified JavaScript -->
+  <script src="libs/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h3>Job Tracker & AI Resume Builder</h3>
+  
+  <!-- Login Prompt (Initially hidden) -->
+  <div id="loginPrompt" style="display: none;">
+    <p>To begin, you need to login to your MyVideoResu.ME account. Don't have an account - <a rel="noopener" href="https://myvideoresu.me/login" target="_blank" title="MyVideoResu.ME">create one here</a>.</p>
+    <button id="loginButton" class="btn btn-primary">Login</button>
+  </div>
+
+  <!-- Add Job Button (Initially hidden) -->
+  <div id="jobResumePrompt" style="display: none;">
+    <p>How does it work? <strong>3 Simple Steps</strong>:</p>
+    <ol>
+        <li><a href="https://myvideoresu.me/resumes/" target="_blank" rel="noopener">Upload your master resume</a> to MyVideoResu.ME</li>
+        <li>Navigate to a website that has a Job.</li>
+        <li>Click "Track & Generate" button</li>
+    </ol>
+    <p>A custom tailored resume will be generated for you. See </p>
+  </div>
+  <button id="addJobButton" class="btn btn-primary">Track & Generate</button>
+  <div id="custom" class="outline-fill"><i>Placeholder for AI generated tailored resume</i>.</div>
+
+  <div class="fixed-bottom">
+    <div class="float-right">Powered by: <a rel="noopener" href="https://myvideoresu.me" target="_blank" title="MyVideoResu.ME"><img src="imgs/logo.png" alt="MyVideoResu.ME" height="25" width="120"></a></div>
+  </div>
+
+  <script src="libs/jwt-decode.min.js"></script>
+  <script src="constants.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
