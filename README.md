@@ -1,2 +1,2 @@
 # myvideoresume-chrome-extension
-Chrome Plugin for AI Resume Generation
+Chrome Plugin Extension for AI Resume Generation
