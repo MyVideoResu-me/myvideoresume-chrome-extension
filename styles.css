@@ -1,25 +1,28 @@
 body {
-    padding: 10px;
-    min-height: 100%;
-  }
-  
-  button {
-    margin-top: 10px;
-    width: 100%;
-    padding: 10px;
-  }
-  
+  padding: 10px;
+  min-height: 100%;
+}
+
+button {
+  margin-top: 10px;
+  width: 100%;
+  padding: 10px;
+}
+
 .float-right {
-    float: right;
+  float: right;
 }
 
 .outline-fill {
-    margin-top: 10px;
-    padding: 5px;
-    border-radius: 0.375rem;
-    height: 100%;
-    min-height: 100%;
-    border: 1px;
-    border-color: grey;
-    border-style: dashed;
+  margin-top: 10px;
+  padding: 5px;
+  border-radius: 0.375rem;
+  min-height: 100%;
+  border: 1px;
+  border-color: grey;
+  border-style: dashed;
+  height: 350px;
+  /* Set the height to whatever value you need */
+  overflow-y: auto;
+  /* Enable vertical scrolling when content overflows */
 }

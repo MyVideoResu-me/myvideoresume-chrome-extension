@@ -33,7 +33,7 @@ document.getElementById('loginForm').addEventListener('submit', (event) => {
             window.location.href = chrome.runtime.getURL('sidepanel.html');
             });
         } else {
-            //alert(JSON.stringify(data), 'Login Failed');
+            alert(JSON.stringify(data), 'Login Failed');
             alert('Login Failed.');
         }
       }
