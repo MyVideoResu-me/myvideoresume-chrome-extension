@@ -31,10 +31,7 @@
     ],
     "host_permissions": [
       "http://*/*",
-      "https://*/*",
-      "https://api.myvideoresu.me/*",
-      "https://myvideoresu.me/*",
-      "https://localhost:7117/*"
+    "https://*/*"
     ]
   }
   

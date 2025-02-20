@@ -41,7 +41,7 @@ document.addEventListener('DOMContentLoaded', () => {
           //alert(originUrl);
 
           //verify that the page is a Job
-          let isJob = findWholeWord(html, 'job');
+          let isJob = true //findWholeWord(html, 'job');
           if (isJob) {
 
             const jobChromeRequest = {
@@ -144,7 +144,7 @@ document.getElementById('evaluateButton').addEventListener('click', () => {
         //alert(originUrl);
 
         //verify that the page is a Job
-        let isJob = findWholeWord(html, 'job');
+        let isJob = true //findWholeWord(html, 'job');
         if (isJob) {
 
           const jobChromeRequest = {
