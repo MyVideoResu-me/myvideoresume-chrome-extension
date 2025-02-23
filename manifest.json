@@ -2,7 +2,7 @@
     "manifest_version": 3,
     "name": "MyVideoResu.ME - Job Seeker",
     "description": "Job Seeker Tools: Find a Job, Track it and then build an AI generated resume that best matches.",
-    "version": "1.3",
+    "version": "1.4",
     "side_panel": {
     "default_path": "sidepanel.html"
     },
