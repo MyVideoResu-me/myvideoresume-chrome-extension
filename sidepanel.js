@@ -38,7 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (jwtToken) {
         consoleAlerts("jwt");
         chrome.runtime.sendMessage({ action: "getHTML" }, (response) => {
-          let html = response.html;
+
+          consoleAlerts(response.html);
+          let html = jobDescriptionParser(response.html);
           let originUrl = response.originUrl;
           consoleAlerts(html);
           consoleAlerts(originUrl);
@@ -129,7 +131,9 @@ document.addEventListener('DOMContentLoaded', () => {
       if (jwtToken) {
         consoleAlerts("jwt");
         chrome.runtime.sendMessage({ action: "getHTML" }, (response) => {
-          let html = response.html;
+
+          consoleAlerts(response.html);
+          let html = jobDescriptionParser(response.html);
           let originUrl = response.originUrl;
           consoleAlerts(html);
           consoleAlerts(originUrl);

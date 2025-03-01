@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Store the JWT token securely
             chrome.storage.local.set({ jwtToken: data.token }, () => {
               consoleAlerts('Login Successful');
-              window.location.href = chrome.runtime.getURL('sidepanel.html');
+              window.location.href = chrome.runtime.getURL('sidepanel-global.html');
             });
           } else {
             consoleAlerts(JSON.stringify(data), 'Login Failed');

@@ -1,37 +1,46 @@
 {
-    "manifest_version": 3,
-    "name": "MyVideoResu.ME - Job Seeker",
-    "description": "Job Seeker Tools: Find a Job, Track it and then build an AI generated resume that best matches.",
-    "version": "1.4",
-    "side_panel": {
-    "default_path": "sidepanel.html"
-    },
-    "permissions": [
-      "storage",
-      "activeTab",
-      "sidePanel",
-      "scripting"
-    ],
-    "background": {
-      "service_worker": "background.js"
-    },
-    "action": {
-      "default_title": "Click to Open Panel",
-      "default_icon": {
-        "16": "icons/icon16.png",
-        "48": "icons/icon48.png",
-        "128": "icons/icon128.png"
-      }
-    },
-    "content_scripts": [
-      {
-        "matches": ["<all_urls>"],
-        "js": ["content.js"]
-      }
-    ],
-    "host_permissions": [
-      "http://*/*",
+  "manifest_version": 3,
+  "name": "MyVideoResu.ME - Job Seeker",
+  "version": "1.6",
+  "description": "Job Seeker Tools: Find a Job, Track it and then build an AI generated resume that best matches.",
+  "minimum_chrome_version": "116",
+  "background": {
+    "service_worker": "service-worker.js"
+  },
+  "side_panel": {
+    "default_path": "sidepanel-global.html"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "js": [
+        "content-script.js"
+      ]
+    }
+  ],
+  "permissions": [
+    "storage",
+    "activeTab",
+    "sidePanel",
+    "scripting"
+  ],
+  "action": {
+    "default_title": "Click to Open Panel",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "host_permissions": [
+    "http://*/*",
     "https://*/*"
-    ]
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   }
-  
+}
