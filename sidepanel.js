@@ -91,19 +91,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (data.errorMessage) {
                   consoleAlerts(data.errorMessage);
                 } else if (data.result) {
-                  consoleAlerts(data.result.markdownResume);
-                  let converter = new showdown.Converter();
-                  let htmlConverted = converter.makeHtml(data.result.markdownResume);
-                  let recommedationConverted = converter.makeHtml(data.result.summaryRecommendations);
-                  consoleAlerts(htmlConverted);
-                  let element = document.getElementById('custom');
-                  if (element) {
-                    element.innerHTML = htmlConverted;
-                    document.getElementById('score').style.display = 'block';
-                    let recom = document.getElementById('recommendations');
-                    recom.style.display = 'block';
-                    recom.innerHTML = recommedationConverted;
-                    document.getElementById('newScore').innerText = data.result.newScore;
+                  if (data.result.summaryRecommendations) {
+                    consoleAlerts(data.result.markdownResume);
+                    let converter = new showdown.Converter();
+                    let htmlConverted = converter.makeHtml(data.result.markdownResume);
+                    let recommedationConverted = converter.makeHtml(data.result.summaryRecommendations);
+                    consoleAlerts(htmlConverted);
+                    let element = document.getElementById('custom');
+                    if (element) {
+                      element.innerHTML = htmlConverted;
+                      document.getElementById('score').style.display = 'block';
+                      let recom = document.getElementById('recommendations');
+                      recom.style.display = 'block';
+                      recom.innerHTML = recommedationConverted;
+                      document.getElementById('newScore').innerText = data.result.newScore;
+                    }
+                  } else {
+                    document.getElementById('scoreEvaluateButton').disabled = false;
                   }
                 }
               })
@@ -136,12 +140,10 @@ document.addEventListener('DOMContentLoaded', () => {
           let html = jobDescriptionParser(response.html);
           let originUrl = response.originUrl;
           consoleAlerts(html);
-          consoleAlerts(originUrl);
 
           //verify that the page is a Job
           let isJob = true //findWholeWord(html, 'job');
           if (isJob) {
-
             const jobChromeRequest = {
               token: jwtToken,
               html: html,  // You can capture the full HTML of the page or other details
