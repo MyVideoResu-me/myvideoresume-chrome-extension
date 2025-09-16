@@ -1,11 +1,11 @@
 const jwtTokenKey = 'jwtToken';
 const isDevelopment = false;
-const showConsoleAlerts = false;
-const loginDev = 'https://localhost:7117/auth/login';
-const loginProd = 'https://api.myvideoresu.me/auth/login';
-const createjobbestmatchDev = 'https://localhost:7117/chrome/createjobbestmatch';
+const showConsoleAlerts = true;
+const loginDev = 'http://localhost:5000/api/Auth/login';
+const loginProd = 'https://api.myvideoresu.me/api/Auth/login';
+const createjobbestmatchDev = 'http://localhost:5000/chrome/createjobbestmatch';
 const createjobbestmatchProd = 'https://api.myvideoresu.me/chrome/createjobbestmatch';
-const jobresumeanalysisDev = 'https://localhost:7117/chrome/jobresumeanalysis';
+const jobresumeanalysisDev = 'http://localhost:5000/chrome/jobresumeanalysis';
 const jobresumeanalysisProd = 'https://api.myvideoresu.me/chrome/jobresumeanalysis';
 
 let login = loginDev;

@@ -1,0 +1,21 @@
+{
+    "sqltools.connections": [
+        {
+            "connectionTimeout": 15,
+            "mssqlOptions": {
+                "appName": "SQLTools",
+                "useUTC": true,
+                "encrypt": true,
+                "trustServerCertificate": false
+            },
+            "previewLimit": 50,
+            "server": "SQL8011.site4now.net",
+            "port": 1433,
+            "driver": "MSSQL",
+            "name": "DEV",
+            "database": "db_aa354b_myvideoresumedev",
+            "username": "db_aa354b_myvideoresumedev_admin",
+            "password": "Md004456X9Stn@"
+        }
+    ]
+}

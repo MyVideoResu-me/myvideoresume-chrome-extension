@@ -30,15 +30,22 @@ document.addEventListener('DOMContentLoaded', () => {
       })
       .then(data => {
         if (data) {
-          if (data.token) {
+          // Handle new ApiResponse format: { success: true, data: { token: "...", user: {...} } }
+          if (data.success && data.data && data.data.token) {
             // Store the JWT token securely
+            chrome.storage.local.set({ jwtToken: data.data.token }, () => {
+              consoleAlerts('Login Successful');
+              window.location.href = chrome.runtime.getURL('sidepanel-global.html');
+            });
+          } else if (data.token) {
+            // Fallback for old format (just in case)
             chrome.storage.local.set({ jwtToken: data.token }, () => {
               consoleAlerts('Login Successful');
               window.location.href = chrome.runtime.getURL('sidepanel-global.html');
             });
           } else {
             consoleAlerts(JSON.stringify(data), 'Login Failed');
-            consoleAlerts('Login Failed.');
+            consoleAlerts('Login Failed: ' + (data.error?.message || 'Unknown error'));
           }
         }
       })
