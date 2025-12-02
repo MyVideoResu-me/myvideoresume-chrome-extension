@@ -5,38 +5,49 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login | MyVideoResu.ME Job Tracker & AI Resume Builder</title>
-  <!-- Latest compiled and minified CSS -->
-  <link rel="stylesheet" href="libs/bootstrap.min.css" crossorigin="anonymous">
-
-  <!-- Latest compiled and minified JavaScript -->
-  <script src="libs/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
-  <h3>Login</h3>
-  <form id="loginForm">
-    <div class="row mb-3 g-0">
-      <label for="userId" class="col-sm col-form-label">Email:</label>
-      <div class="col-sm-10">
-        <input type="email" id="userId" required class="form-control" />
+  <div class="card">
+    <h3>🔐 Login to MyVideoResu.ME</h3>
+    <p class="text-sm text-muted mb-3">Sign in to access your resumes and job tracking features</p>
+
+    <form id="loginForm">
+      <div class="mb-3">
+        <label for="userId" class="form-label">Email</label>
+        <input type="email" id="userId" required class="form-control" placeholder="your@email.com" autocomplete="email" />
       </div>
-    </div>
-    <div class="row mb-3 g-0">
-      <label for="password" class="col-sm col-form-label">Password:</label>
-      <div class="col-sm-10">
-        <input type="password" id="password" required class="form-control" />
+
+      <div class="mb-3">
+        <label for="password" class="form-label">Password</label>
+        <input type="password" id="password" required class="form-control" placeholder="••••••••" autocomplete="current-password" />
       </div>
-    </div>
-    <button id="login" type="submit" class="btn btn-primary">Login</button>
-    <div id="loading" class="d-flex align-items-center" style="display: none !important;">
-      <strong role="status">Processing...</strong>
-      <div class="spinner-border ms-auto" aria-hidden="true"></div>
-    </div>
-  </form>
+
+      <div id="loginError" class="alert alert-error hidden"></div>
+
+      <button id="login" type="submit" class="btn btn-primary">Login</button>
+
+      <div id="loading" class="loading-container hidden">
+        <div class="spinner-border" aria-hidden="true"></div>
+        <span>Signing in...</span>
+      </div>
+    </form>
+
+    <div class="section-divider"></div>
+
+    <p class="text-sm text-center text-muted">
+      Don't have an account?
+      <a href="https://app.myvideoresu.me/login" target="_blank" rel="noopener">Create one here</a>
+    </p>
+  </div>
+
   <div class="fixed-bottom">
-    <div class="float-right">Powered by: <a rel="noopener" href="https://myvideoresu.me" target="_blank"
-        title="MyVideoResu.ME"><img src="imgs/logo.png" alt="MyVideoResu.ME" height="25" width="120"></a></div>
+    <div class="float-right">
+      Powered by: <a rel="noopener" href="https://myvideoresu.me" target="_blank" title="MyVideoResu.ME">
+        <img src="imgs/logo.png" alt="MyVideoResu.ME" height="25" width="120">
+      </a>
+    </div>
   </div>
 
   <script src="constants.js"></script>

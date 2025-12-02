@@ -5,68 +5,177 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Action Panel | MyVideoResu.ME Job Tracker & AI Resume Builder</title>
-
-  <!-- Latest compiled and minified CSS -->
-  <link rel="stylesheet" href="libs/bootstrap.min.css" crossorigin="anonymous">
-
-  <!-- Latest compiled and minified JavaScript -->
-  <script src="libs/bootstrap.bundle.min.js" crossorigin="anonymous"></script>
   <link rel="stylesheet" href="styles.css">
 </head>
 
 <body>
-  <h3>Job Tracker & AI Resume Builder</h3>
+  <h3>🎯 Job Tracker & AI Resume Builder</h3>
 
   <!-- Login Prompt (Initially hidden) -->
-  <div id="loginPrompt" style="display: none;">
-    <p>How does it work? <strong>3 Simple Steps</strong>:</p>
-    <ol>
-      <li><a href="https://app.myvideoresu.me/resumes/" target="_blank" rel="noopener">Upload your master resume</a> to
-        MyVideoResu.ME</li>
-      <li>Navigate to a website that has a Job.</li>
-      <li>Click "Score & Evaluate" button</li>
-      <li>then, Click "Track & Generate" button</li>
-    </ol>
-    <p>To begin, you need to login to your MyVideoResu.ME account. Don't have an account - <a rel="noopener"
-        href="https://app.myvideoresu.me/login" target="_blank" title="MyVideoResu.ME">create one here</a>.</p>
-    <button id="loginButton" class="btn btn-primary">Login</button>
+  <div id="loginPrompt" class="hidden">
+    <div class="card">
+      <h4>How does it work?</h4>
+      <p><strong>4 Simple Steps:</strong></p>
+      <ol>
+        <li><a href="https://app.myvideoresu.me/resumes/" target="_blank" rel="noopener">Upload your master resume</a> to MyVideoResu.ME</li>
+        <li>Navigate to a website with a job posting</li>
+        <li>Click <strong>"Score & Evaluate"</strong> button</li>
+        <li>Click <strong>"Track & Generate"</strong> button</li>
+      </ol>
+      <div class="section-divider"></div>
+      <p>To begin, login to your MyVideoResu.ME account.</p>
+      <p class="text-sm text-muted">Don't have an account? <a rel="noopener" href="https://app.myvideoresu.me/login" target="_blank">Create one here</a></p>
+      <button id="loginButton" class="btn btn-primary">Login to MyVideoResu.ME</button>
+    </div>
   </div>
 
-  <div id="jobResumePrompt" style="display: none;">
-    <p>Start with scoring your current resume against the postion.</p>
-    <button id="scoreEvaluateButton" class="btn btn-primary">STEP 1: Score & Evaluate</button>
-    <div id="evalLoading" class="d-flex align-items-center" style="display: none !important;">
-      <strong role="status">Processing...</strong>
-      <div class="spinner-border ms-auto" aria-hidden="true"></div>
-    </div>
-    <div id="evalScoreSection" style="display: none !important;" class="hstack gap-3">
-      <div><strong>Score: </strong>
-        <p id="evalScore" style="display: inline;"></p>
-      </div>
-    </div>
-    <div id="evalRecommendations" class="outline-fill" style="display: none !important;"></div>
+  <!-- Main Content (Hidden until logged in) -->
+  <div id="jobResumePrompt" class="hidden">
 
-    <button id="trackGenerateButton" class="btn btn-primary" disabled>STEP 2: Tailor & Generate</button>
-    <div id="loading" class="d-flex align-items-center" style="display: none !important;">
-      <strong role="status">Processing...</strong>
-      <div class="spinner-border ms-auto" aria-hidden="true"></div>
-    </div>
-    <div id="score" style="display: none !important;" class="hstack gap-3">
-      <div style="display: inline;"><strong> New Score: </strong>
-        <p id="newScore" style="display: inline;"></p>
+    <!-- Resume Selection Section -->
+    <div class="card" id="resumeSelectionCard">
+      <div class="card-header">
+        <h4 class="card-title">📄 Select Resume</h4>
+        <p class="card-subtitle">Choose which resume to use for analysis</p>
       </div>
+      <div id="resumeLoadingContainer" class="loading-container hidden">
+        <div class="spinner-border" aria-hidden="true"></div>
+        <span>Loading resumes...</span>
+      </div>
+      <div id="resumeSelectionContainer" class="resume-selection-container hidden">
+        <!-- Resume list will be populated here -->
+      </div>
+      <div id="selectedResumeDisplay" class="hidden">
+        <div class="d-flex align-items-center justify-between">
+          <div>
+            <span class="text-sm text-muted">Selected:</span>
+            <strong id="selectedResumeName"></strong>
+            <span id="selectedResumeBadge" class="badge"></span>
+          </div>
+          <button id="changeResumeButton" class="btn btn-outline btn-sm btn-icon">Change</button>
+        </div>
+      </div>
+      <button id="refreshResumesButton" class="btn btn-secondary btn-sm mt-2">🔄 Refresh Resumes</button>
     </div>
-    <div id="custom" class="outline-fill"><i>Placeholder for AI generated tailored resume</i>.</div>
-    <div id="disclaimer">
-      <p><i>The resume generated should be reviewed for accuracy and validated before using. Do not lie on your resume.
-          Integrity & Honesty are valuable characteristics that all employers expect.</i></p>
+
+    <!-- Step 1: Score & Evaluate -->
+    <div class="card">
+      <h4>Step 1: Score & Evaluate</h4>
+      <p class="text-sm text-muted">Analyze how well your resume matches this job posting</p>
+      <button id="scoreEvaluateButton" class="btn btn-primary">🎯 Score & Evaluate</button>
+
+      <div id="evalLoading" class="loading-container hidden">
+        <div class="spinner-border" aria-hidden="true"></div>
+        <span>Analyzing your resume...</span>
+      </div>
+
+      <div id="evalScoreSection" class="hidden mt-3">
+        <div class="score-display">
+          <span>Current Score:</span>
+          <span id="evalScore" class="score-value"></span>
+        </div>
+      </div>
+      <div id="evalRecommendations" class="outline-fill hidden"></div>
     </div>
-    <div id="recommendations" class="outline-fill" style="display: none !important;"></div>
+
+    <!-- Step 2: Tailor & Generate -->
+    <div class="card">
+      <h4>Step 2: Tailor & Generate</h4>
+      <p class="text-sm text-muted">Generate an AI-tailored resume for this job</p>
+      <button id="trackGenerateButton" class="btn btn-primary" disabled>✨ Tailor & Generate Resume</button>
+
+      <div id="loading" class="loading-container hidden">
+        <div class="spinner-border" aria-hidden="true"></div>
+        <span>Generating tailored resume...</span>
+      </div>
+
+      <div id="score" class="hidden mt-3">
+        <div class="score-display">
+          <span>New Score:</span>
+          <span id="newScore" class="score-value"></span>
+        </div>
+      </div>
+
+      <div id="custom" class="outline-fill">
+        <p class="text-center text-muted"><em>Your AI-generated tailored resume will appear here</em></p>
+      </div>
+
+      <!-- Action Buttons (Hidden until resume is generated) -->
+      <div id="resumeActions" class="hidden">
+        <div class="section-divider"></div>
+
+        <!-- Save as Variation -->
+        <div id="saveVariationSection">
+          <h4>💾 Save as Variation</h4>
+          <p class="text-sm text-muted">Save this tailored resume as a variation of your master resume</p>
+          <div class="d-flex gap-2 align-items-center">
+            <input type="text" id="variationName" class="form-control" placeholder="e.g., Software Engineer - TechCorp">
+          </div>
+          <button id="saveVariationButton" class="btn btn-success">Save as Variation</button>
+          <div id="saveVariationLoading" class="loading-container hidden">
+            <div class="spinner-border" aria-hidden="true"></div>
+            <span>Saving variation...</span>
+          </div>
+          <div id="saveVariationSuccess" class="alert alert-success hidden">
+            ✅ Resume saved as variation successfully!
+          </div>
+          <div id="saveVariationError" class="alert alert-error hidden"></div>
+        </div>
+
+        <!-- Download Section -->
+        <div class="section-divider"></div>
+        <h4>📥 Download Resume</h4>
+        <p class="text-sm text-muted">Download your tailored resume</p>
+        <div class="download-section">
+          <button id="downloadPdfButton" class="btn btn-outline">
+            📄 PDF
+          </button>
+          <button id="downloadDocxButton" class="btn btn-outline">
+            📝 Word
+          </button>
+        </div>
+        <div id="downloadLoading" class="loading-container hidden">
+          <div class="spinner-border" aria-hidden="true"></div>
+          <span>Preparing download...</span>
+        </div>
+        <div id="downloadError" class="alert alert-error hidden"></div>
+      </div>
+
+      <div id="recommendations" class="outline-fill hidden"></div>
+    </div>
+
+    <!-- Disclaimer -->
+    <div id="disclaimer" class="hidden">
+      <p>⚠️ <strong>Important:</strong> The AI-generated resume should be reviewed for accuracy before using. Always be truthful on your resume - integrity matters!</p>
+    </div>
   </div>
 
+  <!-- Save Variation Modal -->
+  <div id="saveVariationModal" class="modal-overlay hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">Save as Variation</h4>
+        <button class="modal-close" id="closeModalButton">&times;</button>
+      </div>
+      <div>
+        <label class="form-label">Variation Name</label>
+        <input type="text" id="modalVariationName" class="form-control" placeholder="e.g., Software Engineer - TechCorp">
+        <p class="text-xs text-muted mt-2">This will be saved as a variation of your master resume</p>
+      </div>
+      <div class="actions-row mt-3">
+        <button id="cancelModalButton" class="btn btn-secondary">Cancel</button>
+        <button id="confirmSaveButton" class="btn btn-primary">Save Variation</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
   <div class="fixed-bottom">
-    <div class="float-right">Powered by: <a rel="noopener" href="https://myvideoresu.me" target="_blank"
-        title="MyVideoResu.ME"><img src="imgs/logo.png" alt="MyVideoResu.ME" height="25" width="120"></a></div>
+    <div class="float-right">
+      Powered by: <a rel="noopener" href="https://myvideoresu.me" target="_blank" title="MyVideoResu.ME">
+        <img src="imgs/logo.png" alt="MyVideoResu.ME" height="25" width="120">
+      </a>
+    </div>
   </div>
 
   <script src="libs/showdown.min.js"></script>

@@ -1,222 +1,831 @@
+/**
+ * MyVideoResume Chrome Extension - Side Panel
+ * Handles job analysis, resume tailoring, and variation management
+ */
+
+// Global state
+let masterResumeGroups = [];
+let selectedResume = null;
+let generatedResumeData = null;
+let currentJobHtml = null;
+let currentJobUrl = null;
+
 document.addEventListener('DOMContentLoaded', () => {
-
   updateConfiguration();
+  initializeApp();
+});
 
-  // Check if the user is logged in by fetching the JWT token from storage
-  chrome.storage.local.get(jwtTokenKey, (data) => {
+/**
+ * Initialize the application
+ */
+function initializeApp() {
+  // Check authentication status
+  chrome.storage.local.get([jwtTokenKey, selectedResumeKey], (data) => {
     if (data.jwtToken) {
       const token = data.jwtToken;
-      const decodedToken = jwt_decode(token); // Decode JWT token
+      try {
+        const decodedToken = jwt_decode(token);
+        const currentTime = Math.floor(Date.now() / 1000);
 
-      // Check if token has expired
-      const currentTime = Math.floor(Date.now() / 1000); // Get current time in seconds
-      if (decodedToken.exp < currentTime) {
-        // Token expired, clear it from storage
-        chrome.storage.local.remove(jwtTokenKey, () => {
-          consoleAlerts('Session expired. Please log in again.');
-          window.location.href = chrome.runtime.getURL('login.html');
-        });
-      } else {
-        // Token is valid, show the "Add Job" button
-        document.getElementById('jobResumePrompt').style.display = 'block';
+        if (decodedToken.exp < currentTime) {
+          // Token expired
+          handleTokenExpired();
+        } else {
+          // Token valid - show main content
+          showElement('jobResumePrompt');
+          hideElement('loginPrompt');
+
+          // Restore selected resume if available
+          if (data[selectedResumeKey]) {
+            selectedResume = data[selectedResumeKey];
+          }
+
+          // Load resumes
+          loadMasterResumeGroups();
+
+          // Setup event listeners
+          setupEventListeners();
+        }
+      } catch (e) {
+        console.error('Error decoding token:', e);
+        handleTokenExpired();
       }
     } else {
-      // No JWT token, show the login prompt
-      document.getElementById('loginPrompt').style.display = 'block';
-      document.getElementById('loginButton').addEventListener('click', () => {
-        window.location.href = chrome.runtime.getURL('login.html');
-      });
+      // Not logged in
+      showElement('loginPrompt');
+      hideElement('jobResumePrompt');
+      setupLoginButton();
+    }
+  });
+}
+
+/**
+ * Handle expired token
+ */
+function handleTokenExpired() {
+  chrome.storage.local.remove([jwtTokenKey, selectedResumeKey], () => {
+    showElement('loginPrompt');
+    hideElement('jobResumePrompt');
+    setupLoginButton();
+  });
+}
+
+/**
+ * Setup login button
+ */
+function setupLoginButton() {
+  document.getElementById('loginButton').addEventListener('click', () => {
+    window.location.href = chrome.runtime.getURL('login.html');
+  });
+}
+
+/**
+ * Setup all event listeners
+ */
+function setupEventListeners() {
+  // Resume selection
+  document.getElementById('refreshResumesButton').addEventListener('click', loadMasterResumeGroups);
+  document.getElementById('changeResumeButton').addEventListener('click', showResumeSelection);
+
+  // Step 1: Score & Evaluate
+  document.getElementById('scoreEvaluateButton').addEventListener('click', handleScoreEvaluate);
+
+  // Step 2: Tailor & Generate
+  document.getElementById('trackGenerateButton').addEventListener('click', handleTailorGenerate);
+
+  // Save as Variation
+  document.getElementById('saveVariationButton').addEventListener('click', handleSaveVariation);
+
+  // Download buttons
+  document.getElementById('downloadPdfButton').addEventListener('click', () => handleDownload('pdf'));
+  document.getElementById('downloadDocxButton').addEventListener('click', () => handleDownload('docx'));
+
+  // Modal buttons
+  document.getElementById('closeModalButton').addEventListener('click', hideModal);
+  document.getElementById('cancelModalButton').addEventListener('click', hideModal);
+  document.getElementById('confirmSaveButton').addEventListener('click', handleModalSave);
+}
+
+/**
+ * Load master resume groups from API
+ */
+async function loadMasterResumeGroups() {
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) return;
+
+  showElement('resumeLoadingContainer');
+  hideElement('resumeSelectionContainer');
+  hideElement('selectedResumeDisplay');
+
+  try {
+    const response = await fetch(masterResumeGroups, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${jwtToken}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (response.status === 401) {
+      handleTokenExpired();
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error('Failed to load resumes');
+    }
+
+    const data = await response.json();
+    consoleAlerts('Resume groups loaded: ' + JSON.stringify(data));
+
+    // Handle ApiResponse format
+    if (data.success && data.data) {
+      masterResumeGroups = data.data;
+    } else if (Array.isArray(data)) {
+      masterResumeGroups = data;
+    } else {
+      masterResumeGroups = [];
+    }
+
+    renderResumeSelection();
+
+    // Auto-select first master resume if none selected
+    if (!selectedResume && masterResumeGroups.length > 0) {
+      selectResume(masterResumeGroups[0].masterResume);
+    } else if (selectedResume) {
+      // Verify selected resume still exists
+      const found = findResumeById(selectedResume.id);
+      if (found) {
+        selectResume(found);
+      } else if (masterResumeGroups.length > 0) {
+        selectResume(masterResumeGroups[0].masterResume);
+      }
+    }
+
+  } catch (error) {
+    console.error('Error loading resumes:', error);
+    showError('resumeSelectionContainer', 'Failed to load resumes. Please try again.');
+  } finally {
+    hideElement('resumeLoadingContainer');
+  }
+}
+
+/**
+ * Find resume by ID in master groups
+ */
+function findResumeById(id) {
+  for (const group of masterResumeGroups) {
+    if (group.masterResume.id === id) {
+      return group.masterResume;
+    }
+    for (const variation of (group.variations || [])) {
+      if (variation.id === id) {
+        return variation;
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Render resume selection UI
+ */
+function renderResumeSelection() {
+  const container = document.getElementById('resumeSelectionContainer');
+
+  if (masterResumeGroups.length === 0) {
+    container.innerHTML = `
+      <div class="alert alert-info">
+        <p>No resumes found. <a href="https://app.myvideoresu.me/resumes/" target="_blank">Upload a resume</a> to get started.</p>
+      </div>
+    `;
+    showElement('resumeSelectionContainer');
+    return;
+  }
+
+  let html = '';
+
+  for (const group of masterResumeGroups) {
+    const master = group.masterResume;
+    const variations = group.variations || [];
+
+    html += `
+      <div class="resume-group">
+        <div class="resume-card master ${selectedResume?.id === master.id ? 'selected' : ''}"
+             data-resume-id="${master.id}"
+             data-is-master="true"
+             onclick="selectResumeById('${master.id}')">
+          <div class="d-flex align-items-center justify-between">
+            <div>
+              <div class="resume-card-title">${escapeHtml(master.name || 'Untitled Resume')}</div>
+              <div class="resume-card-meta">${formatDate(master.creationDateTime || master.createdAt)}</div>
+            </div>
+            <span class="badge badge-master">Master</span>
+          </div>
+        </div>
+        ${variations.map(v => `
+          <div class="resume-card variation ${selectedResume?.id === v.id ? 'selected' : ''}"
+               data-resume-id="${v.id}"
+               data-is-master="false"
+               onclick="selectResumeById('${v.id}')">
+            <div class="d-flex align-items-center justify-between">
+              <div>
+                <div class="resume-card-title">${escapeHtml(v.name || 'Untitled Variation')}</div>
+                <div class="resume-card-meta">${formatDate(v.creationDateTime || v.createdAt)}</div>
+              </div>
+              <span class="badge badge-variation">Variation</span>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  container.innerHTML = html;
+  showElement('resumeSelectionContainer');
+}
+
+/**
+ * Select resume by ID (called from onclick)
+ */
+window.selectResumeById = function(id) {
+  const resume = findResumeById(id);
+  if (resume) {
+    selectResume(resume);
+  }
+};
+
+/**
+ * Select a resume
+ */
+function selectResume(resume) {
+  selectedResume = resume;
+
+  // Save to storage
+  chrome.storage.local.set({ [selectedResumeKey]: resume });
+
+  // Update UI
+  document.getElementById('selectedResumeName').textContent = resume.name || 'Untitled Resume';
+
+  const badge = document.getElementById('selectedResumeBadge');
+  if (resume.isMaster) {
+    badge.textContent = 'Master';
+    badge.className = 'badge badge-master';
+  } else {
+    badge.textContent = 'Variation';
+    badge.className = 'badge badge-variation';
+  }
+
+  // Update selection highlight
+  document.querySelectorAll('.resume-card').forEach(card => {
+    card.classList.remove('selected');
+    if (card.dataset.resumeId === resume.id) {
+      card.classList.add('selected');
     }
   });
 
-  //STEP 2
-  document.getElementById('trackGenerateButton').addEventListener('click', () => {
-    consoleAlerts("Track job");
+  hideElement('resumeSelectionContainer');
+  showElement('selectedResumeDisplay');
 
-    chrome.storage.local.get(jwtTokenKey, (data) => {
-      const jwtToken = data.jwtToken;
-      if (jwtToken) {
-        consoleAlerts("jwt");
-        chrome.runtime.sendMessage({ action: "getHTML" }, (response) => {
+  // Reset results when resume changes
+  resetResults();
+}
 
-          consoleAlerts(response.html);
-          let html = jobDescriptionParser(response.html);
-          let originUrl = response.originUrl;
-          consoleAlerts(html);
-          consoleAlerts(originUrl);
+/**
+ * Show resume selection dropdown
+ */
+function showResumeSelection() {
+  hideElement('selectedResumeDisplay');
+  showElement('resumeSelectionContainer');
+}
 
-          //verify that the page is a Job
-          let isJob = true //findWholeWord(html, 'job');
-          if (isJob) {
+/**
+ * Reset analysis results
+ */
+function resetResults() {
+  generatedResumeData = null;
 
-            const jobChromeRequest = {
-              token: jwtToken,
-              html: html,  // You can capture the full HTML of the page or other details
-              originUrl: originUrl
-            };
+  hideElement('evalScoreSection');
+  hideElement('evalRecommendations');
+  hideElement('score');
+  hideElement('recommendations');
+  hideElement('resumeActions');
+  hideElement('disclaimer');
 
-            let data = JSON.stringify(jobChromeRequest);
+  document.getElementById('custom').innerHTML = '<p class="text-center text-muted"><em>Your AI-generated tailored resume will appear here</em></p>';
+  document.getElementById('evalRecommendations').innerHTML = '';
+  document.getElementById('recommendations').innerHTML = '';
 
-            consoleAlerts(data);
+  document.getElementById('trackGenerateButton').disabled = true;
+}
 
-            document.getElementById('custom').innerHTML = "<i>Placeholder for AI generated tailored resume</i>.";
-            document.getElementById('scoreEvaluateButton').disabled = true;
-            document.getElementById('loading').style.display = 'block';
 
-            fetch(createjobbestmatch, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${jwtToken}` // Use Bearer token authentication
-              },
-              body: data
-            })
-              .then(response => {
+/**
+ * Handle Step 1: Score & Evaluate
+ */
+async function handleScoreEvaluate() {
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) return;
 
-                if (response.status === 401) {
-                  consoleAlerts('Login Failed. Try again.');
-                  chrome.storage.local.remove(jwtTokenKey);
-                  window.location.href = chrome.runtime.getURL('login.html')
-                } else if (response.ok || response.status === 200) {
-                  consoleAlerts("success");
-                  return response.json();
-                }
+  if (!selectedResume) {
+    showError('evalRecommendations', 'Please select a resume first');
+    showElement('evalRecommendations');
+    return;
+  }
 
-              })
-              .then(data => {
+  // Get page HTML
+  chrome.runtime.sendMessage({ action: "getHTML" }, async (response) => {
+    if (!response || !response.html) {
+      showError('evalRecommendations', 'Could not read page content. Please make sure you are on a job posting page.');
+      showElement('evalRecommendations');
+      return;
+    }
 
-                consoleAlerts('Job Created: ' + data)
-                consoleAlerts(JSON.stringify(data));
+    currentJobHtml = jobDescriptionParser(response.html);
+    currentJobUrl = response.originUrl;
 
-                if (data.errorMessage) {
-                  consoleAlerts(data.errorMessage);
-                } else if (data.result) {
-                  if (data.result.summaryRecommendations) {
-                    consoleAlerts(data.result.markdownResume);
-                    let converter = new showdown.Converter();
-                    let htmlConverted = converter.makeHtml(data.result.markdownResume);
-                    let recommedationConverted = converter.makeHtml(data.result.summaryRecommendations);
-                    consoleAlerts(htmlConverted);
-                    let element = document.getElementById('custom');
-                    if (element) {
-                      element.innerHTML = htmlConverted;
-                      document.getElementById('score').style.display = 'block';
-                      let recom = document.getElementById('recommendations');
-                      recom.style.display = 'block';
-                      recom.innerHTML = recommedationConverted;
-                      document.getElementById('newScore').innerText = data.result.newScore;
-                    }
-                  } else {
-                    document.getElementById('scoreEvaluateButton').disabled = false;
-                  }
-                }
-              })
-              .catch(err => {
-                consoleAlerts("is error");
-                consoleAlerts('Error: ' + err.message);
-              })
-              .finally(s => {
-                document.getElementById('loading').style.cssText = 'display: none !important;';
-                document.getElementById('scoreEvaluateButton').disabled = false;
-                document.getElementById('disclaimer').style.display = 'block';
-              });
-          }
-        });
+    consoleAlerts('Job HTML: ' + currentJobHtml.substring(0, 200));
+
+    // Prepare request using new API format
+    const analyzeRequest = {
+      jobHtml: currentJobHtml,
+      resumeId: selectedResume.id,
+      sourceUrl: currentJobUrl
+    };
+
+    // Update UI
+    document.getElementById('scoreEvaluateButton').disabled = true;
+    showElement('evalLoading');
+    hideElement('evalScoreSection');
+    hideElement('evalRecommendations');
+
+    try {
+      const response = await fetch(matchAnalyze, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`
+        },
+        body: JSON.stringify(analyzeRequest)
+      });
+
+      if (response.status === 401) {
+        handleTokenExpired();
+        return;
+      }
+
+      if (response.status === 404) {
+        handleApiNotFound('evalRecommendations');
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error?.message || 'Analysis failed');
+      }
+
+      const data = await response.json();
+      consoleAlerts('Analysis result: ' + JSON.stringify(data));
+
+      // Handle response
+      if (data.errorMessage) {
+        showError('evalRecommendations', data.errorMessage);
+        showElement('evalRecommendations');
+      } else if (data.result || data.data) {
+        const result = data.result || data.data;
+
+        // Show score
+        const score = result.score || result.oldScore || 0;
+        document.getElementById('evalScore').textContent = formatScore(score);
+        applyScoreStyle('evalScore', score);
+        showElement('evalScoreSection');
+
+        // Show recommendations
+        if (result.summaryRecommendations) {
+          const converter = new showdown.Converter();
+          document.getElementById('evalRecommendations').innerHTML = converter.makeHtml(result.summaryRecommendations);
+          showElement('evalRecommendations');
+        }
+
+        // Enable Step 2
+        document.getElementById('trackGenerateButton').disabled = false;
+
+        // Reset Step 2 results
+        document.getElementById('custom').innerHTML = '<p class="text-center text-muted"><em>Your AI-generated tailored resume will appear here</em></p>';
+        hideElement('score');
+        hideElement('recommendations');
+        hideElement('resumeActions');
+      }
+    } catch (error) {
+      console.error('Error analyzing job:', error);
+      showError('evalRecommendations', 'Failed to analyze job posting. Please try again.');
+      showElement('evalRecommendations');
+    } finally {
+      hideElement('evalLoading');
+      document.getElementById('scoreEvaluateButton').disabled = false;
+    }
+  });
+}
+
+/**
+ * Handle Step 2: Tailor & Generate
+ */
+async function handleTailorGenerate() {
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) return;
+
+  if (!selectedResume) {
+    showError('custom', 'Please select a resume first');
+    return;
+  }
+
+  // Get page HTML if not already captured
+  if (!currentJobHtml) {
+    chrome.runtime.sendMessage({ action: "getHTML" }, (response) => {
+      if (response && response.html) {
+        currentJobHtml = jobDescriptionParser(response.html);
+        currentJobUrl = response.originUrl;
+        performTailorGenerate(jwtToken);
+      } else {
+        showError('custom', 'Could not read page content.');
       }
     });
-  });
+  } else {
+    performTailorGenerate(jwtToken);
+  }
+}
 
-  //STEP 1
-  document.getElementById('scoreEvaluateButton').addEventListener('click', () => {
-    consoleAlerts("Score Job");
+/**
+ * Perform the tailor and generate API call
+ */
+async function performTailorGenerate(jwtToken) {
+  // Prepare request using new API format
+  const tailorRequest = {
+    jobHtml: currentJobHtml,
+    resumeId: selectedResume.id,
+    sourceUrl: currentJobUrl
+  };
 
-    chrome.storage.local.get(jwtTokenKey, (data) => {
-      const jwtToken = data.jwtToken;
-      if (jwtToken) {
-        consoleAlerts("jwt");
-        chrome.runtime.sendMessage({ action: "getHTML" }, (response) => {
+  // Update UI
+  document.getElementById('trackGenerateButton').disabled = true;
+  document.getElementById('scoreEvaluateButton').disabled = true;
+  showElement('loading');
+  hideElement('score');
+  hideElement('resumeActions');
+  document.getElementById('custom').innerHTML = '<p class="text-center text-muted"><em>Generating tailored resume...</em></p>';
 
-          consoleAlerts(response.html);
-          let html = jobDescriptionParser(response.html);
-          let originUrl = response.originUrl;
-          consoleAlerts(html);
+  try {
+    const response = await fetch(matchTailor, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${jwtToken}`
+      },
+      body: JSON.stringify(tailorRequest)
+    });
 
-          //verify that the page is a Job
-          let isJob = true //findWholeWord(html, 'job');
-          if (isJob) {
-            const jobChromeRequest = {
-              token: jwtToken,
-              html: html,  // You can capture the full HTML of the page or other details
-              originUrl: originUrl
-            };
+    if (response.status === 401) {
+      handleTokenExpired();
+      return;
+    }
 
-            let data = JSON.stringify(jobChromeRequest);
+    if (response.status === 404) {
+      handleApiNotFound('custom');
+      return;
+    }
 
-            consoleAlerts(data)
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || 'Generation failed');
+    }
 
-            document.getElementById('scoreEvaluateButton').disabled = true;
-            document.getElementById('evalLoading').style.display = 'block';
+    const data = await response.json();
+    consoleAlerts('Generate result: ' + JSON.stringify(data));
 
-            fetch(jobresumeanalysis, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${jwtToken}` // Use Bearer token authentication
-              },
-              body: data
-            })
-              .then(response => {
+    if (data.errorMessage) {
+      showError('custom', data.errorMessage);
+    } else if (data.result || data.data) {
+      const result = data.result || data.data;
+      generatedResumeData = result;
 
-                if (response.status === 401) {
-                  consoleAlerts('Login Failed. Try again.');
-                  chrome.storage.local.remove(jwtTokenKey);
-                  window.location.href = chrome.runtime.getURL('login.html')
-                } else if (response.ok || response.status === 200) {
-                  consoleAlerts("success");
-                  return response.json();
-                }
+      // Show generated resume
+      if (result.markdownResume) {
+        const converter = new showdown.Converter();
+        document.getElementById('custom').innerHTML = converter.makeHtml(result.markdownResume);
+        document.getElementById('custom').classList.add('success');
+      }
 
-              })
-              .then(data => {
-                consoleAlerts('Job Created: ' + data)
-                consoleAlerts(JSON.stringify(data));
+      // Show new score
+      const newScore = result.newScore || result.score || 0;
+      document.getElementById('newScore').textContent = formatScore(newScore);
+      applyScoreStyle('newScore', newScore);
+      showElement('score');
 
-                if (data.errorMessage) {
-                  consoleAlerts(data.errorMessage);
-                } else if (data.result) {
-                  consoleAlerts(data.result.markdownResume);
-                  let converter = new showdown.Converter();
-                  let recommedationConverted = converter.makeHtml(data.result.summaryRecommendations);
-                  let element = document.getElementById('evalRecommendations');
-                  if (element) {
-                    element.innerHTML = recommedationConverted;
-                    element.style.display = 'block';
-                    document.getElementById('evalScoreSection').style.display = 'block';
-                    document.getElementById('evalScore').innerText = data.result.score;
-                    document.getElementById('scoreEvaluateButton').disabled = false;
+      // Show recommendations
+      if (result.summaryRecommendations) {
+        const converter = new showdown.Converter();
+        document.getElementById('recommendations').innerHTML = converter.makeHtml(result.summaryRecommendations);
+        showElement('recommendations');
+      }
 
-                    //reset the other values
+      // Show action buttons
+      showElement('resumeActions');
+      showElement('disclaimer');
 
-                    document.getElementById('custom').innerHTML = "<i>Placeholder for AI generated tailored resume</i>.";
-                    document.getElementById('score').style.cssText = 'display: none !important;';
-                    let recom = document.getElementById('recommendations');
-                    recom.style.cssText = 'display: none !important;';
-                    recom.innerHTML = "";
-                  }
-                }
-              })
-              .catch(err => {
-                consoleAlerts("is error");
-                consoleAlerts('Error:' + err.message);
-              })
-              .finally(s => {
-                document.getElementById('evalLoading').style.cssText = 'display: none !important;';
-                document.getElementById('trackGenerateButton').disabled = false;
-              });
-          }
-        });
+      // Pre-fill variation name suggestion
+      const suggestedName = generateVariationName();
+      document.getElementById('variationName').value = suggestedName;
+
+      // Reset save status
+      hideElement('saveVariationSuccess');
+      hideElement('saveVariationError');
+    }
+  } catch (error) {
+    console.error('Error generating resume:', error);
+    showError('custom', 'Failed to generate tailored resume. Please try again.');
+  } finally {
+    hideElement('loading');
+    document.getElementById('trackGenerateButton').disabled = false;
+    document.getElementById('scoreEvaluateButton').disabled = false;
+  }
+}
+
+/**
+ * Generate a suggested variation name based on job URL
+ */
+function generateVariationName() {
+  if (!currentJobUrl) return 'Job Application ' + new Date().toLocaleDateString();
+
+  try {
+    const url = new URL(currentJobUrl);
+    const hostname = url.hostname.replace('www.', '').split('.')[0];
+    return `${capitalizeFirst(hostname)} - ${new Date().toLocaleDateString()}`;
+  } catch {
+    return 'Job Application ' + new Date().toLocaleDateString();
+  }
+}
+
+/**
+ * Handle Save as Variation
+ */
+async function handleSaveVariation() {
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) return;
+
+  if (!generatedResumeData) {
+    showError('saveVariationError', 'No generated resume to save');
+    showElement('saveVariationError');
+    return;
+  }
+
+  const variationName = document.getElementById('variationName').value.trim();
+  if (!variationName) {
+    showError('saveVariationError', 'Please enter a name for this variation');
+    showElement('saveVariationError');
+    return;
+  }
+
+  // Find master resume ID
+  let masterResumeId = selectedResume.id;
+  if (!selectedResume.isMaster && selectedResume.parentId) {
+    masterResumeId = selectedResume.parentId;
+  }
+
+  // Update UI
+  document.getElementById('saveVariationButton').disabled = true;
+  showElement('saveVariationLoading');
+  hideElement('saveVariationError');
+  hideElement('saveVariationSuccess');
+
+  try {
+    const createVariationUrl = buildResumeUrl(masterResumeId, 'createVariation');
+
+    const response = await fetch(createVariationUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${jwtToken}`
+      },
+      body: JSON.stringify({
+        name: variationName,
+        description: `Generated for: ${currentJobUrl || 'Job Application'}`,
+        resumeData: generatedResumeData.markdownResume
+      })
+    });
+
+    if (response.status === 401) {
+      handleTokenExpired();
+      return;
+    }
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error?.message || 'Failed to save variation');
+    }
+
+    const data = await response.json();
+    consoleAlerts('Variation saved: ' + JSON.stringify(data));
+
+    // Show success
+    showElement('saveVariationSuccess');
+
+    // Refresh resume list
+    setTimeout(() => {
+      loadMasterResumeGroups();
+    }, 1500);
+
+  } catch (error) {
+    console.error('Error saving variation:', error);
+    document.getElementById('saveVariationError').textContent = error.message || 'Failed to save variation. Please try again.';
+    showElement('saveVariationError');
+  } finally {
+    hideElement('saveVariationLoading');
+    document.getElementById('saveVariationButton').disabled = false;
+  }
+}
+
+/**
+ * Handle Resume Download
+ */
+async function handleDownload(format) {
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) return;
+
+  if (!selectedResume) {
+    showError('downloadError', 'No resume selected');
+    showElement('downloadError');
+    return;
+  }
+
+  showElement('downloadLoading');
+  hideElement('downloadError');
+
+  try {
+    const exportUrl = buildResumeUrl(selectedResume.id, 'export', `format=${format}`);
+
+    const response = await fetch(exportUrl, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${jwtToken}`
       }
     });
-  });
 
-});
+    if (response.status === 401) {
+      handleTokenExpired();
+      return;
+    }
+
+    if (!response.ok) {
+      throw new Error('Download failed');
+    }
+
+    // Check if response is a blob (file) or JSON (URL)
+    const contentType = response.headers.get('content-type');
+
+    if (contentType && contentType.includes('application/json')) {
+      // API returns a URL to the file
+      const data = await response.json();
+      const downloadUrl = data.data?.exportUrl || data.exportUrl;
+
+      if (downloadUrl) {
+        // Open download in new tab
+        window.open(downloadUrl, '_blank');
+      } else {
+        throw new Error('No download URL received');
+      }
+    } else {
+      // API returns the file directly
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${selectedResume.name || 'resume'}.${format}`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }
+
+  } catch (error) {
+    console.error('Error downloading resume:', error);
+    document.getElementById('downloadError').textContent = 'Download failed. Please try again.';
+    showElement('downloadError');
+  } finally {
+    hideElement('downloadLoading');
+  }
+}
+
+// Modal functions
+function showModal() {
+  showElement('saveVariationModal');
+  document.getElementById('modalVariationName').value = document.getElementById('variationName').value;
+}
+
+function hideModal() {
+  hideElement('saveVariationModal');
+}
+
+function handleModalSave() {
+  document.getElementById('variationName').value = document.getElementById('modalVariationName').value;
+  hideModal();
+  handleSaveVariation();
+}
+
+// Utility functions
+async function getJwtToken() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get(jwtTokenKey, (data) => {
+      resolve(data.jwtToken || null);
+    });
+  });
+}
+
+function showElement(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.remove('hidden');
+}
+
+function hideElement(id) {
+  const el = document.getElementById(id);
+  if (el) el.classList.add('hidden');
+}
+
+function showError(containerId, message) {
+  const container = document.getElementById(containerId);
+  if (container) {
+    container.innerHTML = `<div class="alert alert-error">${escapeHtml(message)}</div>`;
+  }
+}
+
+/**
+ * Handle 404 API response - extension may need update
+ */
+function handleApiNotFound(containerId) {
+  const message = `
+    <div class="alert alert-warning">
+      <strong>⚠️ Update Required</strong><br>
+      This feature requires a newer version of MyVideoResume.
+      Please update your Chrome extension to the latest version.
+      <br><br>
+      <a href="https://chrome.google.com/webstore/detail/myvideoresume" target="_blank" class="btn btn-sm btn-outline">
+        Update Extension
+      </a>
+    </div>
+  `;
+  const container = document.getElementById(containerId);
+  if (container) {
+    container.innerHTML = message;
+    showElement(containerId);
+  }
+
+  // Also hide loading indicators
+  hideElement('evalLoading');
+  hideElement('loading');
+  document.getElementById('scoreEvaluateButton').disabled = false;
+  document.getElementById('trackGenerateButton').disabled = false;
+}
+
+function formatScore(score) {
+  if (typeof score === 'number') {
+    return Math.round(score) + '%';
+  }
+  return score + '%';
+}
+
+function applyScoreStyle(elementId, score) {
+  const el = document.getElementById(elementId);
+  if (!el) return;
+
+  el.classList.remove('score-high', 'score-medium', 'score-low');
+
+  const numScore = parseFloat(score);
+  if (numScore >= 70) {
+    el.classList.add('score-high');
+  } else if (numScore >= 40) {
+    el.classList.add('score-medium');
+  } else {
+    el.classList.add('score-low');
+  }
+}
+
+function formatDate(dateString) {
+  if (!dateString) return '';
+  try {
+    const date = new Date(dateString);
+    return date.toLocaleDateString();
+  } catch {
+    return '';
+  }
+}
+
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function capitalizeFirst(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}

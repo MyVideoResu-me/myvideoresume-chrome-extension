@@ -1,23 +1,72 @@
 const jwtTokenKey = 'jwtToken';
+const selectedResumeKey = 'selectedResumeId';
 const isDevelopment = false;
-const showConsoleAlerts = true;
-const loginDev = 'http://localhost:5000/api/Auth/login';
-const loginProd = 'https://api.myvideoresu.me/api/Auth/login';
-const createjobbestmatchDev = 'http://localhost:5000/chrome/createjobbestmatch';
-const createjobbestmatchProd = 'https://api.myvideoresu.me/chrome/createjobbestmatch';
-const jobresumeanalysisDev = 'http://localhost:5000/chrome/jobresumeanalysis';
-const jobresumeanalysisProd = 'https://api.myvideoresu.me/chrome/jobresumeanalysis';
+const showConsoleAlerts = false;
 
+// API Base URLs
+const apiBaseDev = 'http://localhost:5000';
+const apiBaseProd = 'https://api.myvideoresu.me';
+
+// Auth Endpoints
+const loginDev = `${apiBaseDev}/api/Auth/login`;
+const loginProd = `${apiBaseProd}/api/Auth/login`;
+
+// Match API Endpoints (New v2 endpoints)
+const matchAnalyzeDev = `${apiBaseDev}/api/Match/analyze`;
+const matchAnalyzeProd = `${apiBaseProd}/api/Match/analyze`;
+const matchTailorDev = `${apiBaseDev}/api/Match/tailor`;
+const matchTailorProd = `${apiBaseProd}/api/Match/tailor`;
+
+// Legacy Chrome Extension Endpoints (kept for fallback)
+const legacyCreatejobbestmatchDev = `${apiBaseDev}/chrome/createjobbestmatch`;
+const legacyCreatejobbestmatchProd = `${apiBaseProd}/chrome/createjobbestmatch`;
+const legacyJobresumeanalysisDev = `${apiBaseDev}/chrome/jobresumeanalysis`;
+const legacyJobresumeanalysisProd = `${apiBaseProd}/chrome/jobresumeanalysis`;
+
+// Resume API Endpoints
+const masterResumeGroupsDev = `${apiBaseDev}/api/Resume/masterGroups`;
+const masterResumeGroupsProd = `${apiBaseProd}/api/Resume/masterGroups`;
+const resumeBaseDev = `${apiBaseDev}/api/Resume`; // + /{id}/createVariation or /{id}/export
+const resumeBaseProd = `${apiBaseProd}/api/Resume`;
+
+// Active endpoints (updated by updateConfiguration)
+let apiBase = apiBaseDev;
 let login = loginDev;
-let createjobbestmatch = createjobbestmatchDev;
-let jobresumeanalysis = jobresumeanalysisDev;
+let matchAnalyze = matchAnalyzeDev;
+let matchTailor = matchTailorDev;
+let legacyCreatejobbestmatch = legacyCreatejobbestmatchDev;
+let legacyJobresumeanalysis = legacyJobresumeanalysisDev;
+let masterResumeGroups = masterResumeGroupsDev;
+let resumeBase = resumeBaseDev;
+
+// Backward compatibility aliases
+let createjobbestmatch = matchTailorDev;  // New endpoint for tailoring
+let jobresumeanalysis = matchAnalyzeDev;  // New endpoint for analysis
 
 function updateConfiguration() {
     if (!isDevelopment) {
+        apiBase = apiBaseProd;
         login = loginProd;
-        createjobbestmatch = createjobbestmatchProd;
-        jobresumeanalysis = jobresumeanalysisProd;
+        matchAnalyze = matchAnalyzeProd;
+        matchTailor = matchTailorProd;
+        legacyCreatejobbestmatch = legacyCreatejobbestmatchProd;
+        legacyJobresumeanalysis = legacyJobresumeanalysisProd;
+        masterResumeGroups = masterResumeGroupsProd;
+        resumeBase = resumeBaseProd;
+
+        // Update aliases
+        createjobbestmatch = matchTailorProd;
+        jobresumeanalysis = matchAnalyzeProd;
     }
+}
+
+// Helper function to build Resume API URLs
+function buildResumeUrl(resumeId, action, queryParams = '') {
+    let url = `${resumeBase}/${resumeId}/${action}`;
+    if (queryParams) {
+        url += `?${queryParams}`;
+    }
+    return url;
 }
 
 function consoleAlerts(text) {

@@ -1,62 +1,109 @@
+/**
+ * MyVideoResume Chrome Extension - Login Handler
+ */
+
 document.addEventListener('DOMContentLoaded', () => {
   updateConfiguration();
 
-  document.getElementById('loginForm').addEventListener('submit', (event) => {
+  document.getElementById('loginForm').addEventListener('submit', async (event) => {
     event.preventDefault();
 
-    document.getElementById('login').disabled = true;
-    document.getElementById('loading').style.display = 'block';
+    const loginButton = document.getElementById('login');
+    const loadingContainer = document.getElementById('loading');
+    const errorContainer = document.getElementById('loginError');
 
-    const email = document.getElementById('userId').value;
+    // Reset UI state
+    loginButton.disabled = true;
+    loadingContainer.classList.remove('hidden');
+    errorContainer.classList.add('hidden');
+
+    const email = document.getElementById('userId').value.trim();
     const password = document.getElementById('password').value;
-    let request = JSON.stringify({ email, password });
 
-    consoleAlerts(request);
+    // Basic validation
+    if (!email || !password) {
+      showLoginError('Please enter both email and password');
+      resetLoginState();
+      return;
+    }
 
-    // Send login request to your API
-    fetch(login, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: request
-    })
-      .then(response => {
-        if (response.status === 401) {
-          consoleAlerts('Login Failed. Try again.');
-        } else if (response.ok) {
-          return response.json();
-        }
-      })
-      .then(data => {
-        if (data) {
-          // Handle new ApiResponse format: { success: true, data: { token: "...", user: {...} } }
-          if (data.success && data.data && data.data.token) {
-            // Store the JWT token securely
-            chrome.storage.local.set({ jwtToken: data.data.token }, () => {
-              consoleAlerts('Login Successful');
-              window.location.href = chrome.runtime.getURL('sidepanel-global.html');
-            });
-          } else if (data.token) {
-            // Fallback for old format (just in case)
-            chrome.storage.local.set({ jwtToken: data.token }, () => {
-              consoleAlerts('Login Successful');
-              window.location.href = chrome.runtime.getURL('sidepanel-global.html');
-            });
-          } else {
-            consoleAlerts(JSON.stringify(data), 'Login Failed');
-            consoleAlerts('Login Failed: ' + (data.error?.message || 'Unknown error'));
-          }
-        }
-      })
-      .catch(err => {
-        consoleAlerts('Login error:' + err);
-        consoleAlerts(err);
-      })
-      .finally(s => {
-        document.getElementById('loading').style.cssText = 'display: none !important;';
-        document.getElementById('login').disabled = false;
+    const request = JSON.stringify({ email, password });
+    consoleAlerts('Login request: ' + email);
+
+    try {
+      const response = await fetch(login, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: request
       });
-  });
 
+      if (response.status === 401) {
+        showLoginError('Invalid email or password. Please try again.');
+        resetLoginState();
+        return;
+      }
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        showLoginError(errorData.error?.message || 'Login failed. Please try again.');
+        resetLoginState();
+        return;
+      }
+
+      const data = await response.json();
+      consoleAlerts('Login response: ' + JSON.stringify(data));
+
+      // Handle ApiResponse format: { success: true, data: { token: "...", user: {...} } }
+      let token = null;
+
+      if (data.success && data.data && data.data.token) {
+        // New ApiResponse format
+        token = data.data.token;
+      } else if (data.token) {
+        // Legacy format
+        token = data.token;
+      }
+
+      if (token) {
+        // Store the JWT token and redirect
+        chrome.storage.local.set({ jwtToken: token }, () => {
+          consoleAlerts('Login successful');
+          window.location.href = chrome.runtime.getURL('sidepanel-global.html');
+        });
+      } else {
+        // Login failed - show error message
+        const errorMessage = data.error?.message ||
+                           data.errorMessage ||
+                           'Login failed. Please check your credentials.';
+        showLoginError(errorMessage);
+        resetLoginState();
+      }
+
+    } catch (err) {
+      console.error('Login error:', err);
+      showLoginError('Connection error. Please check your internet connection and try again.');
+      resetLoginState();
+    }
+  });
 });
+
+/**
+ * Show login error message
+ */
+function showLoginError(message) {
+  const errorContainer = document.getElementById('loginError');
+  if (errorContainer) {
+    errorContainer.textContent = message;
+    errorContainer.classList.remove('hidden');
+  }
+}
+
+/**
+ * Reset login button and loading state
+ */
+function resetLoginState() {
+  document.getElementById('loading').classList.add('hidden');
+  document.getElementById('login').disabled = false;
+}
