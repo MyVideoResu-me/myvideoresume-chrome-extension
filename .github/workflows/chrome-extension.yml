@@ -1,0 +1,155 @@
+name: Chrome Extension CI/CD
+
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - 'myvideoresume-chrome-extension/**'
+    tags:
+      - 'chrome-v*.*.*'
+  pull_request:
+    paths:
+      - 'myvideoresume-chrome-extension/**'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: 'Publish to Chrome Web Store'
+        required: false
+        default: 'false'
+        type: boolean
+
+env:
+  EXTENSION_DIR: myvideoresume-chrome-extension
+  # Set your extension ID from Chrome Web Store
+  # EXTENSION_ID: your-extension-id-here
+
+jobs:
+  build:
+    name: Build & Package Extension
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from manifest
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' ${{ env.EXTENSION_DIR }}/manifest.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Extension version: $VERSION"
+
+      - name: Validate manifest.json
+        run: |
+          # Check manifest is valid JSON
+          jq empty ${{ env.EXTENSION_DIR }}/manifest.json
+          
+          # Check required fields exist
+          jq -e '.manifest_version' ${{ env.EXTENSION_DIR }}/manifest.json
+          jq -e '.name' ${{ env.EXTENSION_DIR }}/manifest.json
+          jq -e '.version' ${{ env.EXTENSION_DIR }}/manifest.json
+          
+          echo "✅ Manifest validation passed"
+
+      - name: Create extension package
+        run: |
+          cd ${{ env.EXTENSION_DIR }}
+          
+          # Remove old zip if exists
+          rm -f myvideoresume.zip
+          rm -f myvideoresume-chrome-extension-*.zip
+          
+          # Create zip with all extension files (excluding dev/unnecessary files)
+          zip -r ../myvideoresume-chrome-extension-${{ steps.version.outputs.version }}.zip \
+            manifest.json \
+            *.js \
+            *.html \
+            *.css \
+            icons/ \
+            imgs/ \
+            libs/ \
+            -x "*.zip" \
+            -x ".git*" \
+            -x "*.md" \
+            -x "node_modules/*"
+          
+          cd ..
+          echo "📦 Created package: myvideoresume-chrome-extension-${{ steps.version.outputs.version }}.zip"
+          ls -la myvideoresume-chrome-extension-*.zip
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension-v${{ steps.version.outputs.version }}-${{ github.sha }}
+          path: myvideoresume-chrome-extension-${{ steps.version.outputs.version }}.zip
+          retention-days: 30
+
+      - name: Upload to release (if tagged)
+        if: startsWith(github.ref, 'refs/tags/chrome-v')
+        uses: softprops/action-gh-release@v1
+        with:
+          files: myvideoresume-chrome-extension-${{ steps.version.outputs.version }}.zip
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # Publish job - only runs on tags or manual trigger with publish=true
+  publish:
+    name: Publish to Chrome Web Store
+    runs-on: ubuntu-latest
+    needs: build
+    if: |
+      startsWith(github.ref, 'refs/tags/chrome-v') || 
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from manifest
+        id: version
+        run: |
+          VERSION=$(jq -r '.version' ${{ env.EXTENSION_DIR }}/manifest.json)
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: chrome-extension-v${{ steps.version.outputs.version }}-${{ github.sha }}
+
+      - name: Install Chrome Web Store CLI
+        run: npm install -g chrome-webstore-upload-cli
+
+      - name: Upload to Chrome Web Store
+        run: |
+          chrome-webstore-upload upload \
+            --source myvideoresume-chrome-extension-${{ steps.version.outputs.version }}.zip \
+            --extension-id ${{ secrets.CHROME_EXTENSION_ID }} \
+            --client-id ${{ secrets.CHROME_CLIENT_ID }} \
+            --client-secret ${{ secrets.CHROME_CLIENT_SECRET }} \
+            --refresh-token ${{ secrets.CHROME_REFRESH_TOKEN }}
+        env:
+          # These secrets need to be set in GitHub repository settings
+          # See: https://github.com/nickytonline/chrome-webstore-upload-cli#readme
+          CHROME_EXTENSION_ID: ${{ secrets.CHROME_EXTENSION_ID }}
+          CHROME_CLIENT_ID: ${{ secrets.CHROME_CLIENT_ID }}
+          CHROME_CLIENT_SECRET: ${{ secrets.CHROME_CLIENT_SECRET }}
+          CHROME_REFRESH_TOKEN: ${{ secrets.CHROME_REFRESH_TOKEN }}
+
+      - name: Publish to Chrome Web Store (submit for review)
+        if: startsWith(github.ref, 'refs/tags/chrome-v')
+        run: |
+          chrome-webstore-upload publish \
+            --extension-id ${{ secrets.CHROME_EXTENSION_ID }} \
+            --client-id ${{ secrets.CHROME_CLIENT_ID }} \
+            --client-secret ${{ secrets.CHROME_CLIENT_SECRET }} \
+            --refresh-token ${{ secrets.CHROME_REFRESH_TOKEN }}
+        continue-on-error: true  # Publishing may require manual review approval
+
