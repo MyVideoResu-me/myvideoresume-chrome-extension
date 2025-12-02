@@ -13,7 +13,50 @@ let currentJobUrl = null;
 document.addEventListener('DOMContentLoaded', () => {
   updateConfiguration();
   initializeApp();
+  setupUrlChangeListener();
 });
+
+/**
+ * Listen for URL changes from the content script
+ * This handles SPA navigation (like LinkedIn)
+ */
+function setupUrlChangeListener() {
+  chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
+    if (message.action === 'urlChanged') {
+      consoleAlerts('URL changed to: ' + message.url);
+      // Clear cached job data when URL changes
+      currentJobHtml = null;
+      currentJobUrl = null;
+      // Clear any previous results
+      clearPreviousResults();
+    }
+    return true;
+  });
+}
+
+/**
+ * Clear previous analysis/generation results when navigating to a new page
+ */
+function clearPreviousResults() {
+  // Clear recommendation display
+  const evalRecommendations = document.getElementById('evalRecommendations');
+  if (evalRecommendations) {
+    evalRecommendations.innerHTML = '';
+  }
+
+  // Clear score displays
+  const evalScore = document.getElementById('evalScore');
+  if (evalScore) {
+    evalScore.textContent = '';
+  }
+
+  // Clear generated resume data
+  generatedResumeData = null;
+
+  // Hide result sections
+  hideElement('generateResults');
+  hideElement('variationSection');
+}
 
 /**
  * Initialize the application
