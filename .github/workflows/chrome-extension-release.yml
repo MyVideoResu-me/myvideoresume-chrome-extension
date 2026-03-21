@@ -1,0 +1,127 @@
+name: Chrome Extension Release
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+    tags:
+      - 'chrome-ext-v*.*.*'
+  workflow_dispatch:
+    inputs:
+      publish:
+        description: Upload package to Chrome Web Store
+        required: false
+        default: false
+        type: boolean
+      submit_for_review:
+        description: Submit uploaded package for review/publish
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Extension Package
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      zip_name: ${{ steps.version.outputs.zip_name }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate manifest and read version
+        id: version
+        run: |
+          MANIFEST_PATH="manifest.json"
+          jq empty "$MANIFEST_PATH"
+          jq -e '.manifest_version' "$MANIFEST_PATH" >/dev/null
+          jq -e '.name' "$MANIFEST_PATH" >/dev/null
+          jq -e '.version' "$MANIFEST_PATH" >/dev/null
+
+          VERSION=$(jq -r '.version' "$MANIFEST_PATH")
+          ZIP_NAME="hiredvideo-chrome-extension-${VERSION}.zip"
+
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "zip_name=$ZIP_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: Build package
+        run: |
+          chmod +x "./scripts/build.sh"
+          ./scripts/build.sh --clean
+
+      - name: Verify package exists
+        run: |
+          ls -la "./${{ steps.version.outputs.zip_name }}"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension-${{ steps.version.outputs.version }}-${{ github.sha }}
+          path: ./${{ steps.version.outputs.zip_name }}
+          retention-days: 30
+
+  release:
+    name: Create GitHub Release Asset
+    runs-on: ubuntu-latest
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/chrome-ext-v')
+
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: chrome-extension-${{ needs.build.outputs.version }}-${{ github.sha }}
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ needs.build.outputs.zip_name }}
+          generate_release_notes: true
+
+  publish:
+    name: Publish to Chrome Web Store
+    runs-on: ubuntu-latest
+    needs: build
+    if: |
+      startsWith(github.ref, 'refs/tags/chrome-ext-v') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.publish == 'true')
+
+    steps:
+      - name: Download package artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: chrome-extension-${{ needs.build.outputs.version }}-${{ github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Chrome Web Store CLI
+        run: npm install -g chrome-webstore-upload-cli
+
+      - name: Upload package to Chrome Web Store
+        run: |
+          chrome-webstore-upload upload \
+            --source "${{ needs.build.outputs.zip_name }}" \
+            --extension-id "${{ secrets.CHROME_EXTENSION_ID }}" \
+            --client-id "${{ secrets.CHROME_CLIENT_ID }}" \
+            --client-secret "${{ secrets.CHROME_CLIENT_SECRET }}" \
+            --refresh-token "${{ secrets.CHROME_REFRESH_TOKEN }}"
+
+      - name: Publish package in Chrome Web Store
+        if: |
+          startsWith(github.ref, 'refs/tags/chrome-ext-v') ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.submit_for_review == 'true')
+        run: |
+          chrome-webstore-upload publish \
+            --extension-id "${{ secrets.CHROME_EXTENSION_ID }}" \
+            --client-id "${{ secrets.CHROME_CLIENT_ID }}" \
+            --client-secret "${{ secrets.CHROME_CLIENT_SECRET }}" \
+            --refresh-token "${{ secrets.CHROME_REFRESH_TOKEN }}"

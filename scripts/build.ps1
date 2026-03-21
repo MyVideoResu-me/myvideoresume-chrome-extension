@@ -21,7 +21,7 @@ try {
     Write-Host "📋 Version: $version" -ForegroundColor Green
 
     # Output filename
-    $zipName = "myvideoresume-chrome-extension-$version.zip"
+    $zipName = "hiredvideo-chrome-extension-$version.zip"
 
     # Clean old builds if requested
     if ($Clean) {
