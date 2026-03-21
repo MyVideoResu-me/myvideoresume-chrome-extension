@@ -4,44 +4,35 @@ const isDevelopment = false;
 const showConsoleAlerts = false;
 
 // API Base URLs
+// Dev: run `npm run dev` in /api — Node.js server on port 5000
+// Prod: Cloudflare Worker at api.hired.video
 const apiBaseDev = 'http://localhost:5000';
-const apiBaseProd = 'https://api.myvideoresu.me';
+const apiBaseProd = 'https://api.hired.video';
 
 // Auth Endpoints
-const loginDev = `${apiBaseDev}/api/Auth/login`;
-const loginProd = `${apiBaseProd}/api/Auth/login`;
+const loginDev = `${apiBaseDev}/api/auth/login`;
+const loginProd = `${apiBaseProd}/api/auth/login`;
 
-// Match API Endpoints (New v2 endpoints)
-const matchAnalyzeDev = `${apiBaseDev}/api/Match/analyze`;
-const matchAnalyzeProd = `${apiBaseProd}/api/Match/analyze`;
-const matchTailorDev = `${apiBaseDev}/api/Match/tailor`;
-const matchTailorProd = `${apiBaseProd}/api/Match/tailor`;
-
-// Legacy Chrome Extension Endpoints (kept for fallback)
-const legacyCreatejobbestmatchDev = `${apiBaseDev}/chrome/createjobbestmatch`;
-const legacyCreatejobbestmatchProd = `${apiBaseProd}/chrome/createjobbestmatch`;
-const legacyJobresumeanalysisDev = `${apiBaseDev}/chrome/jobresumeanalysis`;
-const legacyJobresumeanalysisProd = `${apiBaseProd}/chrome/jobresumeanalysis`;
+// Match API Endpoints — LLM-powered job ↔ resume analysis
+const matchAnalyzeDev = `${apiBaseDev}/api/match/analyze`;
+const matchAnalyzeProd = `${apiBaseProd}/api/match/analyze`;
+const matchTailorDev = `${apiBaseDev}/api/match/tailor`;
+const matchTailorProd = `${apiBaseProd}/api/match/tailor`;
 
 // Resume API Endpoints
-const masterResumeGroupsDev = `${apiBaseDev}/api/Resume/masterGroups`;
-const masterResumeGroupsProd = `${apiBaseProd}/api/Resume/masterGroups`;
-const resumeBaseDev = `${apiBaseDev}/api/Resume`; // + /{id}/createVariation or /{id}/export
-const resumeBaseProd = `${apiBaseProd}/api/Resume`;
+// Note: TS API uses lowercase routes (/api/resume/mastergroups not /api/Resume/masterGroups)
+const masterResumeGroupsDev = `${apiBaseDev}/api/resume/mastergroups`;
+const masterResumeGroupsProd = `${apiBaseProd}/api/resume/mastergroups`;
+const resumeBaseDev = `${apiBaseDev}/api/resume`; // + /{id}/createvariation or /{id}/export
+const resumeBaseProd = `${apiBaseProd}/api/resume`;
 
 // Active endpoints (updated by updateConfiguration)
 let apiBase = apiBaseDev;
 let login = loginDev;
 let matchAnalyze = matchAnalyzeDev;
 let matchTailor = matchTailorDev;
-let legacyCreatejobbestmatch = legacyCreatejobbestmatchDev;
-let legacyJobresumeanalysis = legacyJobresumeanalysisDev;
 let masterResumeGroups = masterResumeGroupsDev;
 let resumeBase = resumeBaseDev;
-
-// Backward compatibility aliases
-let createjobbestmatch = matchTailorDev;  // New endpoint for tailoring
-let jobresumeanalysis = matchAnalyzeDev;  // New endpoint for analysis
 
 function updateConfiguration() {
     if (!isDevelopment) {
@@ -49,14 +40,8 @@ function updateConfiguration() {
         login = loginProd;
         matchAnalyze = matchAnalyzeProd;
         matchTailor = matchTailorProd;
-        legacyCreatejobbestmatch = legacyCreatejobbestmatchProd;
-        legacyJobresumeanalysis = legacyJobresumeanalysisProd;
         masterResumeGroups = masterResumeGroupsProd;
         resumeBase = resumeBaseProd;
-
-        // Update aliases
-        createjobbestmatch = matchTailorProd;
-        jobresumeanalysis = matchAnalyzeProd;
     }
 }
 
