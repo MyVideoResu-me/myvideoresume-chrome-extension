@@ -18,8 +18,10 @@ const apiBaseProd = 'https://api.hired.video';
 
 // Web App Base URLs (used to delegate login flows that the extension
 // itself can't host — OAuth, magic link, 2FA, etc.)
+// The production frontend is hosted at the apex hired.video — there is
+// no `app.` subdomain (verified against api/wrangler.toml FRONTEND_URL).
 const webBaseDev = 'http://localhost:3000';
-const webBaseProd = 'https://app.hired.video';
+const webBaseProd = 'https://hired.video';
 
 // ---- Endpoint paths (relative — joined onto apiBase at runtime) ----
 

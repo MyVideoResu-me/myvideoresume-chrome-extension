@@ -2,7 +2,7 @@
  * hired.video Chrome Extension - Login Handler
  *
  * Three sign-in paths:
- *   1. Continue in browser  — opens app.hired.video/login in a new
+ *   1. Continue in browser  — opens hired.video/login in a new
  *      tab. The user can use any method the web app supports
  *      (Google, LinkedIn, GitHub, Microsoft, magic link, passkey,
  *      2FA, etc). The auth-bridge content script forwards the JWT
@@ -22,7 +22,24 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('signInWithWeb').addEventListener('click', handleSignInWithWeb);
   document.getElementById('loginForm').addEventListener('submit', handleEmailPasswordLogin);
   document.getElementById('magicLinkForm').addEventListener('submit', handleMagicLink);
+  document.getElementById('togglePassword').addEventListener('click', togglePasswordVisibility);
 });
+
+/**
+ * Show/hide the password field. Toggles the input type and updates
+ * the button glyph + aria state for screen readers.
+ */
+function togglePasswordVisibility() {
+  const input = document.getElementById('password');
+  const btn = document.getElementById('togglePassword');
+  if (!input || !btn) return;
+
+  const showing = input.type === 'text';
+  input.type = showing ? 'password' : 'text';
+  btn.textContent = showing ? '👁' : '🙈';
+  btn.setAttribute('aria-pressed', showing ? 'false' : 'true');
+  btn.setAttribute('aria-label', showing ? 'Show password' : 'Hide password');
+}
 
 /**
  * Watch chrome.storage for a JWT being written by the auth bridge.
@@ -39,7 +56,7 @@ function watchForExtensionAuth() {
 }
 
 /**
- * Open app.hired.video/login in a new tab. The auth-bridge content
+ * Open hired.video/login in a new tab. The auth-bridge content
  * script picks up the JWT after a successful sign-in.
  */
 function handleSignInWithWeb() {
@@ -105,7 +122,11 @@ async function handleEmailPasswordLogin(event) {
     const token = data?.data?.token || data?.token || null;
 
     if (token) {
-      chrome.storage.local.set({ jwtToken: token }, () => {
+      // Stamp `tokenSource: 'extension'` so the service worker can
+      // tell this came from the extension's own form (not from the
+      // auth-bridge web→extension push) and reload any open
+      // hired.video tabs to surface the new session there too.
+      chrome.storage.local.set({ jwtToken: token, tokenSource: 'extension' }, () => {
         window.location.href = chrome.runtime.getURL('sidepanel-global.html');
       });
     } else {

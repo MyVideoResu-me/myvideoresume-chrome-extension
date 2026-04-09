@@ -29,14 +29,14 @@
     },
     {
       "matches": [
-        "https://app.hired.video/*",
         "https://hired.video/*",
+        "https://www.hired.video/*",
         "http://localhost:3000/*"
       ],
       "js": [
         "auth-bridge.js"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_start"
     }
   ],
   "permissions": [

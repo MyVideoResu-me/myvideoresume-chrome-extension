@@ -14,7 +14,10 @@
  */
 
 // ---- Global state ---------------------------------------------------
-let masterResumeGroups = [];
+// Note: `masterResumeGroups` (without the local-state suffix) is the API
+// URL string defined in constants.js. We hold the loaded array in
+// `resumeGroups` to avoid the redeclaration collision.
+let resumeGroups = [];
 let selectedResume = null;
 let generatedResumeData = null;
 let generatedVariationId = null; // set when "Save as Variation" succeeds
@@ -25,11 +28,39 @@ let trackedJob = null;             // { id, title, company, sourceUrl, ... }
 
 // ---- Bootstrapping --------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
+  // Wire login buttons immediately, before anything else can throw,
+  // so the user can always escape to the sign-in page even if the
+  // rest of init breaks.
+  wireLoginButtons();
+
   updateConfiguration();
   initializeApp();
   setupUrlChangeListener();
   setupAuthSyncListener();
 });
+
+/**
+ * Wire both the header and the banner sign-in buttons. Defensive: uses
+ * addEventListener so multiple calls can't accidentally clobber each
+ * other, and runs before any storage / fetch / decode logic.
+ */
+function wireLoginButtons() {
+  const open = (e) => {
+    if (e) e.preventDefault();
+    try {
+      window.location.href = chrome.runtime.getURL('login.html');
+    } catch (err) {
+      console.error('[hired.video] failed to open login page', err);
+    }
+  };
+  ['loginButton'].forEach((id) => {
+    const el = document.getElementById(id);
+    if (el && !el.dataset.loginWired) {
+      el.addEventListener('click', open);
+      el.dataset.loginWired = '1';
+    }
+  });
+}
 
 /**
  * Listen for URL changes from the content script — clear stale state
@@ -53,7 +84,7 @@ function setupUrlChangeListener() {
 
 /**
  * Listen for auth state changes pushed by the service worker (i.e.
- * the auth bridge picked up a JWT from app.hired.video).
+ * the auth bridge picked up a JWT from hired.video).
  */
 function setupAuthSyncListener() {
   chrome.runtime.onMessage.addListener((message) => {
@@ -165,18 +196,29 @@ function showSignedInState() {
 
 /**
  * Auth gate. Wrap any action that requires a valid JWT.
- * If the user isn't signed in, opens login.html in a new tab and
- * returns false so the caller can short-circuit.
+ * If the user isn't signed in, navigates to login.html and returns
+ * false so the caller can short-circuit.
  */
 async function requireAuth() {
   const token = await getJwtToken();
   if (token) return true;
 
-  // Surface the banner (in case it was dismissed) and open the
-  // sign-in page so the auth bridge can pick up a token.
+  // Surface the banner and bounce to the sign-in page.
   showSignedOutState();
-  window.open(chrome.runtime.getURL('login.html'), '_blank');
+  window.location.href = chrome.runtime.getURL('login.html');
   return false;
+}
+
+/**
+ * Higher-order helper: wraps a click handler so it auto-prompts the
+ * user to sign in before the underlying action runs.
+ */
+function gate(handler) {
+  return async (event) => {
+    const ok = await requireAuth();
+    if (!ok) return;
+    return handler(event);
+  };
 }
 
 /**
@@ -196,18 +238,16 @@ function handleTokenExpired() {
   chrome.storage.local.remove([jwtTokenKey, selectedResumeKey, trackedJobKey], () => {
     selectedResume = null;
     trackedJob = null;
-    masterResumeGroups = [];
+    resumeGroups = [];
     showSignedOutState();
   });
 }
 
 function setupLoginButton() {
-  const btn = document.getElementById('loginButton');
-  if (btn) {
-    btn.onclick = () => {
-      window.location.href = chrome.runtime.getURL('login.html');
-    };
-  }
+  // Re-run the idempotent wiring in case the buttons appeared
+  // after the initial DOMContentLoaded pass (e.g. if state-toggle
+  // unhid them).
+  wireLoginButtons();
 }
 
 /**
@@ -220,11 +260,15 @@ function setupEventListeners() {
     if (el) el['on' + evt] = handler;
   };
 
-  bind('refreshResumesButton', loadMasterResumeGroups);
+  bind('refreshResumesButton', gate(loadMasterResumeGroups));
   bind('changeResumeButton', showResumeSelection);
-  bind('uploadResumeButton', () => document.getElementById('uploadResumeInput').click());
+  bind('uploadResumeButton', gate(() => document.getElementById('uploadResumeInput').click()));
   bind('uploadResumeInput', handleResumeUpload, 'change');
   bind('signOutButton', handleSignOut);
+
+  // Login buttons (header + signed-out banner) — wired here so they work
+  // even before initializeApp finishes deciding which auth state we're in.
+  setupLoginButton();
 
   const profileLink = document.getElementById('openProfileLink');
   if (profileLink) {
@@ -234,14 +278,14 @@ function setupEventListeners() {
     };
   }
 
-  bind('trackJobButton', handleTrackJob);
-  bind('scoreEvaluateButton', handleScoreEvaluate);
-  bind('trackGenerateButton', handleTailorGenerate);
-  bind('saveVariationButton', handleSaveVariation);
-  bind('markAppliedButton', handleMarkApplied);
+  bind('trackJobButton', gate(handleTrackJob));
+  bind('scoreEvaluateButton', gate(handleScoreEvaluate));
+  bind('trackGenerateButton', gate(handleTailorGenerate));
+  bind('saveVariationButton', gate(handleSaveVariation));
+  bind('markAppliedButton', gate(handleMarkApplied));
 
-  bind('downloadPdfButton', () => handleDownload('pdf'));
-  bind('downloadDocxButton', () => handleDownload('docx'));
+  bind('downloadPdfButton', gate(() => handleDownload('pdf')));
+  bind('downloadDocxButton', gate(() => handleDownload('docx')));
 
   bind('closeModalButton', hideModal);
   bind('cancelModalButton', hideModal);
@@ -304,7 +348,10 @@ async function handleSignOut() {
 
 async function loadMasterResumeGroups() {
   const jwtToken = await getJwtToken();
-  if (!jwtToken) return;
+  if (!jwtToken) {
+    // Silent no-op when called automatically (e.g. on init).
+    return;
+  }
 
   showElement('resumeLoadingContainer');
   hideElement('resumeSelectionContainer');
@@ -326,21 +373,21 @@ async function loadMasterResumeGroups() {
     consoleAlerts('Resume groups loaded: ' + JSON.stringify(data));
 
     if (data.success && data.data) {
-      masterResumeGroups = data.data;
+      resumeGroups = data.data;
     } else if (Array.isArray(data)) {
-      masterResumeGroups = data;
+      resumeGroups = data;
     } else {
-      masterResumeGroups = [];
+      resumeGroups = [];
     }
 
     renderResumeSelection();
 
-    if (!selectedResume && masterResumeGroups.length > 0) {
-      selectResume(masterResumeGroups[0].masterResume);
+    if (!selectedResume && resumeGroups.length > 0) {
+      selectResume(resumeGroups[0].masterResume);
     } else if (selectedResume) {
       const found = findResumeById(selectedResume.id);
       if (found) selectResume(found);
-      else if (masterResumeGroups.length > 0) selectResume(masterResumeGroups[0].masterResume);
+      else if (resumeGroups.length > 0) selectResume(resumeGroups[0].masterResume);
     }
   } catch (error) {
     console.error('Error loading resumes:', error);
@@ -351,7 +398,7 @@ async function loadMasterResumeGroups() {
 }
 
 function findResumeById(id) {
-  for (const group of masterResumeGroups) {
+  for (const group of resumeGroups) {
     if (group.masterResume.id === id) return group.masterResume;
     for (const variation of (group.variations || [])) {
       if (variation.id === id) return variation;
@@ -363,7 +410,7 @@ function findResumeById(id) {
 function renderResumeSelection() {
   const container = document.getElementById('resumeSelectionContainer');
 
-  if (masterResumeGroups.length === 0) {
+  if (resumeGroups.length === 0) {
     container.innerHTML = `
       <div class="alert alert-info">
         <p>No resumes found yet. Click <strong>Upload PDF/Word</strong> below to add your first one — it will automatically become your master resume.</p>
@@ -374,7 +421,7 @@ function renderResumeSelection() {
   }
 
   let html = '';
-  for (const group of masterResumeGroups) {
+  for (const group of resumeGroups) {
     const master = group.masterResume;
     const variations = group.variations || [];
 
@@ -627,6 +674,22 @@ async function handleTrackJob() {
     });
 
     if (response.status === 401) return handleTokenExpired();
+
+    // 422 = page didn't classify as a job posting. Surface the AI's
+    // reason as a soft warning rather than a hard error so the user
+    // knows to navigate to the actual job.
+    if (response.status === 422) {
+      const errorData = await response.json().catch(() => ({}));
+      const reason =
+        errorData.error?.message ||
+        "This page doesn't look like a job posting. Open the actual job listing and try again.";
+      const errEl = document.getElementById('trackJobError');
+      errEl.className = 'alert alert-warning mt-2';
+      errEl.textContent = '⚠️ ' + reason;
+      showElement('trackJobError');
+      return;
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error?.message || 'Job extraction failed');
@@ -650,6 +713,7 @@ async function handleTrackJob() {
   } catch (err) {
     console.error('Track job failed:', err);
     const errEl = document.getElementById('trackJobError');
+    errEl.className = 'alert alert-error mt-2';
     errEl.textContent = err.message || 'Could not track this job. Please try again.';
     showElement('trackJobError');
   } finally {

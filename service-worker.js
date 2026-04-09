@@ -9,7 +9,7 @@
  *     content script (preferred) or directly executing a script in
  *     the active tab.
  *   - Receive auth-token sync messages from the auth bridge running
- *     on app.hired.video and persist them to chrome.storage.local
+ *     on hired.video and persist them to chrome.storage.local
  *     so the side panel picks them up automatically.
  *   - Silently refresh the JWT before it expires so the user never
  *     has to log in twice as long as they're active.
@@ -23,6 +23,14 @@ const REFRESH_THRESHOLD_SECONDS = 24 * 60 * 60; // refresh when < 24h left
 // API base — kept in sync with constants.js. Service workers can't
 // import non-module scripts, so it's duplicated here.
 const API_BASE = 'https://api.hired.video';
+
+// Origins where the auth bridge runs. Used to find tabs that need a
+// hard reload when the extension's own login flow stores a new token.
+const HIRED_WEB_ORIGINS = [
+  'https://hired.video/*',
+  'https://www.hired.video/*',
+  'http://localhost:3000/*',
+];
 
 chrome.sidePanel
   .setPanelBehavior({ openPanelOnActionClick: true })
@@ -116,10 +124,32 @@ function decodeJwtExp(token) {
   }
 }
 
+// ---- Storage change observer ---------------------------------------
+// When the extension's own login form stores a fresh token (marked
+// with tokenSource: 'extension'), reload any open hired.video tabs
+// so they pick up the new session via the auth bridge running at
+// document_start.
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area !== 'local') return;
+  if (!changes.jwtToken || !changes.jwtToken.newValue) return;
+
+  chrome.storage.local.get('tokenSource', (data) => {
+    if (data.tokenSource !== 'extension') return;
+    // One-shot: clear the marker so subsequent refreshes don't reload tabs.
+    chrome.storage.local.remove('tokenSource');
+
+    chrome.tabs.query({ url: HIRED_WEB_ORIGINS }, (tabs) => {
+      for (const tab of tabs) {
+        if (tab.id !== undefined) chrome.tabs.reload(tab.id);
+      }
+    });
+  });
+});
+
 // ---- Message handlers ----------------------------------------------
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  // ---- Auth token sync from app.hired.video -------------------------
+  // ---- Auth token sync from hired.video -----------------------------
   if (request.action === 'authTokenSync') {
     const token = request.token || null;
     if (token) {

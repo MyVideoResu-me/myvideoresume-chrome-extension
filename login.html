@@ -31,7 +31,10 @@
 
         <div class="mb-3">
           <label for="password" class="form-label">Password</label>
-          <input type="password" id="password" required class="form-control" placeholder="••••••••" autocomplete="current-password" />
+          <div class="password-input-wrap">
+            <input type="password" id="password" required class="form-control" placeholder="••••••••" autocomplete="current-password" />
+            <button type="button" id="togglePassword" class="password-toggle" aria-label="Show password" aria-pressed="false">👁</button>
+          </div>
         </div>
 
         <div id="loginError" class="alert alert-error hidden"></div>
@@ -61,7 +64,7 @@
 
     <p class="text-sm text-center text-muted">
       Don't have an account?
-      <a href="https://app.hired.video/signup" target="_blank" rel="noopener">Create one here</a>
+      <a href="https://hired.video/signup" target="_blank" rel="noopener">Create one here</a>
     </p>
   </div>
 

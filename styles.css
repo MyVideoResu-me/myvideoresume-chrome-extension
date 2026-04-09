@@ -645,6 +645,73 @@ button, .btn {
   margin-top: 0;
 }
 
+/* Password input with show/hide toggle */
+.password-input-wrap {
+  position: relative;
+}
+
+.password-input-wrap .form-control {
+  padding-right: 36px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--foreground-secondary);
+  border-radius: var(--radius-sm, 4px);
+}
+
+.password-toggle:hover {
+  background: var(--background-secondary);
+}
+
+/* Signed-out banner */
+.signed-out-banner {
+  border-left: 4px solid var(--primary);
+  background: var(--primary-light);
+}
+
+.signed-out-banner .signed-out-title {
+  font-weight: 600;
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.signed-out-banner .signed-out-sub {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+  margin-top: 2px;
+}
+
+.signed-out-banner .btn {
+  flex: 0 0 auto;
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  height: auto;
+  min-height: 0;
+  white-space: nowrap;
+}
+
 /* Profile chip */
 .profile-card .profile-name {
   font-weight: 600;
@@ -671,6 +738,21 @@ button, .btn {
   font-weight: 700;
   color: var(--primary);
   line-height: 1.1;
+}
+
+.stats-card .btn {
+  flex: 0 0 auto;
+  width: 80px;
+  min-width: 80px;
+  max-width: 80px;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  height: auto;
+  min-height: 0;
+  white-space: nowrap;
 }
 
 /* Tracked job summary block */
