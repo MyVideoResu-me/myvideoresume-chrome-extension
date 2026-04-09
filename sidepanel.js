@@ -33,6 +33,16 @@ let trackedJobsList = [];
 let detectedPageJob = null; // { title, company, location, sourceUrl } from content script
 let pipelineBusy = false;
 
+// Per-job persisted caches. Both are jobId -> entry maps stored in
+// chrome.storage.local so they survive reloads.
+//   jobScores[jobId]   = { score, recommendations, scoredAt }
+//   jobTailorings[jobId] = { variationId, masterResumeId, score, tailoredAt }
+let jobScores = {};
+let jobTailorings = {};
+
+const JOB_SCORES_KEY = 'jobScores';
+const JOB_TAILORINGS_KEY = 'jobTailorings';
+
 // Default user settings — persisted in chrome.storage.local under `settings`.
 const DEFAULT_SETTINGS = {
   autoDetect: true,
@@ -110,6 +120,44 @@ function loadSettings() {
       applySettingsToUI();
       resolve(settings);
     });
+  });
+}
+
+function loadJobCaches() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([JOB_SCORES_KEY, JOB_TAILORINGS_KEY], (data) => {
+      jobScores = data[JOB_SCORES_KEY] || {};
+      jobTailorings = data[JOB_TAILORINGS_KEY] || {};
+      resolve();
+    });
+  });
+}
+
+function saveJobScore(jobId, score, recommendations) {
+  jobScores[jobId] = {
+    score,
+    recommendations: recommendations || '',
+    scoredAt: new Date().toISOString(),
+  };
+  chrome.storage.local.set({ [JOB_SCORES_KEY]: jobScores });
+}
+
+function saveJobTailoring(jobId, variationId, masterResumeId, score) {
+  jobTailorings[jobId] = {
+    variationId,
+    masterResumeId,
+    score: score ?? null,
+    tailoredAt: new Date().toISOString(),
+  };
+  chrome.storage.local.set({ [JOB_TAILORINGS_KEY]: jobTailorings });
+}
+
+function clearJobCaches(jobId) {
+  delete jobScores[jobId];
+  delete jobTailorings[jobId];
+  chrome.storage.local.set({
+    [JOB_SCORES_KEY]: jobScores,
+    [JOB_TAILORINGS_KEY]: jobTailorings,
   });
 }
 
@@ -268,16 +316,28 @@ async function runTailorAndSavePipeline(options = {}) {
   if (!options.silent) showQuickStatus('Extracting job from page…', 'info');
 
   try {
-    // 1. Capture page HTML
-    if (!currentJobHtml || !currentJobUrl) {
-      const captured = await capturePageHtml();
-      if (!captured) throw new Error('Could not read the current page.');
+    // 1. Capture page HTML — prefer the FOCUSED PANE from the content
+    // script over the full page so the backend AI sees only the
+    // single job the user has open in the right rail (not the whole
+    // job list / collection).
+    let jobPaneHtml = null;
+    const focused = await requestFocusedPaneHtml();
+    if (focused?.html) {
+      jobPaneHtml = focused.html;
+      currentJobUrl = focused.originUrl || currentJobUrl;
+      currentJobOriginalHtml = focused.html;
+    } else {
+      // Fall back to the whole-page capture + selector-based pane.
+      if (!currentJobHtml || !currentJobUrl) {
+        const captured = await capturePageHtml();
+        if (!captured) throw new Error('Could not read the current page.');
+      }
+      jobPaneHtml = extractJobPane(currentJobOriginalHtml || '', currentJobUrl);
     }
 
     // 2. Extract via /api/jobs/extract (with or without tracking)
     if (!options.silent) showQuickStatus('Tracking job…', 'info');
     const jwtToken = await getJwtToken();
-    const jobPaneHtml = extractJobPane(currentJobOriginalHtml || '', currentJobUrl);
     const extractResp = await fetch(`${jobsExtractUrl}?track=${track ? 'true' : 'false'}`, {
       method: 'POST',
       headers: {
@@ -366,6 +426,16 @@ async function runTailorAndSavePipeline(options = {}) {
     const saved = saveData?.data || saveData?.result || saveData;
     generatedVariationId = saved?.id || null;
 
+    // Cache the result so a future click on this job in the tracker
+    // returns the same variation without burning AI tokens again.
+    if (generatedVariationId && job?.id) {
+      const newScore = tailored.newScore ?? tailored.score ?? null;
+      saveJobTailoring(job.id, generatedVariationId, masterId, newScore);
+      if (newScore != null) {
+        saveJobScore(job.id, newScore, tailored.summaryRecommendations || '');
+      }
+    }
+
     // 5. Refresh table + show success
     showQuickStatus(
       `✅ Tailored resume saved (new score ${formatScore(tailored.newScore || tailored.score || 0)}).`,
@@ -389,13 +459,20 @@ async function runScoreOnlyPipeline() {
   const jwtToken = await getJwtToken();
   if (!jwtToken || !selectedResume || pipelineBusy) return;
 
-  if (!currentJobHtml || !currentJobUrl) {
-    const captured = await capturePageHtml();
-    if (!captured) return;
+  // Prefer the focused pane (single right-rail job) over the whole page.
+  let jobPaneHtml = null;
+  const focused = await requestFocusedPaneHtml();
+  if (focused?.html) {
+    jobPaneHtml = focused.html;
+    currentJobUrl = focused.originUrl || currentJobUrl;
+    currentJobOriginalHtml = focused.html;
+  } else {
+    if (!currentJobHtml || !currentJobUrl) {
+      const captured = await capturePageHtml();
+      if (!captured) return;
+    }
+    jobPaneHtml = extractJobPane(currentJobOriginalHtml || '', currentJobUrl);
   }
-
-  // Track the job (so we get a jobId), then analyze using rehydration.
-  const jobPaneHtml = extractJobPane(currentJobOriginalHtml || '', currentJobUrl);
   const extractResp = await fetch(jobsExtractUrl, {
     method: 'POST',
     headers: {
@@ -474,14 +551,37 @@ function renderTrackedJobsTable() {
     const meta = escapeHtml(
       [job.company, job.location].filter(Boolean).join(' • ') || 'hired.video Community',
     );
+
+    // Cached score badge + (i) reasoning details popover trigger
+    const cachedScore = jobScores[id];
+    const scoreBadge = cachedScore
+      ? `<span class="row-score-badge ${scoreClass(cachedScore.score)}">
+           ${formatScore(cachedScore.score)}
+           ${cachedScore.recommendations ? `<button class="row-score-info" data-action="why" data-job-id="${id}" title="Why this score">ⓘ</button>` : ''}
+         </span>`
+      : '';
+
+    // Cached tailoring → button morphs into "Download tailored" instead of re-running AI
+    const cachedTailor = jobTailorings[id];
+    const tailorButton = cachedTailor
+      ? `<button class="btn btn-success" data-action="download-tailored" data-job-id="${id}" title="Download the resume already tailored for this job">⤓ Tailored Resume</button>`
+      : `<button class="btn btn-primary" data-action="tailor" data-job-id="${id}">✨ Tailor</button>`;
+
     return `
       <div class="tracked-job-row" data-job-id="${id}">
-        <div class="tracked-job-title">${title}</div>
-        <div class="tracked-job-meta">${meta}</div>
+        <div class="tracked-job-row-header">
+          <div class="tracked-job-info">
+            <div class="tracked-job-title">${title}</div>
+            <div class="tracked-job-meta">${meta}</div>
+          </div>
+          <div class="tracked-job-row-trailing">
+            ${scoreBadge}
+            <button class="row-delete" data-action="delete" data-job-id="${id}" title="Remove from your tracker">🗑</button>
+          </div>
+        </div>
         <div class="tracked-job-actions">
           <button class="btn btn-outline" data-action="score" data-job-id="${id}">🎯 Score</button>
-          <button class="btn btn-primary" data-action="tailor" data-job-id="${id}">✨ Tailor</button>
-          <button class="btn btn-outline" data-action="download" data-job-id="${id}">⤓ Download</button>
+          ${tailorButton}
           <button class="btn btn-outline" data-action="open" data-job-id="${id}">↗ Open</button>
         </div>
       </div>
@@ -495,14 +595,22 @@ function renderTrackedJobsTable() {
   });
 }
 
+function scoreClass(score) {
+  const n = Number(score);
+  if (n >= 70) return 'score-high';
+  if (n >= 40) return 'score-medium';
+  return 'score-low';
+}
+
 async function onTrackedJobAction(event) {
+  // Stop bubbling so the (i) icon inside a score badge doesn't also
+  // trigger the row's primary action.
+  event.stopPropagation();
+
   const btn = event.currentTarget;
   const action = btn.dataset.action;
   const jobId = btn.dataset.jobId;
   if (!jobId) return;
-
-  const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
-  if (!job) return;
 
   switch (action) {
     case 'score':
@@ -510,10 +618,84 @@ async function onTrackedJobAction(event) {
     case 'tailor':
       return rowTailorJob(jobId);
     case 'download':
-      return rowDownloadResume(jobId);
+    case 'download-tailored':
+      return rowDownloadTailoredVariation(jobId);
+    case 'why':
+      return showScoreReasoning(jobId);
+    case 'delete':
+      return rowDeleteTrackedJob(jobId);
     case 'open':
       chrome.tabs.create({ url: buildWebUrl(`/jobs/${jobId}`) });
       return;
+  }
+}
+
+// ---- Why this score? — modal-style alert -----------------------------
+function showScoreReasoning(jobId) {
+  const cached = jobScores[jobId];
+  if (!cached) return;
+  const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
+  const heading = job ? `${job.title || 'Job'}${job.company ? ' — ' + job.company : ''}` : 'Job';
+
+  // Lightweight inline panel under the card. Re-uses the existing
+  // quickStatus alert area so we don't introduce a real modal stack.
+  const panel = document.getElementById('quickStatus');
+  if (!panel) return;
+  panel.className = 'alert alert-info mt-2';
+  panel.innerHTML = `
+    <div class="why-score-heading">Why ${formatScore(cached.score)}? <em>${escapeHtml(heading)}</em></div>
+    <div class="why-score-body">${(new showdown.Converter()).makeHtml(cached.recommendations || '_(no recommendations were saved)_')}</div>
+    <button class="btn btn-outline btn-compact mt-2" id="closeWhyPanel">Close</button>
+  `;
+  panel.classList.remove('hidden');
+  const closeBtn = document.getElementById('closeWhyPanel');
+  if (closeBtn) closeBtn.onclick = () => panel.classList.add('hidden');
+}
+
+// ---- Untrack a row (deletes only the savedJobs association) ---------
+async function rowDeleteTrackedJob(jobId) {
+  const ok = await requireAuth();
+  if (!ok) return;
+  const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
+  const label = job?.title || 'this job';
+  if (!confirm(`Stop tracking "${label}"? The job stays on hired.video — you just won't see it in your tracker.`)) {
+    return;
+  }
+  const jwtToken = await getJwtToken();
+  try {
+    const response = await fetch(buildJobUrl(jobId, 'save'), {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    });
+    if (response.status === 401) return handleTokenExpired();
+    if (!response.ok) throw new Error('Could not stop tracking this job.');
+    // Drop local caches for this job and refresh.
+    clearJobCaches(jobId);
+    trackedJobsList = trackedJobsList.filter((j) => (j.id || j.Id) !== jobId);
+    renderTrackedJobsTable();
+    showQuickStatus('Removed from your tracker.', 'success');
+  } catch (err) {
+    showQuickStatus(err.message || 'Could not remove this job.', 'error');
+  }
+}
+
+// ---- Download the variation that was tailored for this job ---------
+async function rowDownloadTailoredVariation(jobId) {
+  const ok = await requireAuth();
+  if (!ok) return;
+  const cached = jobTailorings[jobId];
+  if (!cached) {
+    // No cached tailoring — fall back to the heuristic resolver.
+    return rowDownloadResume(jobId);
+  }
+  const format = isPremium ? settings.downloadFormat || 'pdf' : 'pdf';
+  // Override the variation id so handleDownload picks the cached one.
+  const previous = generatedVariationId;
+  generatedVariationId = cached.variationId;
+  try {
+    await handleDownload(format);
+  } finally {
+    generatedVariationId = previous;
   }
 }
 
@@ -535,8 +717,11 @@ async function rowScoreJob(jobId) {
     if (resp.status === 401) return handleTokenExpired();
     if (!resp.ok) throw new Error('Score failed');
     const data = await resp.json();
-    const result = data?.data || data;
-    showQuickStatus(`Score: ${formatScore(result.score || 0)}`, 'success');
+    const result = data?.data || data?.result || data;
+    const score = result.score ?? 0;
+    saveJobScore(jobId, score, result.summaryRecommendations || '');
+    renderTrackedJobsTable();
+    showQuickStatus(`Score: ${formatScore(score)} — click ⓘ on the row for details.`, 'success');
   } catch (err) {
     showQuickStatus(err.message || 'Score failed.', 'error');
   }
@@ -549,6 +734,19 @@ async function rowTailorJob(jobId) {
     switchTab('settings');
     return;
   }
+
+  // ==== Cache short-circuit ====
+  // If we've already tailored this job, don't burn AI tokens again.
+  // Surface the cached variation as a downloadable result instead.
+  const cached = jobTailorings[jobId];
+  if (cached) {
+    showQuickStatus(
+      `✅ Already tailored — click ⤓ Tailored Resume to download${cached.score != null ? ` (score ${formatScore(cached.score)})` : ''}.`,
+      'success',
+    );
+    return;
+  }
+
   const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
   if (!job) return;
   // Reuse the fast pipeline but skip the extract step by pre-seeding state.
@@ -602,6 +800,15 @@ async function rowTailorJob(jobId) {
     if (saveResp.ok) {
       const saveData = await saveResp.json();
       generatedVariationId = (saveData?.data || saveData)?.id || null;
+      if (generatedVariationId) {
+        const newScore = tailored.newScore ?? tailored.score ?? null;
+        saveJobTailoring(jobId, generatedVariationId, masterId, newScore);
+        // Also persist as a fresh "score" so the row badge updates.
+        if (newScore != null) {
+          saveJobScore(jobId, newScore, tailored.summaryRecommendations || '');
+        }
+        renderTrackedJobsTable();
+      }
     }
 
     showQuickStatus(
@@ -799,6 +1006,7 @@ function initializeApp() {
     }
 
     loadSettings();
+    loadJobCaches();
     loadMasterResumeGroups();
     loadTrackedJobsTable();
     loadCurrentUser();
@@ -938,6 +1146,7 @@ function setupEventListeners() {
 
   // ---- Now tab: active page banner & no-job state ----
   bind('quickTailorButton', gate(() => runTailorAndSavePipeline({ track: true })));
+  bind('quickTailorOnlyButton', gate(() => runTailorAndSavePipeline({ track: false })));
   bind('quickTrackButton', gate(handleTrackJob));
   bind('manualScanButton', gate(handleManualScan));
   bind('refreshJobsButton', gate(loadTrackedJobsTable));
@@ -990,6 +1199,14 @@ function setupEventListeners() {
   }
 
   bind('upgradeButton', openUpgradePage);
+
+  const webSettingsLink = document.getElementById('openWebSettingsLink');
+  if (webSettingsLink) {
+    webSettingsLink.onclick = (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: buildWebUrl('/settings') });
+    };
+  }
 
   // ---- Resume manager (Settings tab) ----
   bind('refreshResumesButton', gate(loadMasterResumeGroups));
@@ -1391,21 +1608,29 @@ async function handleTrackJob() {
   document.getElementById('trackJobButton').disabled = true;
 
   try {
-    const pageData = await new Promise((resolve) => {
-      chrome.runtime.sendMessage({ action: 'getHTML' }, (response) => resolve(response));
-    });
+    // Prefer the FOCUSED PANE from the content script — that's a tight
+    // slice around just the right-rail job, not the whole page. Falls
+    // back to the whole-page capture + selector-based pane extractor.
+    let jobPaneHtml = null;
+    const focused = await requestFocusedPaneHtml();
+    if (focused?.html) {
+      jobPaneHtml = focused.html;
+      currentJobOriginalHtml = focused.html;
+      currentJobUrl = focused.originUrl || currentJobUrl;
+    } else {
+      const pageData = await new Promise((resolve) => {
+        chrome.runtime.sendMessage({ action: 'getHTML' }, (response) => resolve(response));
+      });
 
-    if (!pageData || !pageData.html) {
-      throw new Error('Could not read the current page. Please make sure you are on a job posting.');
+      if (!pageData || !pageData.html) {
+        throw new Error('Could not read the current page. Please make sure you are on a job posting.');
+      }
+
+      currentJobOriginalHtml = pageData.html;
+      currentJobUrl = pageData.originUrl;
+      currentJobHtml = jobDescriptionParser(pageData.html, pageData.originUrl);
+      jobPaneHtml = extractJobPane(pageData.html, pageData.originUrl);
     }
-
-    currentJobOriginalHtml = pageData.html;
-    currentJobUrl = pageData.originUrl;
-    currentJobHtml = jobDescriptionParser(pageData.html, pageData.originUrl);
-    // Wider container that includes the job title/meta — used as the
-    // payload for /api/jobs/extract so the AI doesn't get confused
-    // between the focused job and the surrounding job board.
-    const jobPaneHtml = extractJobPane(pageData.html, pageData.originUrl);
 
     const response = await fetch(jobsExtractUrl, {
       method: 'POST',
@@ -1579,6 +1804,23 @@ function capturePageHtml() {
       currentJobUrl = response.originUrl;
       currentJobHtml = jobDescriptionParser(response.html, response.originUrl);
       resolve(true);
+    });
+  });
+}
+
+/**
+ * Ask the active tab's content script for ONLY the focused-job pane
+ * HTML (not the whole page). Returns null on miss so callers can fall
+ * back to the whole-page capture + selector-based pane extraction.
+ */
+function requestFocusedPaneHtml() {
+  return new Promise((resolve) => {
+    chrome.runtime.sendMessage({ action: 'getFocusedPaneHTML' }, (response) => {
+      if (!response || !response.html) {
+        resolve(null);
+        return;
+      }
+      resolve({ html: response.html, originUrl: response.originUrl });
     });
   });
 }

@@ -58,8 +58,9 @@
       <div class="active-page-eyebrow">📌 Job detected on this page</div>
       <div id="activePageTitle" class="active-page-title">—</div>
       <div id="activePageMeta" class="active-page-meta"></div>
-      <div class="d-flex gap-2 mt-2">
+      <div class="d-flex gap-2 mt-2 wrap">
         <button id="quickTailorButton" class="btn btn-primary btn-compact">✨ Tailor & Save</button>
+        <button id="quickTailorOnlyButton" class="btn btn-outline btn-compact">✨ Tailor Only</button>
         <button id="quickTrackButton" class="btn btn-outline btn-compact">📌 Track only</button>
       </div>
       <div id="quickStatus" class="alert hidden mt-2"></div>
@@ -243,6 +244,17 @@
       <div id="uploadResumeStatus" class="alert hidden mt-2"></div>
     </div>
 
+    <!-- Settings consolidation hint -->
+    <div class="card settings-sync-hint">
+      <div class="d-flex align-items-center justify-between gap-2">
+        <div>
+          <div class="settings-sync-title">🔗 Synced with hired.video/settings</div>
+          <div class="settings-sync-desc">These preferences live alongside the rest of your account settings on hired.video. Upgrade once and they unlock everywhere.</div>
+        </div>
+        <a id="openWebSettingsLink" href="#" class="btn btn-outline btn-compact">Manage on web ↗</a>
+      </div>
+    </div>
+
     <!-- Automation toggles -->
     <div class="card">
       <h4 class="card-title">⚡ Automation</h4>
@@ -255,10 +267,13 @@
         </span>
       </label>
 
-      <label class="settings-toggle">
-        <input type="checkbox" id="settingAutoScore">
+      <label class="settings-toggle settings-toggle-locked" data-feature="autoScore">
+        <input type="checkbox" id="settingAutoScore" disabled>
         <span class="settings-toggle-body">
-          <span class="settings-toggle-name">Auto-score on detect</span>
+          <span class="settings-toggle-name">
+            Auto-score on detect
+            <span class="paid-badge">PRO</span>
+          </span>
           <span class="settings-toggle-desc">Run match analysis as soon as a job is detected, so the score is ready when you click.</span>
         </span>
       </label>

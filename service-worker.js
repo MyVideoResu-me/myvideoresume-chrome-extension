@@ -184,6 +184,28 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return false;
   }
 
+  // ---- Focused-pane HTML retrieval --------------------------------
+  // Asks the active tab's content script for ONLY the right-pane
+  // (focused job) HTML — used by the Tailor pipelines so the AI
+  // never sees the left rail / job list.
+  if (request.action === 'getFocusedPaneHTML') {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (!tab || !tab.id || (tab.url && tab.url.startsWith('chrome://'))) {
+        sendResponse({ html: null, originUrl: tab?.url });
+        return;
+      }
+      chrome.tabs.sendMessage(tab.id, { action: 'getFocusedPaneHTML' }, (response) => {
+        if (chrome.runtime.lastError || !response) {
+          sendResponse({ html: null, originUrl: tab.url });
+        } else {
+          sendResponse({ html: response.html, originUrl: response.originUrl || tab.url });
+        }
+      });
+    });
+    return true; // async response
+  }
+
   // ---- Page HTML retrieval -----------------------------------------
   if (request.action === 'getHTML') {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {

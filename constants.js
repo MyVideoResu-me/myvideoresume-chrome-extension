@@ -289,19 +289,23 @@ const JOB_SITE_PARSERS = {
  * Order matters: most-specific first, falling back to broader containers.
  */
 const JOB_PANE_SELECTORS = {
+    // Order matters: tightest container first (the right pane on a job
+    // collection page) before broader fallbacks. NEVER use `main` or
+    // `.scaffold-layout__detail` here on LinkedIn — those wrap the
+    // ENTIRE multi-job view including the left rail.
     linkedin: [
         '.jobs-search__job-details--container',
-        '.jobs-search__right-rail',
-        '.scaffold-layout__detail',
+        '.jobs-search__job-details',
         '.jobs-details',
         '.job-view-layout',
-        'main',
+        '.top-card-layout',
+        '[class*="job-details-jobs-unified-top-card"]',
     ],
     indeed: [
-        '#viewJobSSRRoot',
         '.jobsearch-JobComponent',
-        '.jobsearch-ViewJobLayout',
+        '#viewJobSSRRoot',
         '.jobsearch-ViewJobLayout--embedded',
+        '.jobsearch-ViewJobLayout',
         '#jobDescriptionText',
     ],
     glassdoor: [

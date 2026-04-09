@@ -927,6 +927,126 @@ button, .btn {
   color: var(--primary);
 }
 
+/* Row header — title block + trailing badge/trash row */
+.tracked-job-row-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.tracked-job-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tracked-job-row-trailing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+/* Inline score badge with optional ⓘ details trigger */
+.row-score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--background-secondary);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.row-score-badge.score-high {
+  background: var(--success-light);
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.row-score-badge.score-medium {
+  background: var(--warning-light);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.row-score-badge.score-low {
+  background: var(--error-light);
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.row-score-info {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.row-score-info:hover {
+  opacity: 0.7;
+}
+
+/* Trash button */
+.row-delete {
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  font-size: 14px;
+  color: var(--foreground-secondary);
+  cursor: pointer;
+  line-height: 1;
+}
+
+.row-delete:hover {
+  color: var(--error);
+  border-color: var(--error);
+  background: var(--error-light);
+}
+
+/* Why-this-score inline panel inside the quickStatus alert */
+.why-score-heading {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.why-score-heading em {
+  font-weight: 400;
+  font-style: normal;
+  color: var(--foreground-secondary);
+}
+
+.why-score-body {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.why-score-body p {
+  margin: 4px 0;
+}
+
+.why-score-body ul,
+.why-score-body ol {
+  margin: 4px 0 4px 16px;
+  padding: 0;
+}
+
 /* ==========================================================
    Wizard mode banner
    ========================================================== */
@@ -1034,6 +1154,24 @@ body.premium-unlocked .paid-badge {
 
 body.premium-unlocked .paid-hint {
   display: none;
+}
+
+/* Settings sync hint card — links to hired.video/settings */
+.settings-sync-hint {
+  background: var(--background-secondary);
+  border: 1px dashed var(--border);
+}
+
+.settings-sync-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.settings-sync-desc {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+  margin-top: 2px;
 }
 
 /* ==========================================================

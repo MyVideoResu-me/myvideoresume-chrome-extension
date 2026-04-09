@@ -82,8 +82,142 @@ function waitForContent(timeout = 3000) {
 
 let lastDetectedKey = null;
 
+/**
+ * Per-host "focused pane" finders. Each entry returns the DOM container
+ * that wraps a SINGLE job's details on that site — even when the rest
+ * of the page is showing a job list / collection / search results.
+ *
+ * The order of selectors matters: most-specific (the right pane on a
+ * collection page) before broadest (a single-job view). We deliberately
+ * avoid `main`, `[role="main"]`, and `.scaffold-layout__detail` because
+ * on LinkedIn collection URLs they include the LEFT rail (the job list).
+ */
+const FOCUSED_PANE_FINDERS = {
+  'linkedin.com': () =>
+    document.querySelector('.job-details-jobs-unified-top-card')?.closest('.jobs-search__job-details, .jobs-search__job-details--container, .jobs-details, .scaffold-layout__detail') ||
+    document.querySelector('.jobs-search__job-details--container') ||
+    document.querySelector('.jobs-search__job-details') ||
+    document.querySelector('.job-view-layout') ||
+    document.querySelector('.top-card-layout') ||
+    null,
+  'indeed.com': () =>
+    document.querySelector('.jobsearch-JobComponent') ||
+    document.querySelector('#viewJobSSRRoot') ||
+    document.querySelector('.jobsearch-ViewJobLayout--embedded') ||
+    document.querySelector('.jobsearch-RightPane') ||
+    null,
+  'glassdoor.com': () =>
+    document.querySelector('[class*="JobDetails_jobDetails"]') ||
+    document.querySelector('.JobDetails') ||
+    document.querySelector('#JDCol') ||
+    null,
+  'ziprecruiter.com': () =>
+    document.querySelector('.job_details') ||
+    document.querySelector('#job_desc') ||
+    null,
+};
+
+/**
+ * Per-host title selectors to query INSIDE the focused pane. Skip
+ * generic `h1` because on collection pages the page-level h1 is
+ * the list name ("Jobs where you'd be a top applicant"), not the
+ * focused job's title.
+ */
+const FOCUSED_TITLE_SELECTORS = {
+  'linkedin.com': [
+    '.job-details-jobs-unified-top-card__job-title h1',
+    '.job-details-jobs-unified-top-card__job-title',
+    '.jobs-unified-top-card__job-title',
+    '.top-card-layout__title',
+    'h1',
+  ],
+  'indeed.com': [
+    '[data-testid="jobsearch-JobInfoHeader-title"]',
+    '.jobsearch-JobInfoHeader-title',
+    'h1',
+  ],
+  'glassdoor.com': [
+    '[data-test="job-title"]',
+    '.JobDetails_jobTitle__',
+    'h1',
+  ],
+  'ziprecruiter.com': [
+    '.job_title',
+    '.t_job_title',
+    'h1',
+  ],
+};
+
+const FOCUSED_COMPANY_SELECTORS = {
+  'linkedin.com': [
+    '.job-details-jobs-unified-top-card__company-name a',
+    '.job-details-jobs-unified-top-card__company-name',
+    '.jobs-unified-top-card__company-name a',
+    '.topcard__org-name-link',
+  ],
+  'indeed.com': [
+    '[data-testid="inlineHeader-companyName"]',
+    '[data-testid="jobsearch-JobInfoHeader-companyName"]',
+    '.jobsearch-CompanyInfoContainer a',
+  ],
+  'glassdoor.com': [
+    '[data-test="employer-name"]',
+    '.EmployerProfile_employerName__',
+  ],
+  'ziprecruiter.com': [
+    '.hiring_company_text',
+    '.t_org_link',
+  ],
+};
+
+const FOCUSED_LOCATION_SELECTORS = {
+  'linkedin.com': [
+    '.job-details-jobs-unified-top-card__bullet',
+    '.job-details-jobs-unified-top-card__primary-description-container',
+    '.jobs-unified-top-card__bullet',
+    '.topcard__flavor--bullet',
+  ],
+  'indeed.com': [
+    '[data-testid="job-location"]',
+    '[data-testid="inlineHeader-companyLocation"]',
+  ],
+  'glassdoor.com': ['[data-test="location"]'],
+  'ziprecruiter.com': ['.hiring_location'],
+};
+
+function findFocusedPane() {
+  const host = window.location.hostname.toLowerCase();
+  for (const [pattern, finder] of Object.entries(FOCUSED_PANE_FINDERS)) {
+    if (host.includes(pattern)) {
+      try {
+        const el = finder();
+        if (el) return { el, host: pattern };
+      } catch (e) {
+        // ignore selector errors
+      }
+    }
+  }
+  return null;
+}
+
+function pickText(scope, selectors) {
+  if (!scope || !selectors) return '';
+  for (const sel of selectors) {
+    try {
+      const el = scope.querySelector(sel);
+      if (el && el.textContent) {
+        const txt = el.textContent.replace(/\s+/g, ' ').trim();
+        if (txt) return txt;
+      }
+    } catch (e) {
+      // bad selector
+    }
+  }
+  return '';
+}
+
 function detectJobOnPage() {
-  // 1. JSON-LD JobPosting (gold standard)
+  // 1. JSON-LD JobPosting (gold standard, host-agnostic)
   const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
   for (const script of ldScripts) {
     if (!script.textContent || !script.textContent.includes('JobPosting')) continue;
@@ -109,8 +243,45 @@ function detectJobOnPage() {
     }
   }
 
-  // 2. Known job-site DOM markers — only fire on hosts we recognize so we
-  // don't spam the side panel from arbitrary pages.
+  // 2. Focused-pane detection — find the SINGLE job container on the
+  // current page and extract title/company/location from inside it.
+  // Skips the page-level h1 / document.title which on collection pages
+  // refer to the LIST, not the focused job.
+  const focused = findFocusedPane();
+  if (focused) {
+    const title = pickText(focused.el, FOCUSED_TITLE_SELECTORS[focused.host]);
+    if (title) {
+      const company = pickText(focused.el, FOCUSED_COMPANY_SELECTORS[focused.host]);
+      const location = pickText(focused.el, FOCUSED_LOCATION_SELECTORS[focused.host]);
+      // Stash the focused pane outerHTML on the window so the side
+      // panel can request it via getHTML and pass ONLY this slice to
+      // /api/jobs/extract — preventing the AI from being confused by
+      // the surrounding job-list rail.
+      try {
+        window.__hiredVideoFocusedPaneHtml = focused.el.outerHTML;
+      } catch (e) {
+        // Some pages restrict cross-origin access; ignore.
+      }
+      notifyJobDetected({
+        title: title.slice(0, 250),
+        company,
+        location,
+        sourceUrl: window.location.href,
+        hasFocusedPane: true,
+      });
+      return true;
+    }
+  } else {
+    // Reset the cached pane when there's no focused job (so a stale
+    // pane from a prior page doesn't get sent on the next click).
+    try {
+      delete window.__hiredVideoFocusedPaneHtml;
+    } catch (e) {}
+  }
+
+  // 3. Last-resort fallback for known job hosts where we couldn't find
+  // a focused pane (e.g. brand-new LinkedIn classnames). Only fires on
+  // an allowlist so we don't spam the side panel from arbitrary pages.
   const KNOWN_HOSTS = [
     'linkedin.com',
     'indeed.com',
@@ -131,12 +302,14 @@ function detectJobOnPage() {
   const host = window.location.hostname.toLowerCase();
   if (!KNOWN_HOSTS.some((h) => host.includes(h))) return false;
 
-  // Pull a likely title from the page.
-  const heading =
-    document.querySelector('h1[class*="job"]')?.textContent ||
-    document.querySelector('h1')?.textContent ||
-    document.title;
-  const title = (heading || '').trim().slice(0, 250);
+  // Try a job-specific h1 first; otherwise bail rather than echoing
+  // the page title (which on a collection page is the list name).
+  const jobLikeHeading =
+    document.querySelector('h1[class*="job-title"]')?.textContent ||
+    document.querySelector('h1[class*="JobTitle"]')?.textContent ||
+    document.querySelector('h1[class*="top-card"]')?.textContent ||
+    '';
+  const title = jobLikeHeading.trim().slice(0, 250);
   if (!title) return false;
 
   notifyJobDetected({
@@ -237,6 +410,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "ping") {
     // Simple ping to check if content script is loaded
     sendResponse({ status: "ready", url: window.location.href });
+    return true;
+  }
+
+  if (request.action === "getFocusedPaneHTML") {
+    // Re-detect right now in case the user has since clicked a
+    // different job in the left rail without a URL change firing.
+    detectJobOnPage();
+    const html = window.__hiredVideoFocusedPaneHtml || null;
+    sendResponse({
+      html,
+      originUrl: window.location.href,
+    });
     return true;
   }
 
