@@ -24,7 +24,7 @@
         "<all_urls>"
       ],
       "js": [
-        "content-script.js"
+        "content-script-jobs.js"
       ]
     },
     {

@@ -277,7 +277,7 @@ function handleJobDetected(payload) {
 async function handleManualScan() {
   const ok = await requireAuth();
   if (!ok) return;
-  await capturePageHtml();
+  await capturePageHtmlLegacy();
   if (currentJobUrl) {
     handleJobDetected({
       title: 'Detected page',
@@ -324,24 +324,13 @@ async function runTailorAndSavePipeline(options = {}) {
   if (!options.silent) showQuickStatus('Extracting job from page…', 'info');
 
   try {
-    // 1. Capture page HTML — prefer the FOCUSED PANE from the content
-    // script over the full page so the backend AI sees only the
-    // single job the user has open in the right rail (not the whole
-    // job list / collection).
-    let jobPaneHtml = null;
-    const focused = await requestFocusedPaneHtml();
-    if (focused?.html) {
-      jobPaneHtml = focused.html;
-      currentJobUrl = focused.originUrl || currentJobUrl;
-      currentJobOriginalHtml = focused.html;
-    } else {
-      // Fall back to the whole-page capture + selector-based pane.
-      if (!currentJobHtml || !currentJobUrl) {
-        const captured = await capturePageHtml();
-        if (!captured) throw new Error('Could not read the current page.');
-      }
-      jobPaneHtml = extractJobPane(currentJobOriginalHtml || '', currentJobUrl);
-    }
+    // 1. Capture page HTML via the shared captureJobContext() which
+    // already tries focused-pane → full-page → selector-based pane.
+    const jobCtx = await captureJobContext();
+    if (!jobCtx) throw new Error('Could not read the current page.');
+    const jobPaneHtml = jobCtx.html;
+    currentJobUrl = jobCtx.originUrl || currentJobUrl;
+    currentJobOriginalHtml = jobCtx.html;
 
     // 2. Extract via /api/jobs/extract (with or without tracking)
     if (!options.silent) showQuickStatus('Tracking job…', 'info');
@@ -438,34 +427,17 @@ async function runTailorAndSavePipeline(options = {}) {
     const tailored = tailorData?.data || tailorData?.result || tailorData;
     generatedResumeData = tailored;
 
-    // 4. Save as variation under the master
+    // 4. Save as variation under the master (shared helper in utils.js)
     if (!options.silent) showQuickStatus('Saving variation…', 'info');
-    const masterId =
-      selectedResume.isMaster || !selectedResume.parentId
-        ? selectedResume.id
-        : selectedResume.parentId;
+    const masterId = getMasterResumeId(selectedResume);
     const variationName = `${trackedJob.title}${trackedJob.company ? ' - ' + trackedJob.company : ''}`;
-    const saveResp = await fetch(buildResumeUrl(masterId, 'createvariation'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({
-        name: variationName.slice(0, 200),
-        description: `Generated for ${trackedJob.title}`,
-        resumeData: tailored.markdownResume,
-        jobId: job.id,
-        sourceUrl: currentJobUrl,
-      }),
+    generatedVariationId = await saveAsVariation(masterId, {
+      name: variationName,
+      description: `Generated for ${trackedJob.title}`,
+      markdownResume: tailored.markdownResume,
+      jobId: job.id,
+      sourceUrl: currentJobUrl,
     });
-
-    if (saveResp.status === 401) return handleTokenExpired();
-    if (!saveResp.ok) throw new Error('Save failed');
-
-    const saveData = await saveResp.json();
-    const saved = saveData?.data || saveData?.result || saveData;
-    generatedVariationId = saved?.id || null;
 
     // Cache the result so a future click on this job in the tracker
     // returns the same variation without burning AI tokens again.
@@ -515,27 +487,19 @@ async function continuePipelineFromTailor(jwtToken, jobId, options = {}) {
     generatedResumeData = tailored;
 
     if (!options.silent) showQuickStatus('Saving variation…', 'info');
-    const masterId = selectedResume.isMaster || !selectedResume.parentId ? selectedResume.id : selectedResume.parentId;
+    const masterId = getMasterResumeId(selectedResume);
     const variationName = `${trackedJob.title}${trackedJob.company ? ' - ' + trackedJob.company : ''}`;
-    const saveResp = await fetch(buildResumeUrl(masterId, 'createvariation'), {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
-      body: JSON.stringify({
-        name: variationName.slice(0, 200),
-        description: `Generated for ${trackedJob.title}`,
-        resumeData: tailored.markdownResume,
-        jobId,
-        sourceUrl: currentJobUrl,
-      }),
+    generatedVariationId = await saveAsVariation(masterId, {
+      name: variationName,
+      description: `Generated for ${trackedJob.title}`,
+      markdownResume: tailored.markdownResume,
+      jobId,
+      sourceUrl: currentJobUrl,
     });
-    if (saveResp.ok) {
-      const saveData = await saveResp.json();
-      generatedVariationId = (saveData?.data || saveData)?.id || null;
-      if (generatedVariationId && jobId) {
-        const newScore = tailored.newScore ?? tailored.score ?? null;
-        saveJobTailoring(jobId, generatedVariationId, masterId, newScore);
-        if (newScore != null) saveJobScore(jobId, newScore, tailored.summaryRecommendations || '');
-      }
+    if (generatedVariationId && jobId) {
+      const newScore = tailored.newScore ?? tailored.score ?? null;
+      saveJobTailoring(jobId, generatedVariationId, masterId, newScore);
+      if (newScore != null) saveJobScore(jobId, newScore, tailored.summaryRecommendations || '');
     }
 
     showQuickStatus(
@@ -560,20 +524,11 @@ async function runScoreOnlyPipeline() {
   const jwtToken = await getJwtToken();
   if (!jwtToken || !selectedResume || pipelineBusy) return;
 
-  // Prefer the focused pane (single right-rail job) over the whole page.
-  let jobPaneHtml = null;
-  const focused = await requestFocusedPaneHtml();
-  if (focused?.html) {
-    jobPaneHtml = focused.html;
-    currentJobUrl = focused.originUrl || currentJobUrl;
-    currentJobOriginalHtml = focused.html;
-  } else {
-    if (!currentJobHtml || !currentJobUrl) {
-      const captured = await capturePageHtml();
-      if (!captured) return;
-    }
-    jobPaneHtml = extractJobPane(currentJobOriginalHtml || '', currentJobUrl);
-  }
+  const jobCtx = await captureJobContext();
+  if (!jobCtx) return;
+  const jobPaneHtml = jobCtx.html;
+  currentJobUrl = jobCtx.originUrl || currentJobUrl;
+
   const extractResp = await fetch(jobsExtractUrl, {
     method: 'POST',
     headers: {
@@ -884,37 +839,22 @@ async function rowTailorJob(jobId) {
     const tailored = tailorData?.data || tailorData;
     generatedResumeData = tailored;
 
-    const masterId =
-      selectedResume.isMaster || !selectedResume.parentId
-        ? selectedResume.id
-        : selectedResume.parentId;
+    const masterId = getMasterResumeId(selectedResume);
     const variationName = `${trackedJob.title}${trackedJob.company ? ' - ' + trackedJob.company : ''}`;
-    const saveResp = await fetch(buildResumeUrl(masterId, 'createvariation'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({
-        name: variationName.slice(0, 200),
-        description: `Generated for ${trackedJob.title}`,
-        resumeData: tailored.markdownResume,
-        jobId,
-        sourceUrl: job.sourceUrl,
-      }),
+    generatedVariationId = await saveAsVariation(masterId, {
+      name: variationName,
+      description: `Generated for ${trackedJob.title}`,
+      markdownResume: tailored.markdownResume,
+      jobId,
+      sourceUrl: job.sourceUrl,
     });
-    if (saveResp.ok) {
-      const saveData = await saveResp.json();
-      generatedVariationId = (saveData?.data || saveData)?.id || null;
-      if (generatedVariationId) {
-        const newScore = tailored.newScore ?? tailored.score ?? null;
-        saveJobTailoring(jobId, generatedVariationId, masterId, newScore);
-        // Also persist as a fresh "score" so the row badge updates.
-        if (newScore != null) {
-          saveJobScore(jobId, newScore, tailored.summaryRecommendations || '');
-        }
-        renderTrackedJobsTable();
+    if (generatedVariationId) {
+      const newScore = tailored.newScore ?? tailored.score ?? null;
+      saveJobTailoring(jobId, generatedVariationId, masterId, newScore);
+      if (newScore != null) {
+        saveJobScore(jobId, newScore, tailored.summaryRecommendations || '');
       }
+      renderTrackedJobsTable();
     }
 
     showQuickStatus(
@@ -1419,52 +1359,7 @@ async function loadCurrentUser() {
  *
  * Usage:  `if (await check429(resp, 'quickStatus')) return;`
  */
-async function check429(response, targetId) {
-  if (response.status !== 429) return false;
-  try {
-    const data = await response.json();
-    return handleUsageLimitResponse(data, targetId);
-  } catch {
-    showQuickStatus('Rate limit reached. Please wait and try again.', 'warning');
-    return true;
-  }
-}
-
-/**
- * Generic handler for 429 USAGE_LIMIT_EXCEEDED. Renders a usage
- * bar + upgrade CTA into any target container. Returns true if
- * the response was a 429, so the caller can early-return.
- */
-function handleUsageLimitResponse(responseData, targetId) {
-  const err = responseData?.error;
-  if (err?.code !== 'USAGE_LIMIT_EXCEEDED') return false;
-
-  const used = err?.usage?.used ?? 0;
-  const limit = err?.usage?.limit ?? 10;
-  const pct = Math.min(100, Math.round((used / Math.max(limit, 1)) * 100));
-  const upgradeUrl = buildWebUrl(err.upgradeUrl || '/pricing');
-
-  const container = document.getElementById(targetId);
-  if (!container) return true;
-
-  container.innerHTML = `
-    <div class="usage-limit-alert">
-      <strong>⚠️ Free plan limit reached</strong>
-      ${escapeHtml(err.message || 'Upgrade to keep using AI features.')}
-      <div class="usage-limit-bar">
-        <div class="usage-limit-bar-fill" style="width:${pct}%"></div>
-      </div>
-      <div class="text-xs text-muted">${used} / ${limit} requests used this month</div>
-      <button class="btn btn-primary usage-limit-upgrade" data-url="${escapeHtml(upgradeUrl)}">⭐ Upgrade to Pro</button>
-    </div>
-  `;
-  container.classList.remove('hidden');
-
-  container.querySelector('.usage-limit-upgrade')?.addEventListener('click', () => {
-    chrome.tabs.create({ url: upgradeUrl });
-  });
-  return true;
-}
+// check429 + handleUsageLimitResponse moved to shared/utils.js
 
 async function handleSignOut() {
   const jwtToken = await getJwtToken();
@@ -1793,29 +1688,11 @@ async function handleTrackJob() {
   document.getElementById('trackJobButton').disabled = true;
 
   try {
-    // Prefer the FOCUSED PANE from the content script — that's a tight
-    // slice around just the right-rail job, not the whole page. Falls
-    // back to the whole-page capture + selector-based pane extractor.
-    let jobPaneHtml = null;
-    const focused = await requestFocusedPaneHtml();
-    if (focused?.html) {
-      jobPaneHtml = focused.html;
-      currentJobOriginalHtml = focused.html;
-      currentJobUrl = focused.originUrl || currentJobUrl;
-    } else {
-      const pageData = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ action: 'getHTML' }, (response) => resolve(response));
-      });
-
-      if (!pageData || !pageData.html) {
-        throw new Error('Could not read the current page. Please make sure you are on a job posting.');
-      }
-
-      currentJobOriginalHtml = pageData.html;
-      currentJobUrl = pageData.originUrl;
-      currentJobHtml = jobDescriptionParser(pageData.html, pageData.originUrl);
-      jobPaneHtml = extractJobPane(pageData.html, pageData.originUrl);
-    }
+    const jobCtx = await captureJobContext();
+    if (!jobCtx) throw new Error('Could not read the current page. Please make sure you are on a job posting.');
+    const jobPaneHtml = jobCtx.html;
+    currentJobOriginalHtml = jobCtx.html;
+    currentJobUrl = jobCtx.originUrl || currentJobUrl;
 
     const response = await fetch(jobsExtractUrl, {
       method: 'POST',
@@ -1899,7 +1776,7 @@ async function handleScoreEvaluate() {
   }
 
   if (!currentJobHtml) {
-    const ok = await capturePageHtml();
+    const ok = await capturePageHtmlLegacy();
     if (!ok) {
       showError('evalRecommendations', 'Could not read page content. Please make sure you are on a job posting page.');
       showElement('evalRecommendations');
@@ -1975,40 +1852,21 @@ async function handleScoreEvaluate() {
   }
 }
 
-/**
- * Capture the active tab's HTML into the module-level state vars.
- * Returns true on success.
- */
-function capturePageHtml() {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ action: 'getHTML' }, (response) => {
-      if (!response || !response.html) {
-        resolve(false);
-        return;
-      }
-      currentJobOriginalHtml = response.html;
-      currentJobUrl = response.originUrl;
-      currentJobHtml = jobDescriptionParser(response.html, response.originUrl);
-      resolve(true);
-    });
-  });
-}
-
-/**
- * Ask the active tab's content script for ONLY the focused-job pane
- * HTML (not the whole page). Returns null on miss so callers can fall
- * back to the whole-page capture + selector-based pane extraction.
- */
-function requestFocusedPaneHtml() {
-  return new Promise((resolve) => {
-    chrome.runtime.sendMessage({ action: 'getFocusedPaneHTML' }, (response) => {
-      if (!response || !response.html) {
-        resolve(null);
-        return;
-      }
-      resolve({ html: response.html, originUrl: response.originUrl });
-    });
-  });
+// capturePageHtml + requestFocusedPaneHtml replaced by
+// captureJobContext() in shared/utils.js.
+//
+// Legacy wrapper that also sets the module-level state vars (used by
+// the wizard's handleScoreEvaluate / handleTailorGenerate which need
+// currentJobHtml/currentJobUrl).
+async function capturePageHtmlLegacy() {
+  const ctx = await captureJobContext();
+  if (!ctx) return false;
+  currentJobOriginalHtml = ctx.html;
+  currentJobUrl = ctx.originUrl;
+  currentJobHtml = typeof jobDescriptionParser === 'function'
+    ? jobDescriptionParser(ctx.html, ctx.originUrl)
+    : ctx.html;
+  return true;
 }
 
 // =====================================================================
@@ -2025,7 +1883,7 @@ async function handleTailorGenerate() {
   }
 
   if (!currentJobHtml) {
-    const ok = await capturePageHtml();
+    const ok = await capturePageHtmlLegacy();
     if (!ok) {
       showError('custom', 'Could not read page content.');
       return;

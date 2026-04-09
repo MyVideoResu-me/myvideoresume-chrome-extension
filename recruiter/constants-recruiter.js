@@ -8,42 +8,49 @@
  */
 
 // ---- Recruiter API paths ------------------------------------------------
+// Guard: only extends PATHS when loaded in the sidepanel context (where
+// constants.js was loaded first). In content-script context PATHS doesn't
+// exist and we only need the site parsers below.
 
-PATHS.recruiterExtractProfile = '/api/recruiter/extract-profile';
-PATHS.recruiterTalentPool = '/api/recruiter/talent-pool';
-PATHS.recruiterTalentPoolExport = '/api/recruiter/talent-pool/export';
-PATHS.recruiterInteractions = '/api/recruiter/interactions';
-PATHS.recruiterSubmissions = '/api/recruiter/submissions';
-PATHS.recruiterPlacements = '/api/recruiter/placements';
-PATHS.recruiterPipeline = '/api/recruiter/pipeline';
-PATHS.recruiterMatchScoreCandidates = '/api/recruiter/match/score-candidates';
-PATHS.recruiterMatchScoreJobs = '/api/recruiter/match/score-jobs';
-PATHS.recruiterMatchScores = '/api/recruiter/match/scores';
-PATHS.companiesExtract = '/api/companies/extract';
+if (typeof PATHS !== 'undefined') {
+  PATHS.recruiterExtractProfile = '/api/recruiter/extract-profile';
+  PATHS.recruiterTalentPool = '/api/recruiter/talent-pool';
+  PATHS.recruiterTalentPoolExport = '/api/recruiter/talent-pool/export';
+  PATHS.recruiterInteractions = '/api/recruiter/interactions';
+  PATHS.recruiterSubmissions = '/api/recruiter/submissions';
+  PATHS.recruiterPlacements = '/api/recruiter/placements';
+  PATHS.recruiterPipeline = '/api/recruiter/pipeline';
+  PATHS.recruiterMatchScoreCandidates = '/api/recruiter/match/score-candidates';
+  PATHS.recruiterMatchScoreJobs = '/api/recruiter/match/score-jobs';
+  PATHS.recruiterMatchScores = '/api/recruiter/match/scores';
+  PATHS.companiesExtract = '/api/companies/extract';
+}
 
 // ---- Computed URLs (populated after updateConfiguration runs) -----------
 
-let recruiterExtractProfileUrl;
-let recruiterTalentPoolUrl;
-let recruiterPipelineUrl;
-let recruiterMatchScoreCandidatesUrl;
-let recruiterMatchScoreJobsUrl;
-let recruiterMatchScoresUrl;
-let companiesExtractUrl;
+var recruiterExtractProfileUrl;
+var recruiterTalentPoolUrl;
+var recruiterPipelineUrl;
+var recruiterMatchScoreCandidatesUrl;
+var recruiterMatchScoreJobsUrl;
+var recruiterMatchScoresUrl;
+var companiesExtractUrl;
 
 // Patch updateConfiguration to also set recruiter URLs.
-// Save the original, then wrap it.
-const _origUpdateConfiguration = updateConfiguration;
-updateConfiguration = function () {
-  _origUpdateConfiguration();
-  recruiterExtractProfileUrl = apiBase + PATHS.recruiterExtractProfile;
-  recruiterTalentPoolUrl = apiBase + PATHS.recruiterTalentPool;
-  recruiterPipelineUrl = apiBase + PATHS.recruiterPipeline;
-  recruiterMatchScoreCandidatesUrl = apiBase + PATHS.recruiterMatchScoreCandidates;
-  recruiterMatchScoreJobsUrl = apiBase + PATHS.recruiterMatchScoreJobs;
-  recruiterMatchScoresUrl = apiBase + PATHS.recruiterMatchScores;
-  companiesExtractUrl = apiBase + PATHS.companiesExtract;
-};
+// Only runs in sidepanel context where updateConfiguration exists.
+if (typeof updateConfiguration === 'function') {
+  const _origUpdateConfiguration = updateConfiguration;
+  updateConfiguration = function () {
+    _origUpdateConfiguration();
+    recruiterExtractProfileUrl = apiBase + PATHS.recruiterExtractProfile;
+    recruiterTalentPoolUrl = apiBase + PATHS.recruiterTalentPool;
+    recruiterPipelineUrl = apiBase + PATHS.recruiterPipeline;
+    recruiterMatchScoreCandidatesUrl = apiBase + PATHS.recruiterMatchScoreCandidates;
+    recruiterMatchScoreJobsUrl = apiBase + PATHS.recruiterMatchScoreJobs;
+    recruiterMatchScoresUrl = apiBase + PATHS.recruiterMatchScores;
+    companiesExtractUrl = apiBase + PATHS.companiesExtract;
+  };
+}
 
 // ---- Profile site parsers -----------------------------------------------
 

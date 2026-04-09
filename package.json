@@ -2,12 +2,16 @@
   "name": "hiredvideo-chrome-extension",
   "private": true,
   "version": "2.0.0",
-  "description": "Chrome extension for the hired.video platform.",
+  "description": "Chrome extensions (Job Seeker + Recruiter) for the hired.video platform.",
   "scripts": {
-    "dev": "web-ext run --config=web-ext-config.cjs --target=chromium",
-    "lint": "web-ext lint --config=web-ext-config.cjs",
-    "build": "web-ext build --config=web-ext-config.cjs --overwrite-dest",
-    "build:icons": "node scripts/build-icons.cjs"
+    "build": "node scripts/build.js",
+    "build:jobseeker": "node scripts/build.js jobseeker",
+    "build:recruiter": "node scripts/build.js recruiter",
+    "build:icons": "node scripts/build-icons.cjs",
+    "dev:jobseeker": "npm run build:jobseeker && web-ext run --source-dir=dist/jobseeker --target=chromium",
+    "dev:recruiter": "npm run build:recruiter && web-ext run --source-dir=dist/recruiter --target=chromium",
+    "lint:jobseeker": "npm run build:jobseeker && web-ext lint --source-dir=dist/jobseeker",
+    "lint:recruiter": "npm run build:recruiter && web-ext lint --source-dir=dist/recruiter"
   },
   "devDependencies": {
     "sharp": "^0.34.5",

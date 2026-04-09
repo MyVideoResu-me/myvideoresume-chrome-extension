@@ -697,19 +697,9 @@ button, .btn {
   margin-top: 2px;
 }
 
+/* Use .btn-compact for constrained inline buttons */
 .signed-out-banner .btn {
-  flex: 0 0 auto;
-  width: 80px;
-  min-width: 80px;
-  max-width: 80px;
-  margin: 0;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.2;
-  height: auto;
-  min-height: 0;
-  white-space: nowrap;
+  /* Inherits from .btn-compact applied on the element */
 }
 
 /* ==========================================================
@@ -1385,18 +1375,7 @@ body.premium-unlocked .btn-upgrade-header {
 }
 
 .stats-card .btn {
-  flex: 0 0 auto;
-  width: 80px;
-  min-width: 80px;
-  max-width: 80px;
-  margin: 0;
-  padding: 6px 12px;
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.2;
-  height: auto;
-  min-height: 0;
-  white-space: nowrap;
+  /* Inherits from .btn-compact applied on the element */
 }
 
 /* Tracked job summary block */
