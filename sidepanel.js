@@ -725,9 +725,12 @@ async function onTrackedJobAction(event) {
       return showScoreReasoning(jobId);
     case 'delete':
       return rowDeleteTrackedJob(jobId);
-    case 'open':
-      chrome.tabs.create({ url: buildWebUrl(`/jobs/${jobId}`) });
+    case 'open': {
+      const openJob = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
+      const openUrl = openJob?.sourceUrl || buildWebUrl(`/jobs/${jobId}`);
+      chrome.tabs.create({ url: openUrl });
       return;
+    }
   }
 }
 
