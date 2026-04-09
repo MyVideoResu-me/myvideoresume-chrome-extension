@@ -282,6 +282,75 @@ const JOB_SITE_PARSERS = {
 };
 
 /**
+ * Wider container selectors for the FOCUSED job pane on each major site.
+ * Used by the Track-this-Job flow so the AI sees the title + meta +
+ * description for the active job, not the surrounding job list / sidebar.
+ *
+ * Order matters: most-specific first, falling back to broader containers.
+ */
+const JOB_PANE_SELECTORS = {
+    linkedin: [
+        '.jobs-search__job-details--container',
+        '.jobs-search__right-rail',
+        '.scaffold-layout__detail',
+        '.jobs-details',
+        '.job-view-layout',
+        'main',
+    ],
+    indeed: [
+        '#viewJobSSRRoot',
+        '.jobsearch-JobComponent',
+        '.jobsearch-ViewJobLayout',
+        '.jobsearch-ViewJobLayout--embedded',
+        '#jobDescriptionText',
+    ],
+    glassdoor: [
+        '[class*="JobDetails_jobDetails"]',
+        '.JobDetails',
+        '#JDCol',
+        '.adp',
+    ],
+    workday: [
+        '[data-automation-id="jobPostingPage"]',
+        '[data-automation-id="job-posting"]',
+        '[data-automation-id="jobPostingDescription"]',
+    ],
+    greenhouse: [
+        '#main',
+        '.app-body',
+        '#content',
+    ],
+    lever: [
+        '.posting-page',
+        '.content-wrapper',
+    ],
+    ziprecruiter: [
+        '.job_details',
+        '#job_desc',
+    ],
+    monster: [
+        '[class*="job-view-wrapper"]',
+        '[data-testid*="svx-job-view-wrapper"]',
+    ],
+    careerbuilder: [
+        '.jdp-content',
+        '.job-details',
+    ],
+    dice: [
+        '#jobInformation',
+        '#jobdescSec',
+    ],
+    builtin: [
+        '.job-detail',
+        '#job-content',
+    ],
+    angellist: [
+        '.job-listing-content',
+        '[class*="styles_jobDetails"]',
+    ],
+};
+
+/**
  * Generic fallback selectors that work on many sites
  */
 const GENERIC_SELECTORS = [
@@ -394,5 +463,72 @@ function jobDescriptionParser(text, originUrl) {
     }
 
     consoleAlerts('Could not extract job description, returning full HTML');
+    return text;
+}
+
+/**
+ * Extract the FOCUSED job pane (title + meta + description) for the
+ * Track-this-Job flow. Returns a wider container than jobDescriptionParser
+ * so the AI classifier sees the actual job heading, not just the body.
+ *
+ * Falls back to jobDescriptionParser → full HTML when no known pane
+ * selector matches.
+ */
+function extractJobPane(text, originUrl) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(text, 'text/html');
+    const lower = (originUrl || '').toLowerCase();
+
+    // Find the best site config
+    let siteName = null;
+    if (originUrl) {
+        for (const [name, config] of Object.entries(JOB_SITE_PARSERS)) {
+            if (config.hostPatterns.some((p) => lower.includes(p))) {
+                siteName = name;
+                break;
+            }
+        }
+    }
+
+    // Try the wider pane selectors first
+    if (siteName && JOB_PANE_SELECTORS[siteName]) {
+        for (const selector of JOB_PANE_SELECTORS[siteName]) {
+            try {
+                const el = doc.querySelector(selector);
+                if (el && el.innerHTML.trim().length > 200) {
+                    consoleAlerts(`extractJobPane: pane via ${selector}`);
+                    // Return outerHTML so the heading + meta are preserved
+                    return el.outerHTML;
+                }
+            } catch (e) {
+                continue;
+            }
+        }
+    }
+
+    // Try JSON-LD JobPosting structured data — if present, return the
+    // raw script block plus the document title so the backend gets a
+    // perfect signal regardless of which container is wrapping things.
+    const jsonLdScripts = doc.querySelectorAll('script[type="application/ld+json"]');
+    for (const script of jsonLdScripts) {
+        try {
+            const data = JSON.parse(script.textContent);
+            const items = Array.isArray(data) ? data : [data];
+            const hasJobPosting = items.some((item) => item && item['@type'] === 'JobPosting');
+            if (hasJobPosting) {
+                consoleAlerts('extractJobPane: JSON-LD JobPosting found');
+                return script.outerHTML;
+            }
+        } catch (e) {
+            continue;
+        }
+    }
+
+    // Fall back to the description-only parser
+    const desc = jobDescriptionParser(text, originUrl);
+    if (desc && desc !== text) return desc;
+
+    // Last resort: full HTML (the backend will reject it as not-a-job
+    // if the AI can't find a single posting in there)
     return text;
 }

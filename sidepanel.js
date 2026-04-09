@@ -26,6 +26,23 @@ let currentJobUrl = null;
 let currentJobOriginalHtml = null; // raw page HTML for the extract API
 let trackedJob = null;             // { id, title, company, sourceUrl, ... }
 
+// New for the two-tab redesign
+let currentTab = 'now';
+let isPremium = false;
+let trackedJobsList = [];
+let detectedPageJob = null; // { title, company, location, sourceUrl } from content script
+let pipelineBusy = false;
+
+// Default user settings — persisted in chrome.storage.local under `settings`.
+const DEFAULT_SETTINGS = {
+  autoDetect: true,
+  autoScore: false,
+  autoTailor: false,   // PAID
+  wizardMode: false,
+  downloadFormat: 'pdf', // PAID for non-default values
+};
+let settings = { ...DEFAULT_SETTINGS };
+
 // ---- Bootstrapping --------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   // Wire login buttons immediately, before anything else can throw,
@@ -62,6 +79,605 @@ function wireLoginButtons() {
   });
 }
 
+// =====================================================================
+// Tabs
+// =====================================================================
+
+function switchTab(name) {
+  currentTab = name;
+  document.querySelectorAll('.tab-button').forEach((btn) => {
+    const active = btn.dataset.tab === name;
+    btn.classList.toggle('tab-active', active);
+    btn.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  document.querySelectorAll('.tab-pane').forEach((pane) => {
+    pane.classList.toggle('tab-pane-active', pane.id === `tab${cap(name)}`);
+  });
+}
+
+function cap(s) {
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// =====================================================================
+// Settings persistence
+// =====================================================================
+
+function loadSettings() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get('settings', (data) => {
+      settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
+      applySettingsToUI();
+      resolve(settings);
+    });
+  });
+}
+
+function saveSettings() {
+  chrome.storage.local.set({ settings });
+}
+
+function applySettingsToUI() {
+  const toggles = {
+    settingAutoDetect: 'autoDetect',
+    settingAutoScore: 'autoScore',
+    settingAutoTailor: 'autoTailor',
+    settingWizardMode: 'wizardMode',
+  };
+  for (const [id, key] of Object.entries(toggles)) {
+    const el = document.getElementById(id);
+    if (el) el.checked = !!settings[key];
+  }
+  const fmt = document.getElementById('settingDownloadFormat');
+  if (fmt) fmt.value = settings.downloadFormat || 'pdf';
+  applyWizardMode();
+}
+
+function applyWizardMode() {
+  const wizard = document.getElementById('wizardSection');
+  if (!wizard) return;
+  if (settings.wizardMode) wizard.classList.remove('hidden');
+  else wizard.classList.add('hidden');
+}
+
+// =====================================================================
+// Premium gating
+// =====================================================================
+
+async function loadPremiumState() {
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) {
+    setPremium(false);
+    return;
+  }
+
+  try {
+    const response = await fetch(userProfileUrl, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    });
+    if (!response.ok) {
+      setPremium(false);
+      return;
+    }
+    const data = await response.json();
+    const profile = data?.data || data;
+    setPremium(!!profile?.isPremium);
+  } catch (err) {
+    console.warn('[hired.video] loadPremiumState failed', err);
+    setPremium(false);
+  }
+}
+
+function setPremium(value) {
+  isPremium = !!value;
+  document.body.classList.toggle('premium-unlocked', isPremium);
+
+  // Unlock the gated controls when premium.
+  document.querySelectorAll('.settings-toggle-locked input[type="checkbox"]').forEach((el) => {
+    el.disabled = !isPremium;
+  });
+  document.querySelectorAll('.settings-locked').forEach((el) => {
+    el.disabled = !isPremium;
+  });
+}
+
+function openUpgradePage(e) {
+  if (e) e.preventDefault();
+  chrome.tabs.create({ url: buildWebUrl('/pricing') });
+}
+
+// =====================================================================
+// Active page banner & job detection
+// =====================================================================
+
+function handleJobDetected(payload) {
+  if (!payload || !payload.title) {
+    detectedPageJob = null;
+    showElement('noJobBanner');
+    hideElement('activePageBanner');
+    return;
+  }
+  detectedPageJob = payload;
+  document.getElementById('activePageTitle').textContent = payload.title;
+  const meta = [payload.company, payload.location].filter(Boolean).join(' • ');
+  document.getElementById('activePageMeta').textContent = meta;
+  hideElement('noJobBanner');
+  showElement('activePageBanner');
+  hideElement('quickStatus');
+
+  if (settings.autoTailor && isPremium) {
+    // Premium-only background tailoring.
+    runTailorAndSavePipeline({ track: true, silent: true }).catch((err) =>
+      console.warn('[hired.video] auto-tailor failed', err),
+    );
+  } else if (settings.autoScore) {
+    // Score now so the badge appears in the row instantly when the user clicks Tailor.
+    // (Implemented via the same fast pipeline but stopping after analyze.)
+    runScoreOnlyPipeline().catch((err) => console.warn('[hired.video] auto-score failed', err));
+  }
+}
+
+async function handleManualScan() {
+  const ok = await requireAuth();
+  if (!ok) return;
+  await capturePageHtml();
+  if (currentJobUrl) {
+    handleJobDetected({
+      title: 'Detected page',
+      company: '',
+      location: '',
+      sourceUrl: currentJobUrl,
+    });
+    showQuickStatus('Page scanned — click Tailor & Save to continue.', 'info');
+  }
+}
+
+function showQuickStatus(message, kind) {
+  const el = document.getElementById('quickStatus');
+  if (!el) return;
+  el.className = `alert alert-${kind || 'info'} mt-2`;
+  el.textContent = message;
+  el.classList.remove('hidden');
+}
+
+// =====================================================================
+// One-click Tailor & Save pipeline
+// =====================================================================
+
+/**
+ * The fast path. Runs extract → tailor → save-as-variation in one go,
+ * then surfaces the resulting variation in the tracked-jobs table.
+ *
+ * `options.track` — if false, the job is created on the public board
+ * but NOT bookmarked to the user (uses /api/jobs/extract?track=false).
+ * `options.silent` — for background auto-tailor; suppresses status alerts.
+ */
+async function runTailorAndSavePipeline(options = {}) {
+  const ok = await requireAuth();
+  if (!ok) return;
+  if (pipelineBusy) return;
+
+  if (!selectedResume) {
+    showQuickStatus('Select a resume in the Settings tab first.', 'error');
+    return;
+  }
+
+  pipelineBusy = true;
+  const track = options.track !== false;
+  if (!options.silent) showQuickStatus('Extracting job from page…', 'info');
+
+  try {
+    // 1. Capture page HTML
+    if (!currentJobHtml || !currentJobUrl) {
+      const captured = await capturePageHtml();
+      if (!captured) throw new Error('Could not read the current page.');
+    }
+
+    // 2. Extract via /api/jobs/extract (with or without tracking)
+    if (!options.silent) showQuickStatus('Tracking job…', 'info');
+    const jwtToken = await getJwtToken();
+    const jobPaneHtml = extractJobPane(currentJobOriginalHtml || '', currentJobUrl);
+    const extractResp = await fetch(`${jobsExtractUrl}?track=${track ? 'true' : 'false'}`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwtToken}`,
+      },
+      body: JSON.stringify({
+        url: currentJobUrl,
+        sourceUrl: currentJobUrl,
+        html: jobPaneHtml,
+        track,
+      }),
+    });
+
+    if (extractResp.status === 401) return handleTokenExpired();
+    if (extractResp.status === 422) {
+      const errData = await extractResp.json().catch(() => ({}));
+      showQuickStatus(
+        '⚠️ ' +
+          (errData.error?.message || 'This page does not look like a job posting.'),
+        'warning',
+      );
+      return;
+    }
+    if (!extractResp.ok) throw new Error('Job extraction failed');
+
+    const extractData = await extractResp.json();
+    const job = extractData?.data || extractData;
+    trackedJob = {
+      id: job.id,
+      title: job.title || 'Untitled job',
+      company: job.company || '',
+      location: job.location || '',
+      sourceUrl: currentJobUrl,
+    };
+    chrome.storage.local.set({ [trackedJobKey]: trackedJob });
+
+    // 3. Tailor against the just-tracked job (rehydrates server-side via jobId)
+    if (!options.silent) showQuickStatus('Tailoring resume…', 'info');
+    const tailorResp = await fetch(matchTailor, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwtToken}`,
+      },
+      body: JSON.stringify({
+        jobId: job.id,
+        resumeId: selectedResume.id,
+        sourceUrl: currentJobUrl,
+      }),
+    });
+
+    if (tailorResp.status === 401) return handleTokenExpired();
+    if (!tailorResp.ok) throw new Error('Tailor failed');
+
+    const tailorData = await tailorResp.json();
+    const tailored = tailorData?.data || tailorData?.result || tailorData;
+    generatedResumeData = tailored;
+
+    // 4. Save as variation under the master
+    if (!options.silent) showQuickStatus('Saving variation…', 'info');
+    const masterId =
+      selectedResume.isMaster || !selectedResume.parentId
+        ? selectedResume.id
+        : selectedResume.parentId;
+    const variationName = `${trackedJob.title}${trackedJob.company ? ' - ' + trackedJob.company : ''}`;
+    const saveResp = await fetch(buildResumeUrl(masterId, 'createvariation'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwtToken}`,
+      },
+      body: JSON.stringify({
+        name: variationName.slice(0, 200),
+        description: `Generated for ${trackedJob.title}`,
+        resumeData: tailored.markdownResume,
+        jobId: job.id,
+        sourceUrl: currentJobUrl,
+      }),
+    });
+
+    if (saveResp.status === 401) return handleTokenExpired();
+    if (!saveResp.ok) throw new Error('Save failed');
+
+    const saveData = await saveResp.json();
+    const saved = saveData?.data || saveData?.result || saveData;
+    generatedVariationId = saved?.id || null;
+
+    // 5. Refresh table + show success
+    showQuickStatus(
+      `✅ Tailored resume saved (new score ${formatScore(tailored.newScore || tailored.score || 0)}).`,
+      'success',
+    );
+    loadTrackedJobsTable();
+    loadMasterResumeGroups();
+  } catch (err) {
+    console.error('[hired.video] pipeline failed', err);
+    showQuickStatus(err.message || 'Something went wrong. Please try again.', 'error');
+  } finally {
+    pipelineBusy = false;
+  }
+}
+
+/**
+ * Auto-score variant — used by the autoScore setting. Runs extract +
+ * analyze without producing a tailored resume.
+ */
+async function runScoreOnlyPipeline() {
+  const jwtToken = await getJwtToken();
+  if (!jwtToken || !selectedResume || pipelineBusy) return;
+
+  if (!currentJobHtml || !currentJobUrl) {
+    const captured = await capturePageHtml();
+    if (!captured) return;
+  }
+
+  // Track the job (so we get a jobId), then analyze using rehydration.
+  const jobPaneHtml = extractJobPane(currentJobOriginalHtml || '', currentJobUrl);
+  const extractResp = await fetch(jobsExtractUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${jwtToken}`,
+    },
+    body: JSON.stringify({
+      url: currentJobUrl,
+      sourceUrl: currentJobUrl,
+      html: jobPaneHtml,
+    }),
+  });
+  if (!extractResp.ok) return;
+  const extractData = await extractResp.json();
+  const job = extractData?.data || extractData;
+  trackedJob = { id: job.id, title: job.title, company: job.company, sourceUrl: currentJobUrl };
+
+  await fetch(matchAnalyze, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${jwtToken}`,
+    },
+    body: JSON.stringify({ jobId: job.id, resumeId: selectedResume.id, sourceUrl: currentJobUrl }),
+  });
+  loadTrackedJobsTable();
+}
+
+// =====================================================================
+// Tracked jobs table
+// =====================================================================
+
+async function loadTrackedJobsTable() {
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) return;
+
+  showElement('trackedJobsLoading');
+  hideElement('trackedJobsEmpty');
+
+  try {
+    const response = await fetch(jobsSavedUrl, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    });
+    if (response.status === 401) return handleTokenExpired();
+    if (!response.ok) throw new Error('Failed to load tracked jobs');
+
+    const data = await response.json();
+    const items = data?.data?.items || data?.data || data?.items || data || [];
+    trackedJobsList = Array.isArray(items) ? items : [];
+    renderTrackedJobsTable();
+  } catch (err) {
+    console.error('loadTrackedJobsTable failed:', err);
+  } finally {
+    hideElement('trackedJobsLoading');
+  }
+}
+
+function renderTrackedJobsTable() {
+  const list = document.getElementById('trackedJobsList');
+  const badge = document.getElementById('trackedJobsCountBadge');
+  if (!list) return;
+
+  badge.textContent = String(trackedJobsList.length);
+
+  if (trackedJobsList.length === 0) {
+    list.innerHTML = '';
+    showElement('trackedJobsEmpty');
+    return;
+  }
+  hideElement('trackedJobsEmpty');
+
+  const rows = trackedJobsList.map((job) => {
+    const id = job.id || job.Id || '';
+    const title = escapeHtml(job.title || job.Title || 'Untitled job');
+    const meta = escapeHtml(
+      [job.company, job.location].filter(Boolean).join(' • ') || 'hired.video Community',
+    );
+    return `
+      <div class="tracked-job-row" data-job-id="${id}">
+        <div class="tracked-job-title">${title}</div>
+        <div class="tracked-job-meta">${meta}</div>
+        <div class="tracked-job-actions">
+          <button class="btn btn-outline" data-action="score" data-job-id="${id}">🎯 Score</button>
+          <button class="btn btn-primary" data-action="tailor" data-job-id="${id}">✨ Tailor</button>
+          <button class="btn btn-outline" data-action="download" data-job-id="${id}">⤓ Download</button>
+          <button class="btn btn-outline" data-action="open" data-job-id="${id}">↗ Open</button>
+        </div>
+      </div>
+    `;
+  });
+
+  list.innerHTML = rows.join('');
+
+  list.querySelectorAll('button[data-action]').forEach((btn) => {
+    btn.addEventListener('click', onTrackedJobAction);
+  });
+}
+
+async function onTrackedJobAction(event) {
+  const btn = event.currentTarget;
+  const action = btn.dataset.action;
+  const jobId = btn.dataset.jobId;
+  if (!jobId) return;
+
+  const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
+  if (!job) return;
+
+  switch (action) {
+    case 'score':
+      return rowScoreJob(jobId);
+    case 'tailor':
+      return rowTailorJob(jobId);
+    case 'download':
+      return rowDownloadResume(jobId);
+    case 'open':
+      chrome.tabs.create({ url: buildWebUrl(`/jobs/${jobId}`) });
+      return;
+  }
+}
+
+async function rowScoreJob(jobId) {
+  const ok = await requireAuth();
+  if (!ok || !selectedResume) {
+    showQuickStatus('Select a resume in Settings first.', 'error');
+    switchTab('settings');
+    return;
+  }
+  const jwtToken = await getJwtToken();
+  showQuickStatus('Scoring resume against job…', 'info');
+  try {
+    const resp = await fetch(matchAnalyze, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+      body: JSON.stringify({ jobId, resumeId: selectedResume.id }),
+    });
+    if (resp.status === 401) return handleTokenExpired();
+    if (!resp.ok) throw new Error('Score failed');
+    const data = await resp.json();
+    const result = data?.data || data;
+    showQuickStatus(`Score: ${formatScore(result.score || 0)}`, 'success');
+  } catch (err) {
+    showQuickStatus(err.message || 'Score failed.', 'error');
+  }
+}
+
+async function rowTailorJob(jobId) {
+  const ok = await requireAuth();
+  if (!ok || !selectedResume) {
+    showQuickStatus('Select a resume in Settings first.', 'error');
+    switchTab('settings');
+    return;
+  }
+  const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
+  if (!job) return;
+  // Reuse the fast pipeline but skip the extract step by pre-seeding state.
+  trackedJob = {
+    id: jobId,
+    title: job.title || 'Untitled job',
+    company: job.company || '',
+    location: job.location || '',
+    sourceUrl: job.sourceUrl || '',
+  };
+  pipelineBusy = true;
+  showQuickStatus('Tailoring resume…', 'info');
+  try {
+    const jwtToken = await getJwtToken();
+    const tailorResp = await fetch(matchTailor, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwtToken}`,
+      },
+      body: JSON.stringify({
+        jobId,
+        resumeId: selectedResume.id,
+      }),
+    });
+    if (tailorResp.status === 401) return handleTokenExpired();
+    if (!tailorResp.ok) throw new Error('Tailor failed');
+    const tailorData = await tailorResp.json();
+    const tailored = tailorData?.data || tailorData;
+    generatedResumeData = tailored;
+
+    const masterId =
+      selectedResume.isMaster || !selectedResume.parentId
+        ? selectedResume.id
+        : selectedResume.parentId;
+    const variationName = `${trackedJob.title}${trackedJob.company ? ' - ' + trackedJob.company : ''}`;
+    const saveResp = await fetch(buildResumeUrl(masterId, 'createvariation'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwtToken}`,
+      },
+      body: JSON.stringify({
+        name: variationName.slice(0, 200),
+        description: `Generated for ${trackedJob.title}`,
+        resumeData: tailored.markdownResume,
+        jobId,
+        sourceUrl: job.sourceUrl,
+      }),
+    });
+    if (saveResp.ok) {
+      const saveData = await saveResp.json();
+      generatedVariationId = (saveData?.data || saveData)?.id || null;
+    }
+
+    showQuickStatus(
+      `✅ Tailored variation saved (new score ${formatScore(tailored.newScore || tailored.score || 0)}).`,
+      'success',
+    );
+    loadMasterResumeGroups();
+  } catch (err) {
+    showQuickStatus(err.message || 'Tailor failed.', 'error');
+  } finally {
+    pipelineBusy = false;
+  }
+}
+
+async function rowDownloadResume(jobId) {
+  const ok = await requireAuth();
+  if (!ok) return;
+
+  const format = isPremium ? settings.downloadFormat || 'pdf' : 'pdf';
+
+  // Prefer the variation that was tailored for THIS job. We don't have a
+  // jobId column on resumes, so we match heuristically:
+  //   1. If the most-recently-saved variation in this session matches
+  //      this row, use generatedVariationId.
+  //   2. Otherwise scan resumeGroups for a variation whose name or
+  //      description references this job's title or sourceUrl.
+  //   3. Otherwise fall back to the currently-selected resume.
+  const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
+  let resumeIdToDownload = null;
+
+  if (
+    generatedVariationId &&
+    trackedJob &&
+    trackedJob.id === jobId
+  ) {
+    resumeIdToDownload = generatedVariationId;
+  } else if (job) {
+    const titleNeedle = (job.title || '').toLowerCase();
+    const urlNeedle = (job.sourceUrl || '').toLowerCase();
+    outer: for (const group of resumeGroups) {
+      for (const v of group.variations || []) {
+        const haystack = `${v.name || ''} ${v.description || ''}`.toLowerCase();
+        if (
+          (titleNeedle && haystack.includes(titleNeedle)) ||
+          (urlNeedle && haystack.includes(urlNeedle))
+        ) {
+          resumeIdToDownload = v.id;
+          break outer;
+        }
+      }
+    }
+  }
+
+  if (!resumeIdToDownload) {
+    if (!selectedResume) {
+      showQuickStatus(
+        'No tailored variation found for this job yet. Click ✨ Tailor first, then Download.',
+        'warning',
+      );
+      return;
+    }
+    resumeIdToDownload = selectedResume.id;
+  }
+
+  // handleDownload reads generatedVariationId and selectedResume.id;
+  // temporarily override generatedVariationId so the existing download
+  // helper picks the row's variation without us having to fork it.
+  const previous = generatedVariationId;
+  generatedVariationId = resumeIdToDownload;
+  try {
+    await handleDownload(format);
+  } finally {
+    generatedVariationId = previous;
+  }
+}
+
 /**
  * Listen for URL changes from the content script — clear stale state
  * when the user navigates to a new page (handles SPA navigation too).
@@ -75,8 +691,20 @@ function setupUrlChangeListener() {
       currentJobOriginalHtml = null;
       trackedJob = null;
       generatedVariationId = null;
+      detectedPageJob = null;
       hideElement('currentJobDisplay');
+      hideElement('activePageBanner');
+      showElement('noJobBanner');
+      hideElement('quickStatus');
       clearPreviousResults();
+    }
+    if (message.action === 'jobDetected') {
+      // Content script saw a JSON-LD JobPosting (or matched selector)
+      // on the active tab. Surface the active-page banner if the
+      // user has auto-detect enabled.
+      if (settings.autoDetect !== false) {
+        handleJobDetected(message.payload || message);
+      }
     }
     return true;
   });
@@ -170,9 +798,11 @@ function initializeApp() {
       renderTrackedJob();
     }
 
+    loadSettings();
     loadMasterResumeGroups();
-    loadTrackedJobCount();
+    loadTrackedJobsTable();
     loadCurrentUser();
+    loadPremiumState();
   });
 }
 
@@ -184,7 +814,48 @@ function showSignedOutState() {
   showElement('resumeListEmptyHint');
   hideElement('resumeSelectionContainer');
   hideElement('selectedResumeDisplay');
-  document.getElementById('trackedJobCount').textContent = '—';
+  hideElement('activePageBanner');
+  showElement('noJobBanner');
+
+  trackedJobsList = [];
+  renderTrackedJobsTable();
+  setPremium(false);
+
+  const stripName = document.getElementById('resumeStripName');
+  if (stripName) stripName.textContent = '—';
+
+  const oldBadge = document.getElementById('trackedJobCount');
+  if (oldBadge) oldBadge.textContent = '—';
+
+  // Clear any leftover signed-in UI state. Without this the previously-
+  // tracked job, eval scores, generated resume preview, and profile name
+  // all stay visible after signOut / token expiry — leaking the prior
+  // session into the signed-out state.
+  trackedJob = null;
+  generatedResumeData = null;
+  generatedVariationId = null;
+  currentJobHtml = null;
+  currentJobUrl = null;
+  currentJobOriginalHtml = null;
+
+  hideElement('currentJobDisplay');
+  hideElement('trackJobError');
+  hideElement('trackJobLoading');
+  document.getElementById('currentJobTitle').textContent = '';
+  document.getElementById('currentJobMeta').textContent = '';
+  const link = document.getElementById('currentJobLink');
+  link.textContent = '';
+  link.href = '#';
+
+  clearPreviousResults();
+
+  // Reset the profile chip placeholders so a future sign-in doesn't
+  // momentarily flash the previous user's name/email.
+  const nameEl = document.getElementById('profileName');
+  const emailEl = document.getElementById('profileEmail');
+  if (nameEl) nameEl.textContent = 'Signed in';
+  if (emailEl) emailEl.textContent = '';
+
   setupLoginButton();
 }
 
@@ -260,8 +931,72 @@ function setupEventListeners() {
     if (el) el['on' + evt] = handler;
   };
 
+  // ---- Tab strip ----
+  document.querySelectorAll('.tab-button').forEach((btn) => {
+    btn.onclick = () => switchTab(btn.dataset.tab);
+  });
+
+  // ---- Now tab: active page banner & no-job state ----
+  bind('quickTailorButton', gate(() => runTailorAndSavePipeline({ track: true })));
+  bind('quickTrackButton', gate(handleTrackJob));
+  bind('manualScanButton', gate(handleManualScan));
+  bind('refreshJobsButton', gate(loadTrackedJobsTable));
+  bind('openWizardButton', () => {
+    settings.wizardMode = true;
+    saveSettings();
+    applySettingsToUI();
+  });
+  bind('exitWizardButton', () => {
+    settings.wizardMode = false;
+    saveSettings();
+    applySettingsToUI();
+  });
+
+  // ---- Settings tab: toggles ----
+  const wireSetting = (id, key) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.onchange = () => {
+      // Premium-gated toggle: snap back if user isn't premium.
+      if (el.closest('.settings-toggle-locked') && !isPremium) {
+        el.checked = false;
+        openUpgradePage();
+        return;
+      }
+      settings[key] = el.checked;
+      saveSettings();
+      if (key === 'wizardMode') applyWizardMode();
+    };
+  };
+  wireSetting('settingAutoDetect', 'autoDetect');
+  wireSetting('settingAutoScore', 'autoScore');
+  wireSetting('settingAutoTailor', 'autoTailor');
+  wireSetting('settingWizardMode', 'wizardMode');
+
+  const fmt = document.getElementById('settingDownloadFormat');
+  if (fmt) {
+    fmt.onchange = () => {
+      if (!isPremium) {
+        fmt.value = 'pdf';
+        openUpgradePage();
+        return;
+      }
+      settings.downloadFormat = fmt.value;
+      saveSettings();
+    };
+    fmt.onclick = () => {
+      if (!isPremium) openUpgradePage();
+    };
+  }
+
+  bind('upgradeButton', openUpgradePage);
+
+  // ---- Resume manager (Settings tab) ----
   bind('refreshResumesButton', gate(loadMasterResumeGroups));
-  bind('changeResumeButton', showResumeSelection);
+  bind('changeResumeButton', () => {
+    switchTab('settings');
+    showResumeSelection();
+  });
   bind('uploadResumeButton', gate(() => document.getElementById('uploadResumeInput').click()));
   bind('uploadResumeInput', handleResumeUpload, 'change');
   bind('signOutButton', handleSignOut);
@@ -492,7 +1227,15 @@ function selectResume(resume) {
   selectedResume = resume;
   chrome.storage.local.set({ [selectedResumeKey]: resume });
 
-  document.getElementById('selectedResumeName').textContent = resume.name || resume.title || 'Untitled Resume';
+  const displayName = resume.name || resume.title || 'Untitled Resume';
+  document.getElementById('selectedResumeName').textContent = displayName;
+
+  // Mirror the selection into the compact "Now" tab strip.
+  const strip = document.getElementById('resumeStripName');
+  if (strip) {
+    const badgeText = resume.isMaster ? ' (Master)' : '';
+    strip.textContent = displayName + badgeText;
+  }
 
   const badge = document.getElementById('selectedResumeBadge');
   if (resume.isMaster) {
@@ -659,6 +1402,10 @@ async function handleTrackJob() {
     currentJobOriginalHtml = pageData.html;
     currentJobUrl = pageData.originUrl;
     currentJobHtml = jobDescriptionParser(pageData.html, pageData.originUrl);
+    // Wider container that includes the job title/meta — used as the
+    // payload for /api/jobs/extract so the AI doesn't get confused
+    // between the focused job and the surrounding job board.
+    const jobPaneHtml = extractJobPane(pageData.html, pageData.originUrl);
 
     const response = await fetch(jobsExtractUrl, {
       method: 'POST',
@@ -669,7 +1416,7 @@ async function handleTrackJob() {
       body: JSON.stringify({
         url: currentJobUrl,
         sourceUrl: currentJobUrl,
-        html: currentJobOriginalHtml || currentJobHtml,
+        html: jobPaneHtml,
       }),
     });
 

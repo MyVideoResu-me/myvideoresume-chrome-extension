@@ -178,6 +178,12 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return false;
   }
 
+  // ---- Job-detected forwarding (auto-detect content-script signal) -
+  if (request.action === 'jobDetected') {
+    chrome.runtime.sendMessage(request).catch(() => {});
+    return false;
+  }
+
   // ---- Page HTML retrieval -----------------------------------------
   if (request.action === 'getHTML') {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {
