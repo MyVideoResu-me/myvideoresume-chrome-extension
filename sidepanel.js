@@ -64,6 +64,14 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeApp();
   setupUrlChangeListener();
   setupAuthSyncListener();
+
+  // Re-check premium status when the side panel regains visibility
+  // (e.g. user returns from the pricing/upgrade page in another tab).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      loadPremiumState();
+    }
+  });
 });
 
 /**
@@ -349,10 +357,12 @@ async function runTailorAndSavePipeline(options = {}) {
         sourceUrl: currentJobUrl,
         html: jobPaneHtml,
         track,
+        force: !!options._force,
       }),
     });
 
     if (extractResp.status === 401) return handleTokenExpired();
+    if (await check429(extractResp, 'quickStatus')) return;
     if (extractResp.status === 422) {
       const errData = await extractResp.json().catch(() => ({}));
       showQuickStatus(
@@ -365,7 +375,37 @@ async function runTailorAndSavePipeline(options = {}) {
     if (!extractResp.ok) throw new Error('Job extraction failed');
 
     const extractData = await extractResp.json();
-    const job = extractData?.data || extractData;
+    const jobPayload = extractData?.data || extractData;
+
+    // ---- Dedup: handle duplicate_candidates response ----
+    if (jobPayload.duplicate_candidates && Array.isArray(jobPayload.duplicate_candidates)) {
+      if (!options.silent) {
+        pipelineBusy = false;
+        showDedupModal(
+          jobPayload.duplicate_candidates,
+          // "Use existing" — bookmark the selected candidate and continue pipeline with it.
+          (candidate) => {
+            trackedJob = {
+              id: candidate.id,
+              title: candidate.title || 'Untitled job',
+              company: candidate.company || '',
+              location: candidate.location || '',
+              sourceUrl: candidate.sourceUrl || currentJobUrl,
+            };
+            chrome.storage.local.set({ [trackedJobKey]: trackedJob });
+            // Continue the pipeline from the tailor step.
+            continuePipelineFromTailor(jwtToken, candidate.id, options);
+          },
+          // "Track as new" — re-submit with force=true to skip dedup.
+          () => {
+            runTailorAndSavePipeline({ ...options, _force: true });
+          },
+        );
+      }
+      return;
+    }
+
+    const job = jobPayload;
     trackedJob = {
       id: job.id,
       title: job.title || 'Untitled job',
@@ -391,6 +431,7 @@ async function runTailorAndSavePipeline(options = {}) {
     });
 
     if (tailorResp.status === 401) return handleTokenExpired();
+    if (await check429(tailorResp, 'quickStatus')) return;
     if (!tailorResp.ok) throw new Error('Tailor failed');
 
     const tailorData = await tailorResp.json();
@@ -446,6 +487,66 @@ async function runTailorAndSavePipeline(options = {}) {
   } catch (err) {
     console.error('[hired.video] pipeline failed', err);
     showQuickStatus(err.message || 'Something went wrong. Please try again.', 'error');
+  } finally {
+    pipelineBusy = false;
+  }
+}
+
+/**
+ * Continue the fast pipeline from Step 3 (tailor) onward, skipping
+ * extract. Used when the dedup modal's "Use existing" button picks an
+ * already-tracked job — we just need to tailor + save the variation.
+ */
+async function continuePipelineFromTailor(jwtToken, jobId, options = {}) {
+  pipelineBusy = true;
+  try {
+    if (!options.silent) showQuickStatus('Tailoring resume…', 'info');
+    const tailorResp = await fetch(matchTailor, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+      body: JSON.stringify({ jobId, resumeId: selectedResume.id, sourceUrl: currentJobUrl }),
+    });
+    if (tailorResp.status === 401) return handleTokenExpired();
+    if (await check429(tailorResp, 'quickStatus')) return;
+    if (!tailorResp.ok) throw new Error('Tailor failed');
+
+    const tailorData = await tailorResp.json();
+    const tailored = tailorData?.data || tailorData?.result || tailorData;
+    generatedResumeData = tailored;
+
+    if (!options.silent) showQuickStatus('Saving variation…', 'info');
+    const masterId = selectedResume.isMaster || !selectedResume.parentId ? selectedResume.id : selectedResume.parentId;
+    const variationName = `${trackedJob.title}${trackedJob.company ? ' - ' + trackedJob.company : ''}`;
+    const saveResp = await fetch(buildResumeUrl(masterId, 'createvariation'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+      body: JSON.stringify({
+        name: variationName.slice(0, 200),
+        description: `Generated for ${trackedJob.title}`,
+        resumeData: tailored.markdownResume,
+        jobId,
+        sourceUrl: currentJobUrl,
+      }),
+    });
+    if (saveResp.ok) {
+      const saveData = await saveResp.json();
+      generatedVariationId = (saveData?.data || saveData)?.id || null;
+      if (generatedVariationId && jobId) {
+        const newScore = tailored.newScore ?? tailored.score ?? null;
+        saveJobTailoring(jobId, generatedVariationId, masterId, newScore);
+        if (newScore != null) saveJobScore(jobId, newScore, tailored.summaryRecommendations || '');
+      }
+    }
+
+    showQuickStatus(
+      `✅ Tailored resume saved (new score ${formatScore(tailored.newScore || tailored.score || 0)}).`,
+      'success',
+    );
+    loadTrackedJobsTable();
+    loadMasterResumeGroups();
+  } catch (err) {
+    console.error('[hired.video] continuePipelineFromTailor failed', err);
+    showQuickStatus(err.message || 'Something went wrong.', 'error');
   } finally {
     pipelineBusy = false;
   }
@@ -715,6 +816,7 @@ async function rowScoreJob(jobId) {
       body: JSON.stringify({ jobId, resumeId: selectedResume.id }),
     });
     if (resp.status === 401) return handleTokenExpired();
+    if (await check429(resp, 'quickStatus')) return;
     if (!resp.ok) throw new Error('Score failed');
     const data = await resp.json();
     const result = data?.data || data?.result || data;
@@ -773,6 +875,7 @@ async function rowTailorJob(jobId) {
       }),
     });
     if (tailorResp.status === 401) return handleTokenExpired();
+    if (await check429(tailorResp, 'quickStatus')) return;
     if (!tailorResp.ok) throw new Error('Tailor failed');
     const tailorData = await tailorResp.json();
     const tailored = tailorData?.data || tailorData;
@@ -925,6 +1028,8 @@ function setupAuthSyncListener() {
   chrome.runtime.onMessage.addListener((message) => {
     if (message.action === 'authStateChanged') {
       // Re-bootstrap to pick up the new token (or absence of one).
+      // initializeApp will call loadPremiumState which refreshes the
+      // upgrade CTA / locked toggles / body class.
       initializeApp();
     }
     return false;
@@ -1019,6 +1124,7 @@ function initializeApp() {
 function showSignedOutState() {
   showElement('signedOutBanner');
   hideElement('profileCard');
+  hideElement('headerUpgradeButton');
   showElement('resumeListEmptyHint');
   hideElement('resumeSelectionContainer');
   hideElement('selectedResumeDisplay');
@@ -1071,6 +1177,10 @@ function showSignedInState() {
   hideElement('signedOutBanner');
   showElement('profileCard');
   hideElement('resumeListEmptyHint');
+  // The header upgrade button is controlled by the `premium-unlocked`
+  // body class (CSS hides it when premium). For signed-in free users
+  // we show it explicitly.
+  if (!isPremium) showElement('headerUpgradeButton');
 }
 
 /**
@@ -1199,6 +1309,7 @@ function setupEventListeners() {
   }
 
   bind('upgradeButton', openUpgradePage);
+  bind('headerUpgradeButton', openUpgradePage);
 
   const webSettingsLink = document.getElementById('openWebSettingsLink');
   if (webSettingsLink) {
@@ -1243,6 +1354,11 @@ function setupEventListeners() {
   bind('cancelModalButton', hideModal);
   bind('confirmSaveButton', handleModalSave);
 
+  // Dedup modal
+  bind('closeDedupModal', hideDedupModal);
+  bind('dedupUseExisting', handleDedupUseExisting);
+  bind('dedupTrackNew', handleDedupTrackNew);
+
   const dashboardLink = document.getElementById('openJobsDashboard');
   if (dashboardLink) {
     dashboardLink.onclick = (e) => {
@@ -1274,11 +1390,77 @@ async function loadCurrentUser() {
 
     const nameEl = document.getElementById('profileName');
     const emailEl = document.getElementById('profileEmail');
+    const roleEl = document.getElementById('profileRole');
     if (nameEl) nameEl.textContent = user.name || user.email || 'Signed in';
     if (emailEl) emailEl.textContent = user.email || '';
+
+    // Role badge
+    if (roleEl && user.role) {
+      const role = (user.role || '').toString();
+      roleEl.textContent = role;
+      roleEl.classList.remove('hidden', 'role-premium', 'role-admin', 'role-superadmin');
+      const lower = role.toLowerCase();
+      if (lower === 'premium' || lower === 'pro') roleEl.classList.add('role-premium');
+      else if (lower === 'superadmin') roleEl.classList.add('role-superadmin');
+      else if (lower === 'admin') roleEl.classList.add('role-admin');
+    }
   } catch (err) {
     console.error('loadCurrentUser failed:', err);
   }
+}
+
+/**
+ * Quick check: if the fetch response is a 429 (usage-limit), parse
+ * the body and render the upgrade CTA into `targetId`. Returns true
+ * when handled (so the caller can early-return), false otherwise.
+ *
+ * Usage:  `if (await check429(resp, 'quickStatus')) return;`
+ */
+async function check429(response, targetId) {
+  if (response.status !== 429) return false;
+  try {
+    const data = await response.json();
+    return handleUsageLimitResponse(data, targetId);
+  } catch {
+    showQuickStatus('Rate limit reached. Please wait and try again.', 'warning');
+    return true;
+  }
+}
+
+/**
+ * Generic handler for 429 USAGE_LIMIT_EXCEEDED. Renders a usage
+ * bar + upgrade CTA into any target container. Returns true if
+ * the response was a 429, so the caller can early-return.
+ */
+function handleUsageLimitResponse(responseData, targetId) {
+  const err = responseData?.error;
+  if (err?.code !== 'USAGE_LIMIT_EXCEEDED') return false;
+
+  const used = err?.usage?.used ?? 0;
+  const limit = err?.usage?.limit ?? 10;
+  const pct = Math.min(100, Math.round((used / Math.max(limit, 1)) * 100));
+  const upgradeUrl = buildWebUrl(err.upgradeUrl || '/pricing');
+
+  const container = document.getElementById(targetId);
+  if (!container) return true;
+
+  container.innerHTML = `
+    <div class="usage-limit-alert">
+      <strong>⚠️ Free plan limit reached</strong>
+      ${escapeHtml(err.message || 'Upgrade to keep using AI features.')}
+      <div class="usage-limit-bar">
+        <div class="usage-limit-bar-fill" style="width:${pct}%"></div>
+      </div>
+      <div class="text-xs text-muted">${used} / ${limit} requests used this month</div>
+      <button class="btn btn-primary usage-limit-upgrade" data-url="${escapeHtml(upgradeUrl)}">⭐ Upgrade to Pro</button>
+    </div>
+  `;
+  container.classList.remove('hidden');
+
+  container.querySelector('.usage-limit-upgrade')?.addEventListener('click', () => {
+    chrome.tabs.create({ url: upgradeUrl });
+  });
+  return true;
 }
 
 async function handleSignOut() {
@@ -1745,6 +1927,7 @@ async function handleScoreEvaluate() {
     });
 
     if (response.status === 401) return handleTokenExpired();
+    if (await check429(response, 'evalRecommendations')) { showElement('evalRecommendations'); return; }
     if (response.status === 404) return handleApiNotFound('evalRecommendations');
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -1871,6 +2054,7 @@ async function handleTailorGenerate() {
     });
 
     if (response.status === 401) return handleTokenExpired();
+    if (await check429(response, 'custom')) return;
     if (response.status === 404) return handleApiNotFound('custom');
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -2146,6 +2330,64 @@ function handleModalSave() {
   document.getElementById('variationName').value = document.getElementById('modalVariationName').value;
   hideModal();
   handleSaveVariation();
+}
+
+// =====================================================================
+// Dedup modal — "Similar job already tracked" prompt
+// =====================================================================
+
+let dedupCallbackUseExisting = null;
+let dedupCallbackTrackNew = null;
+let dedupSelectedCandidate = null;
+
+function showDedupModal(candidates, onUseExisting, onTrackNew) {
+  const list = document.getElementById('dedupCandidatesList');
+  if (!list) return;
+
+  dedupCallbackUseExisting = onUseExisting;
+  dedupCallbackTrackNew = onTrackNew;
+  dedupSelectedCandidate = candidates[0] || null;
+
+  list.innerHTML = candidates
+    .map(
+      (c, i) => `
+    <div class="dedup-candidate ${i === 0 ? 'dedup-selected' : ''}" data-idx="${i}">
+      <div class="dedup-candidate-title">${escapeHtml(c.title || 'Untitled job')}</div>
+      <div class="dedup-candidate-meta">${escapeHtml([c.company, c.location].filter(Boolean).join(' • '))}</div>
+    </div>
+  `,
+    )
+    .join('');
+
+  list.querySelectorAll('.dedup-candidate').forEach((el) => {
+    el.addEventListener('click', () => {
+      list.querySelectorAll('.dedup-candidate').forEach((e) => e.classList.remove('dedup-selected'));
+      el.classList.add('dedup-selected');
+      dedupSelectedCandidate = candidates[Number(el.dataset.idx)] || null;
+    });
+  });
+
+  showElement('dedupModal');
+}
+
+function hideDedupModal() {
+  hideElement('dedupModal');
+  dedupCallbackUseExisting = null;
+  dedupCallbackTrackNew = null;
+  dedupSelectedCandidate = null;
+}
+
+function handleDedupUseExisting() {
+  const cb = dedupCallbackUseExisting;
+  const candidate = dedupSelectedCandidate;
+  hideDedupModal();
+  if (cb && candidate) cb(candidate);
+}
+
+function handleDedupTrackNew() {
+  const cb = dedupCallbackTrackNew;
+  hideDedupModal();
+  if (cb) cb();
 }
 
 // =====================================================================
