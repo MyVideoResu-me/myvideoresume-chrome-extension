@@ -1,0 +1,16 @@
+{
+  "name": "hiredvideo-chrome-extension",
+  "private": true,
+  "version": "2.0.0",
+  "description": "Chrome extension for the hired.video platform.",
+  "scripts": {
+    "dev": "web-ext run --config=web-ext-config.cjs --target=chromium",
+    "lint": "web-ext lint --config=web-ext-config.cjs",
+    "build": "web-ext build --config=web-ext-config.cjs --overwrite-dest",
+    "build:icons": "node scripts/build-icons.cjs"
+  },
+  "devDependencies": {
+    "sharp": "^0.34.5",
+    "web-ext": "^10.1.0"
+  }
+}

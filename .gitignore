@@ -402,3 +402,7 @@ FodyWeavers.xsd
 /MyVideoResume.AI/models/Phi-3-mini-4k-instruct-onnx
 /Server/appsettings.Development.json
 /MyVideoResume.API/appsettings.Development.json
+
+# web-ext (Mozilla extension dev tool)
+.web-ext-profile/
+web-ext-artifacts/

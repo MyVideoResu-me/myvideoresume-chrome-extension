@@ -1,5 +1,12 @@
+/**
+ * hired.video Chrome Extension - Configuration
+ * All backend endpoint definitions, runtime config, and the job-site
+ * scraping rules used by the content script & side panel.
+ */
+
 const jwtTokenKey = 'jwtToken';
 const selectedResumeKey = 'selectedResumeId';
+const trackedJobKey = 'currentTrackedJob';
 const isDevelopment = false;
 const showConsoleAlerts = false;
 
@@ -9,43 +16,89 @@ const showConsoleAlerts = false;
 const apiBaseDev = 'http://localhost:5000';
 const apiBaseProd = 'https://api.hired.video';
 
-// Auth Endpoints
-const loginDev = `${apiBaseDev}/api/auth/login`;
-const loginProd = `${apiBaseProd}/api/auth/login`;
+// Web App Base URLs (used to delegate login flows that the extension
+// itself can't host — OAuth, magic link, 2FA, etc.)
+const webBaseDev = 'http://localhost:3000';
+const webBaseProd = 'https://app.hired.video';
 
-// Match API Endpoints — LLM-powered job ↔ resume analysis
-const matchAnalyzeDev = `${apiBaseDev}/api/match/analyze`;
-const matchAnalyzeProd = `${apiBaseProd}/api/match/analyze`;
-const matchTailorDev = `${apiBaseDev}/api/match/tailor`;
-const matchTailorProd = `${apiBaseProd}/api/match/tailor`;
+// ---- Endpoint paths (relative — joined onto apiBase at runtime) ----
 
-// Resume API Endpoints
-// Note: TS API uses lowercase routes (/api/resume/mastergroups not /api/Resume/masterGroups)
-const masterResumeGroupsDev = `${apiBaseDev}/api/resume/mastergroups`;
-const masterResumeGroupsProd = `${apiBaseProd}/api/resume/mastergroups`;
-const resumeBaseDev = `${apiBaseDev}/api/resume`; // + /{id}/createvariation or /{id}/export
-const resumeBaseProd = `${apiBaseProd}/api/resume`;
+const PATHS = {
+  // Auth
+  login: '/api/auth/login',
+  register: '/api/auth/register',
+  logout: '/api/auth/logout',
+  me: '/api/auth/me',
+  refresh: '/api/auth/refresh',
+  magicLink: '/api/auth/magic-link',
+  // OAuth start: append the provider, e.g. /api/auth/oauth/google
+  oauthStart: '/api/auth/oauth',
 
-// Active endpoints (updated by updateConfiguration)
+  // Match (job <-> resume scoring + tailoring)
+  matchAnalyze: '/api/match/analyze',
+  matchTailor: '/api/match/tailor',
+
+  // Resumes
+  resumes: '/api/resumes',
+  resumeMasterGroups: '/api/resumes/mastergroups',
+  resumeParse: '/api/resumes/parse',
+  resumeCreateFromFile: '/api/resumes/createfromfile',
+  // Per-resume actions append the id and verb: /api/resumes/{id}/{action}
+  resumeBase: '/api/resumes',
+
+  // Jobs
+  jobs: '/api/jobs',
+  jobsExtract: '/api/jobs/extract',
+  jobsSaved: '/api/jobs/saved',
+  // Per-job actions append the id and verb
+  jobBase: '/api/jobs',
+
+  // User profile + billing
+  userProfile: '/api/users/profile',
+  billingSubscription: '/api/billing/subscription',
+};
+
+// Active endpoints — populated by updateConfiguration() at startup.
 let apiBase = apiBaseDev;
-let login = loginDev;
-let matchAnalyze = matchAnalyzeDev;
-let matchTailor = matchTailorDev;
-let masterResumeGroups = masterResumeGroupsDev;
-let resumeBase = resumeBaseDev;
+let webBase = webBaseDev;
+let login;
+let matchAnalyze;
+let matchTailor;
+let masterResumeGroups;
+let resumeBase;
+let resumesBase;
+let resumeParseUrl;
+let resumeCreateFromFileUrl;
+let jobsBase;
+let jobsExtractUrl;
+let jobsSavedUrl;
+let userProfileUrl;
+let meUrl;
+let magicLinkUrl;
+let oauthStartUrl;
 
 function updateConfiguration() {
-    if (!isDevelopment) {
-        apiBase = apiBaseProd;
-        login = loginProd;
-        matchAnalyze = matchAnalyzeProd;
-        matchTailor = matchTailorProd;
-        masterResumeGroups = masterResumeGroupsProd;
-        resumeBase = resumeBaseProd;
-    }
+    apiBase = isDevelopment ? apiBaseDev : apiBaseProd;
+    webBase = isDevelopment ? webBaseDev : webBaseProd;
+
+    login = apiBase + PATHS.login;
+    matchAnalyze = apiBase + PATHS.matchAnalyze;
+    matchTailor = apiBase + PATHS.matchTailor;
+    masterResumeGroups = apiBase + PATHS.resumeMasterGroups;
+    resumeBase = apiBase + PATHS.resumeBase;
+    resumesBase = apiBase + PATHS.resumes;
+    resumeParseUrl = apiBase + PATHS.resumeParse;
+    resumeCreateFromFileUrl = apiBase + PATHS.resumeCreateFromFile;
+    jobsBase = apiBase + PATHS.jobBase;
+    jobsExtractUrl = apiBase + PATHS.jobsExtract;
+    jobsSavedUrl = apiBase + PATHS.jobsSaved;
+    userProfileUrl = apiBase + PATHS.userProfile;
+    meUrl = apiBase + PATHS.me;
+    magicLinkUrl = apiBase + PATHS.magicLink;
+    oauthStartUrl = apiBase + PATHS.oauthStart;
 }
 
-// Helper function to build Resume API URLs
+// Helper: build /api/resumes/{id}/{action}?{queryParams}
 function buildResumeUrl(resumeId, action, queryParams = '') {
     let url = `${resumeBase}/${resumeId}/${action}`;
     if (queryParams) {
@@ -54,9 +107,22 @@ function buildResumeUrl(resumeId, action, queryParams = '') {
     return url;
 }
 
+// Helper: build /api/jobs/{id}/{action}
+function buildJobUrl(jobId, action = '') {
+    let url = `${jobsBase}/${jobId}`;
+    if (action) {
+        url += `/${action}`;
+    }
+    return url;
+}
+
+// Helper: build the web-app URL for an authed deep link
+function buildWebUrl(path = '/') {
+    return webBase + path;
+}
+
 function consoleAlerts(text) {
     if (isDevelopment || showConsoleAlerts) {
-        alert(text);
         console.log(text);
     }
 }

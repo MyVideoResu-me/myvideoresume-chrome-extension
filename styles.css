@@ -1,4 +1,4 @@
-/* MyVideoResume Chrome Extension Styles
+/* hired.video Chrome Extension Styles
    Matching frontend branding: Primary Purple #7C3AED, Brand Blue #3B82F6 */
 
 :root {
@@ -643,4 +643,100 @@ button, .btn {
 
 .actions-row .btn {
   margin-top: 0;
+}
+
+/* Profile chip */
+.profile-card .profile-name {
+  font-weight: 600;
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.profile-card .profile-email {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+}
+
+/* Stats card (tracked job count) */
+.stats-card .stats-label {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stats-card .stats-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.1;
+}
+
+/* Tracked job summary block */
+.job-summary {
+  padding: 10px 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.job-summary-title {
+  font-weight: 600;
+  color: var(--foreground);
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.job-summary-meta {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+  margin-bottom: 4px;
+}
+
+/* Resume row inline action button */
+.resume-card .resume-card-actions {
+  display: flex;
+  gap: 4px;
+  margin-top: 6px;
+}
+
+.resume-card .btn-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.resume-card .btn-link:hover {
+  text-decoration: underline;
+}
+
+/* Footer brand mark */
+.brand-footer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--foreground-secondary);
+}
+
+.brand-footer .brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.brand-footer .brand-link:hover .brand-name {
+  text-decoration: underline;
+}
+
+.brand-footer .brand-mark {
+  display: block;
+  border-radius: 4px;
 }

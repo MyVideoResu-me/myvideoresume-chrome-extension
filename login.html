@@ -10,42 +10,67 @@
 
 <body>
   <div class="card">
-    <h3>🔐 Login to hired.video</h3>
-    <p class="text-sm text-muted mb-3">Sign in to access your resumes and job tracking features</p>
+    <h3>🔐 Sign in to hired.video</h3>
+    <p class="text-sm text-muted mb-3">All hired.video sign-in methods work — including Google, LinkedIn, GitHub, magic link, and 2FA.</p>
 
-    <form id="loginForm">
-      <div class="mb-3">
-        <label for="userId" class="form-label">Email</label>
-        <input type="email" id="userId" required class="form-control" placeholder="your@email.com" autocomplete="email" />
-      </div>
+    <button id="signInWithWeb" class="btn btn-primary">Continue in browser</button>
+    <p id="webAuthHint" class="text-xs text-muted mt-2 hidden">
+      A new tab is open at hired.video. Sign in there using any method
+      you like — this extension will pick up your session automatically.
+    </p>
 
-      <div class="mb-3">
-        <label for="password" class="form-label">Password</label>
-        <input type="password" id="password" required class="form-control" placeholder="••••••••" autocomplete="current-password" />
-      </div>
+    <div class="section-divider"></div>
 
-      <div id="loginError" class="alert alert-error hidden"></div>
+    <details>
+      <summary class="text-sm">Sign in with email & password</summary>
+      <form id="loginForm" class="mt-3">
+        <div class="mb-3">
+          <label for="userId" class="form-label">Email</label>
+          <input type="email" id="userId" required class="form-control" placeholder="your@email.com" autocomplete="email" />
+        </div>
 
-      <button id="login" type="submit" class="btn btn-primary">Login</button>
+        <div class="mb-3">
+          <label for="password" class="form-label">Password</label>
+          <input type="password" id="password" required class="form-control" placeholder="••••••••" autocomplete="current-password" />
+        </div>
 
-      <div id="loading" class="loading-container hidden">
-        <div class="spinner-border" aria-hidden="true"></div>
-        <span>Signing in...</span>
-      </div>
-    </form>
+        <div id="loginError" class="alert alert-error hidden"></div>
+
+        <button id="login" type="submit" class="btn btn-secondary">Sign in</button>
+
+        <div id="loading" class="loading-container hidden">
+          <div class="spinner-border" aria-hidden="true"></div>
+          <span>Signing in...</span>
+        </div>
+      </form>
+    </details>
+
+    <details class="mt-2">
+      <summary class="text-sm">Email me a magic link</summary>
+      <form id="magicLinkForm" class="mt-3">
+        <div class="mb-3">
+          <label for="magicEmail" class="form-label">Email</label>
+          <input type="email" id="magicEmail" required class="form-control" placeholder="your@email.com" autocomplete="email" />
+        </div>
+        <div id="magicLinkStatus" class="alert hidden"></div>
+        <button id="magicLinkBtn" type="submit" class="btn btn-secondary">Send magic link</button>
+      </form>
+    </details>
 
     <div class="section-divider"></div>
 
     <p class="text-sm text-center text-muted">
       Don't have an account?
-      <a href="https://app.hired.video/login" target="_blank" rel="noopener">Create one here</a>
+      <a href="https://app.hired.video/signup" target="_blank" rel="noopener">Create one here</a>
     </p>
   </div>
 
   <div class="fixed-bottom">
-    <div class="float-right">
-      Powered by: <a rel="noopener" href="https://hired.video" target="_blank" title="hired.video">
-        <img src="imgs/logo.png" alt="hired.video" height="25" width="120">
+    <div class="float-right brand-footer">
+      Powered by
+      <a rel="noopener" href="https://hired.video" target="_blank" title="hired.video" class="brand-link">
+        <img src="imgs/brand-mark.png" alt="" height="20" width="20" class="brand-mark">
+        <span class="brand-name">hired.video</span>
       </a>
     </div>
   </div>

@@ -11,143 +11,191 @@
 <body>
   <h3>🎯 Job Tracker & AI Resume Builder</h3>
 
-  <!-- Login Prompt (Initially hidden) -->
-  <div id="loginPrompt" class="hidden">
-    <div class="card">
-      <h4>How does it work?</h4>
-      <p><strong>4 Simple Steps:</strong></p>
-      <ol>
-        <li><a href="https://app.hired.video/resumes/" target="_blank" rel="noopener">Upload your master resume</a> to hired.video</li>
-        <li>Navigate to a website with a job posting</li>
-        <li>Click <strong>"Score & Evaluate"</strong> button</li>
-        <li>Click <strong>"Track & Generate"</strong> button</li>
-      </ol>
-      <div class="section-divider"></div>
-      <p>To begin, login to your hired.video account.</p>
-      <p class="text-sm text-muted">Don't have an account? <a rel="noopener" href="https://app.hired.video/login" target="_blank">Create one here</a></p>
-      <button id="loginButton" class="btn btn-primary">Login to hired.video</button>
+  <!-- Signed-out banner — always visible until the user signs in. -->
+  <div id="signedOutBanner" class="card signed-out-banner hidden">
+    <div class="d-flex align-items-center justify-between gap-2">
+      <div>
+        <div class="signed-out-title">Sign in to start tracking jobs</div>
+        <div class="signed-out-sub">Browse the features below — you'll be prompted to sign in the moment you use one.</div>
+      </div>
+      <button id="loginButton" class="btn btn-primary btn-sm">Sign in</button>
     </div>
   </div>
 
-  <!-- Main Content (Hidden until logged in) -->
-  <div id="jobResumePrompt" class="hidden">
+  <!-- Profile chip — only shown when signed in. -->
+  <div id="profileCard" class="card profile-card hidden">
+    <div class="d-flex align-items-center justify-between">
+      <div class="profile-id">
+        <div id="profileName" class="profile-name">Signed in</div>
+        <div id="profileEmail" class="profile-email"></div>
+      </div>
+      <div class="d-flex gap-2">
+        <a id="openProfileLink" href="#" class="btn btn-outline btn-sm">Profile</a>
+        <button id="signOutButton" class="btn btn-outline btn-sm">Sign out</button>
+      </div>
+    </div>
+  </div>
 
-    <!-- Resume Selection Section -->
-    <div class="card" id="resumeSelectionCard">
-      <div class="card-header">
-        <h4 class="card-title">📄 Select Resume</h4>
-        <p class="card-subtitle">Choose which resume to use for analysis</p>
+  <!-- Tracked Jobs Summary -->
+  <div class="card stats-card">
+    <div class="d-flex align-items-center justify-between">
+      <div>
+        <div class="stats-label">Tracked jobs</div>
+        <div id="trackedJobCount" class="stats-value">—</div>
       </div>
-      <div id="resumeLoadingContainer" class="loading-container hidden">
-        <div class="spinner-border" aria-hidden="true"></div>
-        <span>Loading resumes...</span>
-      </div>
-      <div id="resumeSelectionContainer" class="resume-selection-container hidden">
-        <!-- Resume list will be populated here -->
-      </div>
-      <div id="selectedResumeDisplay" class="hidden">
-        <div class="d-flex align-items-center justify-between">
-          <div>
-            <span class="text-sm text-muted">Selected:</span>
-            <strong id="selectedResumeName"></strong>
-            <span id="selectedResumeBadge" class="badge"></span>
-          </div>
-          <button id="changeResumeButton" class="btn btn-outline btn-sm btn-icon">Change</button>
+      <a id="openJobsDashboard" href="#" class="btn btn-outline btn-sm">View all</a>
+    </div>
+  </div>
+
+  <!-- Resume Selection Section -->
+  <div class="card" id="resumeSelectionCard">
+    <div class="card-header">
+      <h4 class="card-title">📄 Select Resume</h4>
+      <p class="card-subtitle">Choose which resume to use for analysis</p>
+    </div>
+    <div id="resumeLoadingContainer" class="loading-container hidden">
+      <div class="spinner-border" aria-hidden="true"></div>
+      <span>Loading resumes...</span>
+    </div>
+    <div id="resumeSelectionContainer" class="resume-selection-container hidden">
+      <!-- Resume list will be populated here -->
+    </div>
+    <div id="selectedResumeDisplay" class="hidden">
+      <div class="d-flex align-items-center justify-between">
+        <div>
+          <span class="text-sm text-muted">Selected:</span>
+          <strong id="selectedResumeName"></strong>
+          <span id="selectedResumeBadge" class="badge"></span>
         </div>
+        <button id="changeResumeButton" class="btn btn-outline btn-sm btn-icon">Change</button>
       </div>
-      <button id="refreshResumesButton" class="btn btn-secondary btn-sm mt-2">🔄 Refresh Resumes</button>
+    </div>
+    <div id="resumeListEmptyHint" class="text-sm text-muted hidden">Sign in to see your saved resumes here.</div>
+    <div class="d-flex gap-2 mt-2">
+      <button id="refreshResumesButton" class="btn btn-secondary btn-sm">🔄 Refresh</button>
+      <button id="uploadResumeButton" class="btn btn-secondary btn-sm">📤 Upload PDF/Word</button>
+      <input id="uploadResumeInput" type="file" class="hidden" accept=".pdf,.doc,.docx,.txt,.md" />
+    </div>
+    <div id="uploadResumeStatus" class="alert hidden mt-2"></div>
+  </div>
+
+  <!-- Step 1: Track Job -->
+  <div class="card">
+    <h4>Step 1: Track this Job</h4>
+    <p class="text-sm text-muted">Use AI to extract and save the job from the current page so you can match resumes to it later.</p>
+    <button id="trackJobButton" class="btn btn-primary">📌 Track this Job</button>
+
+    <div id="trackJobLoading" class="loading-container hidden">
+      <div class="spinner-border" aria-hidden="true"></div>
+      <span>Extracting job…</span>
     </div>
 
-    <!-- Step 1: Score & Evaluate -->
-    <div class="card">
-      <h4>Step 1: Score & Evaluate</h4>
-      <p class="text-sm text-muted">Analyze how well your resume matches this job posting</p>
-      <button id="scoreEvaluateButton" class="btn btn-primary">🎯 Score & Evaluate</button>
-
-      <div id="evalLoading" class="loading-container hidden">
-        <div class="spinner-border" aria-hidden="true"></div>
-        <span>Analyzing your resume...</span>
+    <div id="currentJobDisplay" class="hidden mt-3">
+      <div class="job-summary">
+        <div class="job-summary-title" id="currentJobTitle"></div>
+        <div class="job-summary-meta" id="currentJobMeta"></div>
+        <a id="currentJobLink" class="text-xs" target="_blank" rel="noopener"></a>
       </div>
+    </div>
+    <div id="trackJobError" class="alert alert-error hidden mt-2"></div>
+  </div>
 
-      <div id="evalScoreSection" class="hidden mt-3">
-        <div class="score-display">
-          <span>Current Score:</span>
-          <span id="evalScore" class="score-value"></span>
-        </div>
-      </div>
-      <div id="evalRecommendations" class="outline-fill hidden"></div>
+  <!-- Step 2: Score & Evaluate -->
+  <div class="card">
+    <h4>Step 2: Score & Evaluate</h4>
+    <p class="text-sm text-muted">Analyze how well your resume matches this job posting</p>
+    <button id="scoreEvaluateButton" class="btn btn-primary">🎯 Score & Evaluate</button>
+
+    <div id="evalLoading" class="loading-container hidden">
+      <div class="spinner-border" aria-hidden="true"></div>
+      <span>Analyzing your resume...</span>
     </div>
 
-    <!-- Step 2: Tailor & Generate -->
-    <div class="card">
-      <h4>Step 2: Tailor & Generate</h4>
-      <p class="text-sm text-muted">Generate an AI-tailored resume for this job</p>
-      <button id="trackGenerateButton" class="btn btn-primary" disabled>✨ Tailor & Generate Resume</button>
-
-      <div id="loading" class="loading-container hidden">
-        <div class="spinner-border" aria-hidden="true"></div>
-        <span>Generating tailored resume...</span>
+    <div id="evalScoreSection" class="hidden mt-3">
+      <div class="score-display">
+        <span>Current Score:</span>
+        <span id="evalScore" class="score-value"></span>
       </div>
+    </div>
+    <div id="evalRecommendations" class="outline-fill hidden"></div>
+  </div>
 
-      <div id="score" class="hidden mt-3">
-        <div class="score-display">
-          <span>New Score:</span>
-          <span id="newScore" class="score-value"></span>
-        </div>
+  <!-- Step 3: Tailor & Generate -->
+  <div class="card">
+    <h4>Step 3: Tailor & Generate</h4>
+    <p class="text-sm text-muted">Generate an AI-tailored resume for this job</p>
+    <button id="trackGenerateButton" class="btn btn-primary">✨ Tailor & Generate Resume</button>
+
+    <div id="loading" class="loading-container hidden">
+      <div class="spinner-border" aria-hidden="true"></div>
+      <span>Generating tailored resume...</span>
+    </div>
+
+    <div id="score" class="hidden mt-3">
+      <div class="score-display">
+        <span>New Score:</span>
+        <span id="newScore" class="score-value"></span>
       </div>
+    </div>
 
-      <div id="custom" class="outline-fill">
-        <p class="text-center text-muted"><em>Your AI-generated tailored resume will appear here</em></p>
-      </div>
+    <div id="custom" class="outline-fill">
+      <p class="text-center text-muted"><em>Your AI-generated tailored resume will appear here</em></p>
+    </div>
 
-      <!-- Action Buttons (Hidden until resume is generated) -->
-      <div id="resumeActions" class="hidden">
-        <div class="section-divider"></div>
+    <!-- Action Buttons (Hidden until resume is generated) -->
+    <div id="resumeActions" class="hidden">
+      <div class="section-divider"></div>
 
-        <!-- Save as Variation -->
-        <div id="saveVariationSection">
-          <h4>💾 Save as Variation</h4>
-          <p class="text-sm text-muted">Save this tailored resume as a variation of your master resume</p>
-          <div class="d-flex gap-2 align-items-center">
-            <input type="text" id="variationName" class="form-control" placeholder="e.g., Software Engineer - TechCorp">
-          </div>
-          <button id="saveVariationButton" class="btn btn-success">Save as Variation</button>
-          <div id="saveVariationLoading" class="loading-container hidden">
-            <div class="spinner-border" aria-hidden="true"></div>
-            <span>Saving variation...</span>
-          </div>
-          <div id="saveVariationSuccess" class="alert alert-success hidden">
-            ✅ Resume saved as variation successfully!
-          </div>
-          <div id="saveVariationError" class="alert alert-error hidden"></div>
+      <!-- Save as Variation -->
+      <div id="saveVariationSection">
+        <h4>💾 Save as Variation</h4>
+        <p class="text-sm text-muted">Save this tailored resume as a variation of your master resume</p>
+        <div class="d-flex gap-2 align-items-center">
+          <input type="text" id="variationName" class="form-control" placeholder="e.g., Software Engineer - TechCorp">
         </div>
-
-        <!-- Download Section -->
-        <div class="section-divider"></div>
-        <h4>📥 Download Resume</h4>
-        <p class="text-sm text-muted">Download your tailored resume</p>
-        <div class="download-section">
-          <button id="downloadPdfButton" class="btn btn-outline">
-            📄 PDF
-          </button>
-          <button id="downloadDocxButton" class="btn btn-outline">
-            📝 Word
-          </button>
-        </div>
-        <div id="downloadLoading" class="loading-container hidden">
+        <button id="saveVariationButton" class="btn btn-success">Save as Variation</button>
+        <div id="saveVariationLoading" class="loading-container hidden">
           <div class="spinner-border" aria-hidden="true"></div>
-          <span>Preparing download...</span>
+          <span>Saving variation...</span>
         </div>
-        <div id="downloadError" class="alert alert-error hidden"></div>
+        <div id="saveVariationSuccess" class="alert alert-success hidden">
+          ✅ Resume saved as variation successfully!
+        </div>
+        <div id="saveVariationError" class="alert alert-error hidden"></div>
       </div>
 
-      <div id="recommendations" class="outline-fill hidden"></div>
+      <!-- Mark as applied -->
+      <div class="section-divider"></div>
+      <h4>✅ I Used This Resume</h4>
+      <p class="text-sm text-muted">Record that you applied to this job using the variation above. This links the resume to the job in your tracker.</p>
+      <button id="markAppliedButton" class="btn btn-primary" disabled>I Applied with this Resume</button>
+      <div id="markAppliedStatus" class="alert hidden mt-2"></div>
+
+      <!-- Download Section -->
+      <div class="section-divider"></div>
+      <h4>📥 Download Resume</h4>
+      <p class="text-sm text-muted">Download your tailored resume</p>
+      <div class="download-section">
+        <button id="downloadPdfButton" class="btn btn-outline">
+          📄 PDF
+        </button>
+        <button id="downloadDocxButton" class="btn btn-outline">
+          📝 Word
+        </button>
+      </div>
+      <div id="downloadLoading" class="loading-container hidden">
+        <div class="spinner-border" aria-hidden="true"></div>
+        <span>Preparing download...</span>
+      </div>
+      <div id="downloadError" class="alert alert-error hidden"></div>
     </div>
 
-    <!-- Disclaimer -->
-    <div id="disclaimer" class="hidden">
-      <p>⚠️ <strong>Important:</strong> The AI-generated resume should be reviewed for accuracy before using. Always be truthful on your resume - integrity matters!</p>
-    </div>
+    <div id="recommendations" class="outline-fill hidden"></div>
+  </div>
+
+  <!-- Disclaimer -->
+  <div id="disclaimer" class="hidden">
+    <p>⚠️ <strong>Important:</strong> The AI-generated resume should be reviewed for accuracy before using. Always be truthful on your resume - integrity matters!</p>
   </div>
 
   <!-- Save Variation Modal -->
@@ -171,9 +219,11 @@
 
   <!-- Footer -->
   <div class="fixed-bottom">
-    <div class="float-right">
-      Powered by: <a rel="noopener" href="https://hired.video" target="_blank" title="hired.video">
-        <img src="imgs/logo.png" alt="hired.video" height="25" width="120">
+    <div class="float-right brand-footer">
+      Powered by
+      <a rel="noopener" href="https://hired.video" target="_blank" title="hired.video" class="brand-link">
+        <img src="imgs/brand-mark.png" alt="" height="20" width="20" class="brand-mark">
+        <span class="brand-name">hired.video</span>
       </a>
     </div>
   </div>
