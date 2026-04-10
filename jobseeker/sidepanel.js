@@ -324,13 +324,16 @@ async function handleBannerScore() {
     const jobCtx = await captureJobContext();
     if (!jobCtx) throw new Error('Could not read the current page.');
 
+    // Prefer the canonical URL from job detection over the raw page URL
+    const canonicalUrl = detectedPageJob?.sourceUrl || jobCtx.originUrl;
+
     const jwtToken = await getJwtToken();
     const extractResp = await fetch(`${jobsExtractUrl}?track=false`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
       body: JSON.stringify({
-        url: jobCtx.originUrl,
-        sourceUrl: jobCtx.originUrl,
+        url: canonicalUrl,
+        sourceUrl: canonicalUrl,
         html: jobCtx.html,
         track: false,
         ...(detectedPageJob?.title ? { hintTitle: detectedPageJob.title } : {}),
@@ -449,7 +452,7 @@ async function runTailorAndSavePipeline(options = {}) {
     const jobCtx = await captureJobContext();
     if (!jobCtx) throw new Error('Could not read the current page.');
     const jobPaneHtml = jobCtx.html;
-    currentJobUrl = jobCtx.originUrl || currentJobUrl;
+    currentJobUrl = detectedPageJob?.sourceUrl || jobCtx.originUrl || currentJobUrl;
     currentJobOriginalHtml = jobCtx.html;
 
     // 2. Extract via /api/jobs/extract (with or without tracking)
@@ -795,6 +798,29 @@ function scoreClass(score) {
   return 'score-low';
 }
 
+/**
+ * Show a loading spinner on a tracked job row's action area.
+ * Returns a cleanup function to restore the original state.
+ */
+function showRowLoading(jobId, message) {
+  const row = document.querySelector(`.tracked-job-row[data-job-id="${jobId}"]`);
+  if (!row) return () => {};
+  const actions = row.querySelector('.tracked-job-actions');
+  if (!actions) return () => {};
+  const savedHtml = actions.innerHTML;
+  actions.innerHTML = `<div class="row-loading"><div class="spinner-sm"></div><span>${escapeHtml(message || 'Processing...')}</span></div>`;
+  // Disable all buttons in the row header too
+  row.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+  return () => {
+    actions.innerHTML = savedHtml;
+    row.querySelectorAll('button').forEach((b) => { b.disabled = false; });
+    // Re-wire action listeners
+    actions.querySelectorAll('button[data-action]').forEach((b) => {
+      b.addEventListener('click', onTrackedJobAction);
+    });
+  };
+}
+
 async function onTrackedJobAction(event) {
   // Stop bubbling so the (i) icon inside a score badge doesn't also
   // trigger the row's primary action.
@@ -927,8 +953,8 @@ async function rowScoreJob(jobId) {
     switchTab('settings');
     return;
   }
+  const restoreRow = showRowLoading(jobId, 'Scoring…');
   const jwtToken = await getJwtToken();
-  showQuickStatus('Scoring resume against job…', 'info');
   try {
     const resp = await fetch(matchAnalyze, {
       method: 'POST',
@@ -936,7 +962,7 @@ async function rowScoreJob(jobId) {
       body: JSON.stringify({ jobId, resumeId: selectedResume.id }),
     });
     if (resp.status === 401) return handleTokenExpired();
-    if (await check429(resp, 'quickStatus')) return;
+    if (await check429(resp, 'quickStatus')) { restoreRow(); return; }
     if (!resp.ok) throw new Error('Score failed');
     const data = await resp.json();
     const result = data?.data || data?.result || data;
@@ -947,6 +973,7 @@ async function rowScoreJob(jobId) {
     // Auto-expand the inline score detail panel for this job
     toggleInlineScore(jobId);
   } catch (err) {
+    restoreRow();
     showQuickStatus(err.message || 'Score failed.', 'error');
   }
 }
@@ -982,18 +1009,21 @@ async function rowTailorJob(jobId) {
     sourceUrl: job.sourceUrl || '',
   };
   pipelineBusy = true;
-  showQuickStatus('Tailoring resume…', 'info');
+  const restoreRow = showRowLoading(jobId, 'Tailoring resume…');
   try {
     const jwtToken = await getJwtToken();
-    // Pass prior score recommendations so the tailor LLM targets specific gaps
+    // Pass prior score recommendations (truncated) so the tailor LLM targets specific gaps
     const cachedScoreData = jobScores[jobId];
     const tailorPayload = {
       jobId,
       resumeId: selectedResume.id,
     };
     if (cachedScoreData?.recommendations) {
-      tailorPayload.priorRecommendations = cachedScoreData.recommendations;
+      // Truncate to keep the LLM prompt manageable for free models
+      tailorPayload.priorRecommendations = cachedScoreData.recommendations.slice(0, 800);
     }
+    const tailorController = new AbortController();
+    const tailorTimeout = setTimeout(() => tailorController.abort(), 90000); // 90s timeout
     const tailorResp = await fetch(matchTailor, {
       method: 'POST',
       headers: {
@@ -1001,7 +1031,9 @@ async function rowTailorJob(jobId) {
         Authorization: `Bearer ${jwtToken}`,
       },
       body: JSON.stringify(tailorPayload),
+      signal: tailorController.signal,
     });
+    clearTimeout(tailorTimeout);
     if (tailorResp.status === 401) return handleTokenExpired();
     if (await check429(tailorResp, 'quickStatus')) return;
     if (!tailorResp.ok) throw new Error('Tailor failed');
@@ -1036,6 +1068,7 @@ async function rowTailorJob(jobId) {
     showQuickStatus(err.message || 'Tailor failed.', 'error');
   } finally {
     pipelineBusy = false;
+    restoreRow();
   }
 }
 
@@ -1863,7 +1896,7 @@ async function handleTrackJob() {
     if (!jobCtx) throw new Error('Could not read the current page. Please make sure you are on a job posting.');
     const jobPaneHtml = jobCtx.html;
     currentJobOriginalHtml = jobCtx.html;
-    currentJobUrl = jobCtx.originUrl || currentJobUrl;
+    currentJobUrl = detectedPageJob?.sourceUrl || jobCtx.originUrl || currentJobUrl;
 
     const response = await fetch(jobsExtractUrl, {
       method: 'POST',

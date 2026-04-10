@@ -435,6 +435,26 @@ button, .btn {
   color: var(--primary);
 }
 
+.row-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--foreground-secondary);
+}
+
+.spinner-sm {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--primary);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinner-border 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
 /* Tabs */
 .tabs {
   display: flex;
