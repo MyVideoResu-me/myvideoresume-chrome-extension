@@ -58,6 +58,9 @@ const PATHS = {
   // User profile + billing
   userProfile: '/api/users/profile',
   billingSubscription: '/api/billing/subscription',
+
+  // Dashboard / Analytics
+  extensionAnalytics: '/api/dashboard/extension-analytics',
 };
 
 // Active endpoints — populated by updateConfiguration() at startup.

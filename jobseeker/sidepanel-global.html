@@ -29,17 +29,19 @@
 
   <!-- Profile chip -->
   <div id="profileCard" class="card profile-card hidden">
-    <div class="d-flex align-items-center justify-between">
-      <div class="profile-id">
-        <div class="d-flex align-items-center gap-2">
-          <span id="profileName" class="profile-name">Signed in</span>
-          <span id="profileRole" class="role-badge hidden"></span>
-        </div>
+    <div class="profile-card-row">
+      <div class="profile-card-info">
+        <span id="profileName" class="profile-name">Signed in</span>
         <div id="profileEmail" class="profile-email"></div>
+        <span id="profileRole" class="role-badge hidden"></span>
       </div>
-      <div class="d-flex gap-2">
-        <a id="openProfileLink" href="#" class="btn btn-outline btn-sm">Profile</a>
-        <button id="signOutButton" class="btn btn-outline btn-sm">Sign out</button>
+      <div class="profile-card-icons">
+        <a id="openProfileLink" href="#" class="icon-btn" title="Profile">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        </a>
+        <button id="signOutButton" class="icon-btn" title="Sign out">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
       </div>
     </div>
   </div>
@@ -48,6 +50,9 @@
   <div class="tab-strip" role="tablist">
     <button id="tabNowButton" class="tab-button tab-active" role="tab" aria-selected="true" data-tab="now">
       ⚡ Now
+    </button>
+    <button id="tabAnalyticsButton" class="tab-button" role="tab" aria-selected="false" data-tab="analytics">
+      📊 Analytics
     </button>
     <button id="tabSettingsButton" class="tab-button" role="tab" aria-selected="false" data-tab="settings">
       ⚙️ Settings
@@ -64,12 +69,14 @@
       <div class="active-page-eyebrow">📌 Job detected on this page</div>
       <div id="activePageTitle" class="active-page-title">—</div>
       <div id="activePageMeta" class="active-page-meta"></div>
-      <div class="d-flex gap-2 mt-2 wrap">
+      <div class="banner-actions-grid mt-2">
         <button id="quickTailorButton" class="btn btn-primary btn-compact">✨ Tailor & Save</button>
         <button id="quickTailorOnlyButton" class="btn btn-outline btn-compact">✨ Tailor Only</button>
         <button id="quickTrackButton" class="btn btn-outline btn-compact">📌 Track only</button>
+        <button id="quickScoreButton" class="btn btn-outline btn-compact">🎯 Score</button>
       </div>
       <div id="quickStatus" class="alert hidden mt-2"></div>
+      <div id="bannerScoreDetail" class="hidden mt-2"></div>
     </div>
 
     <!-- Empty-state when no job detected -->
@@ -214,6 +221,85 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- TAB: ANALYTICS                                               -->
+  <!-- ============================================================ -->
+  <div id="tabAnalytics" class="tab-pane" role="tabpanel">
+
+    <!-- This week snapshot -->
+    <div class="card analytics-snapshot">
+      <div class="analytics-eyebrow">This Week</div>
+      <div class="analytics-row">
+        <div class="analytics-stat">
+          <div id="statTracked" class="analytics-stat-value">-</div>
+          <div class="analytics-stat-label">Tracked</div>
+          <div id="statTrackedDelta" class="analytics-stat-delta"></div>
+        </div>
+        <div class="analytics-stat">
+          <div id="statApplied" class="analytics-stat-value">-</div>
+          <div class="analytics-stat-label">Applied</div>
+          <div id="statAppliedDelta" class="analytics-stat-delta"></div>
+        </div>
+        <div class="analytics-stat">
+          <div id="statStreak" class="analytics-stat-value">-</div>
+          <div class="analytics-stat-label">Day Streak</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline funnel -->
+    <div class="card">
+      <div class="analytics-eyebrow">Pipeline Funnel</div>
+      <div id="funnelBars" class="funnel-bars"></div>
+      <div class="analytics-row mt-2">
+        <div class="analytics-mini-stat">
+          <span class="analytics-mini-value" id="convApply">-</span>
+          <span class="analytics-mini-label">Apply Rate</span>
+        </div>
+        <div class="analytics-mini-stat">
+          <span class="analytics-mini-value" id="convInterview">-</span>
+          <span class="analytics-mini-label">Interview Rate</span>
+        </div>
+        <div class="analytics-mini-stat">
+          <span class="analytics-mini-value" id="convOffer">-</span>
+          <span class="analytics-mini-label">Offer Rate</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Weekly trend -->
+    <div class="card">
+      <div class="analytics-eyebrow">Weekly Trend</div>
+      <div id="weeklyTrend" class="weekly-trend"></div>
+    </div>
+
+    <!-- Response tracker -->
+    <div class="card">
+      <div class="analytics-eyebrow">Response Tracker</div>
+      <div class="analytics-row">
+        <div class="analytics-stat">
+          <div id="statGhostRate" class="analytics-stat-value">-</div>
+          <div class="analytics-stat-label">Ghost Rate</div>
+          <div class="analytics-stat-sub">No response after 14d</div>
+        </div>
+        <div class="analytics-stat">
+          <div id="statTotalApplied" class="analytics-stat-value">-</div>
+          <div class="analytics-stat-label">Total Applied</div>
+        </div>
+        <div class="analytics-stat">
+          <div id="statTotalOffers" class="analytics-stat-value">-</div>
+          <div class="analytics-stat-label">Offers</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="analyticsLoading" class="card hidden">
+      <div class="d-flex align-items-center justify-center gap-2">
+        <div class="spinner"></div><span>Loading analytics...</span>
+      </div>
+    </div>
   </div>
 
   <!-- ============================================================ -->

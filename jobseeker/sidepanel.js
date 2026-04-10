@@ -111,6 +111,10 @@ function switchTab(name) {
   document.querySelectorAll('.tab-pane').forEach((pane) => {
     pane.classList.toggle('tab-pane-active', pane.id === `tab${cap(name)}`);
   });
+  // Load analytics data when switching to the Analytics tab
+  if (name === 'analytics') {
+    loadAnalytics();
+  }
 }
 
 function cap(s) {
@@ -297,6 +301,122 @@ function showQuickStatus(message, kind) {
   el.classList.remove('hidden');
 }
 
+/**
+ * Score the detected page job and show results inline in the
+ * detection banner (bannerScoreDetail area).
+ */
+async function handleBannerScore() {
+  const ok = await requireAuth();
+  if (!ok || !selectedResume) {
+    showQuickStatus('Select a resume in Settings first.', 'error');
+    return;
+  }
+  if (!detectedPageJob) {
+    showQuickStatus('No job detected on this page.', 'error');
+    return;
+  }
+
+  showQuickStatus('Scoring resume against job…', 'info');
+  hideElement('bannerScoreDetail');
+
+  try {
+    // First, track/extract the job so we have a jobId to score against
+    const jobCtx = await captureJobContext();
+    if (!jobCtx) throw new Error('Could not read the current page.');
+
+    const jwtToken = await getJwtToken();
+    const extractResp = await fetch(`${jobsExtractUrl}?track=false`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+      body: JSON.stringify({
+        url: jobCtx.originUrl,
+        sourceUrl: jobCtx.originUrl,
+        html: jobCtx.html,
+        track: false,
+        ...(detectedPageJob?.title ? { hintTitle: detectedPageJob.title } : {}),
+        ...(detectedPageJob?.company ? { hintCompany: detectedPageJob.company } : {}),
+        ...(detectedPageJob?.location ? { hintLocation: detectedPageJob.location } : {}),
+      }),
+    });
+    if (extractResp.status === 401) return handleTokenExpired();
+    if (!extractResp.ok) {
+      // If extract fails, try scoring by content directly
+      const analyzeResp = await fetch(matchAnalyze, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+        body: JSON.stringify({ jobHtml: jobCtx.html, resumeId: selectedResume.id }),
+      });
+      if (analyzeResp.status === 401) return handleTokenExpired();
+      if (await check429(analyzeResp, 'quickStatus')) return;
+      if (!analyzeResp.ok) throw new Error('Score failed');
+      const data = await analyzeResp.json();
+      const result = data?.data || data;
+      renderBannerScoreResult(result.score ?? 0, result.summaryRecommendations || '');
+      return;
+    }
+
+    const extractData = await extractResp.json();
+    const job = extractData?.data || extractData;
+    const jobId = job.id;
+
+    // Now score
+    const resp = await fetch(matchAnalyze, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+      body: JSON.stringify({ jobId, resumeId: selectedResume.id }),
+    });
+    if (resp.status === 401) return handleTokenExpired();
+    if (await check429(resp, 'quickStatus')) return;
+    if (!resp.ok) throw new Error('Score failed');
+    const data = await resp.json();
+    const result = data?.data || data;
+    const score = result.score ?? 0;
+    const recommendations = result.summaryRecommendations || '';
+
+    // Cache the score
+    if (jobId) saveJobScore(jobId, score, recommendations);
+    hideElement('quickStatus');
+    renderBannerScoreResult(score, recommendations, jobId);
+  } catch (err) {
+    showQuickStatus(err.message || 'Score failed.', 'error');
+  }
+}
+
+/**
+ * Render score results inline within the detection banner.
+ */
+function renderBannerScoreResult(score, recommendations, jobId) {
+  const panel = document.getElementById('bannerScoreDetail');
+  if (!panel) return;
+
+  const scoreColorClass = score >= 70 ? 'score-high' : score >= 40 ? 'score-medium' : 'score-low';
+  const converter = new showdown.Converter();
+  const recHtml = recommendations
+    ? converter.makeHtml(recommendations)
+    : '<em>No recommendations available.</em>';
+
+  panel.innerHTML = `
+    <div class="score-detail-content">
+      <div class="score-detail-header">
+        <span class="row-score-pill ${scoreColorClass}">${formatScore(score)}</span>
+        <span class="score-detail-label">Match Score</span>
+      </div>
+      <div class="score-detail-recommendations">${recHtml}</div>
+      ${jobId ? `<div class="score-detail-actions">
+        <button class="btn btn-primary btn-compact" id="bannerScoreTailor">✨ Tailor to Fix Gaps</button>
+      </div>` : ''}
+    </div>
+  `;
+  panel.classList.remove('hidden');
+
+  if (jobId) {
+    document.getElementById('bannerScoreTailor')?.addEventListener('click', () => {
+      panel.classList.add('hidden');
+      rowTailorJob(jobId);
+    });
+  }
+}
+
 // =====================================================================
 // One-click Tailor & Save pipeline
 // =====================================================================
@@ -347,6 +467,12 @@ async function runTailorAndSavePipeline(options = {}) {
         html: jobPaneHtml,
         track,
         force: !!options._force,
+        // Pass detected title/company as hints — the content script
+        // already parsed these from the DOM. The API uses them as
+        // fallbacks when AI extraction struggles with noisy HTML.
+        ...(detectedPageJob?.title ? { hintTitle: detectedPageJob.title } : {}),
+        ...(detectedPageJob?.company ? { hintCompany: detectedPageJob.company } : {}),
+        ...(detectedPageJob?.location ? { hintLocation: detectedPageJob.location } : {}),
       }),
     });
 
@@ -615,15 +741,16 @@ function renderTrackedJobsTable() {
     const meta = escapeHtml(
       [job.company, job.location].filter(Boolean).join(' • ') || 'hired.video Community',
     );
+    const pipelineStatus = job.pipelineStatus || 'tracked';
 
-    // Cached score badge + (i) reasoning details popover trigger
+    // Cached score — the pill IS the toggle button for inline recommendations
     const cachedScore = jobScores[id];
-    const scoreBadge = cachedScore
-      ? `<span class="row-score-badge ${scoreClass(cachedScore.score)}">
-           ${formatScore(cachedScore.score)}
-           ${cachedScore.recommendations ? `<button class="row-score-info" data-action="why" data-job-id="${id}" title="Why this score">ⓘ</button>` : ''}
-         </span>`
+    const scorePill = cachedScore
+      ? `<button class="row-score-pill ${scoreClass(cachedScore.score)}" data-action="toggle-score" data-job-id="${id}" title="Click to see recommendations">${formatScore(cachedScore.score)}</button>`
       : '';
+
+    // Status pill with pencil edit icon — clicking switches to a dropdown
+    const statusPill = `<span class="status-pill-wrapper" id="statusPill-${id}"><button class="pipeline-status-pill status-${pipelineStatus}" data-action="edit-status" data-job-id="${id}" title="Change status">${pipelineStatus} ✎</button></span>`;
 
     // Cached tailoring → button morphs into "Download tailored" instead of re-running AI
     const cachedTailor = jobTailorings[id];
@@ -639,7 +766,8 @@ function renderTrackedJobsTable() {
             <div class="tracked-job-meta">${meta}</div>
           </div>
           <div class="tracked-job-row-trailing">
-            ${scoreBadge}
+            ${scorePill}
+            ${statusPill}
             <button class="row-delete" data-action="delete" data-job-id="${id}" title="Remove from your tracker">🗑</button>
           </div>
         </div>
@@ -648,6 +776,7 @@ function renderTrackedJobsTable() {
           ${tailorButton}
           <button class="btn btn-outline" data-action="open" data-job-id="${id}">↗ Open</button>
         </div>
+        <div class="tracked-job-score-detail hidden" id="scoreDetail-${id}"></div>
       </div>
     `;
   });
@@ -679,13 +808,15 @@ async function onTrackedJobAction(event) {
   switch (action) {
     case 'score':
       return rowScoreJob(jobId);
+    case 'toggle-score':
+      return toggleInlineScore(jobId);
+    case 'edit-status':
+      return showStatusDropdown(jobId);
     case 'tailor':
       return rowTailorJob(jobId);
     case 'download':
     case 'download-tailored':
       return rowDownloadTailoredVariation(jobId);
-    case 'why':
-      return showScoreReasoning(jobId);
     case 'delete':
       return rowDeleteTrackedJob(jobId);
     case 'open': {
@@ -697,26 +828,49 @@ async function onTrackedJobAction(event) {
   }
 }
 
-// ---- Why this score? — modal-style alert -----------------------------
-function showScoreReasoning(jobId) {
+/**
+ * Toggle inline score recommendations within a tracked job card.
+ * Clicking the score pill expands/collapses the detail panel below
+ * the action buttons inside that specific job row.
+ */
+function toggleInlineScore(jobId) {
+  const panel = document.getElementById('scoreDetail-' + jobId);
+  if (!panel) return;
+
+  // Toggle: if already visible, collapse it
+  if (!panel.classList.contains('hidden')) {
+    panel.classList.add('hidden');
+    return;
+  }
+
+  // Collapse any other open score detail panels
+  document.querySelectorAll('.tracked-job-score-detail').forEach((el) => {
+    if (el.id !== 'scoreDetail-' + jobId) el.classList.add('hidden');
+  });
+
   const cached = jobScores[jobId];
   if (!cached) return;
-  const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
-  const heading = job ? `${job.title || 'Job'}${job.company ? ' — ' + job.company : ''}` : 'Job';
 
-  // Lightweight inline panel under the card. Re-uses the existing
-  // quickStatus alert area so we don't introduce a real modal stack.
-  const panel = document.getElementById('quickStatus');
-  if (!panel) return;
-  panel.className = 'alert alert-info mt-2';
+  const converter = new showdown.Converter();
+  const recHtml = cached.recommendations
+    ? converter.makeHtml(cached.recommendations)
+    : '<em>No recommendations available.</em>';
+
   panel.innerHTML = `
-    <div class="why-score-heading">Why ${formatScore(cached.score)}? <em>${escapeHtml(heading)}</em></div>
-    <div class="why-score-body">${(new showdown.Converter()).makeHtml(cached.recommendations || '_(no recommendations were saved)_')}</div>
-    <button class="btn btn-outline btn-compact mt-2" id="closeWhyPanel">Close</button>
+    <div class="score-detail-content">
+      <div class="score-detail-recommendations">${recHtml}</div>
+      <div class="score-detail-actions">
+        <button class="btn btn-primary btn-compact" data-action="tailor" data-job-id="${jobId}">✨ Tailor to Fix Gaps</button>
+      </div>
+    </div>
   `;
   panel.classList.remove('hidden');
-  const closeBtn = document.getElementById('closeWhyPanel');
-  if (closeBtn) closeBtn.onclick = () => panel.classList.add('hidden');
+
+  // Wire the tailor button inside the detail panel
+  panel.querySelector('[data-action="tailor"]')?.addEventListener('click', () => {
+    panel.classList.add('hidden');
+    rowTailorJob(jobId);
+  });
 }
 
 // ---- Untrack a row (deletes only the savedJobs association) ---------
@@ -790,49 +944,11 @@ async function rowScoreJob(jobId) {
     const recommendations = result.summaryRecommendations || '';
     saveJobScore(jobId, score, recommendations);
     renderTrackedJobsTable();
-    // Show score + recommendations inline immediately
-    showScoreResult(jobId, score, recommendations);
+    // Auto-expand the inline score detail panel for this job
+    toggleInlineScore(jobId);
   } catch (err) {
     showQuickStatus(err.message || 'Score failed.', 'error');
   }
-}
-
-/**
- * Show score result with recommendations expanded inline.
- * Renders into quickStatus so the user sees the gap analysis
- * right away without needing to click the ⓘ icon.
- */
-function showScoreResult(jobId, score, recommendations) {
-  const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
-  const heading = job ? `${job.title || 'Job'}${job.company ? ' — ' + job.company : ''}` : 'Job';
-  const panel = document.getElementById('quickStatus');
-  if (!panel) return;
-
-  const scoreColorClass = score >= 70 ? 'score-high' : score >= 40 ? 'score-medium' : 'score-low';
-  const converter = new showdown.Converter();
-  const recHtml = recommendations
-    ? converter.makeHtml(recommendations)
-    : '<em>No recommendations available.</em>';
-
-  panel.className = 'alert alert-info mt-2';
-  panel.innerHTML = `
-    <div class="score-result-header">
-      <span class="score-result-badge ${scoreColorClass}">${formatScore(score)}</span>
-      <span class="score-result-title">${escapeHtml(heading)}</span>
-    </div>
-    <div class="score-result-recommendations">${recHtml}</div>
-    <div class="score-result-actions mt-2">
-      <button class="btn btn-primary btn-compact" id="scoreResultTailor" data-job-id="${jobId}">✨ Tailor Resume to Fix Gaps</button>
-      <button class="btn btn-outline btn-compact" id="scoreResultClose">Close</button>
-    </div>
-  `;
-  panel.classList.remove('hidden');
-
-  document.getElementById('scoreResultClose')?.addEventListener('click', () => panel.classList.add('hidden'));
-  document.getElementById('scoreResultTailor')?.addEventListener('click', () => {
-    panel.classList.add('hidden');
-    rowTailorJob(jobId);
-  });
 }
 
 async function rowTailorJob(jobId) {
@@ -1255,6 +1371,7 @@ function setupEventListeners() {
   bind('quickTailorButton', gate(() => runTailorAndSavePipeline({ track: true })));
   bind('quickTailorOnlyButton', gate(() => runTailorAndSavePipeline({ track: false })));
   bind('quickTrackButton', gate(handleTrackJob));
+  bind('quickScoreButton', gate(handleBannerScore));
   bind('manualScanButton', gate(handleManualScan));
   bind('refreshJobsButton', gate(loadTrackedJobsTable));
   bind('openWizardButton', () => {
@@ -2337,4 +2454,181 @@ function handleApiNotFound(containerId) {
   hideElement('loading');
   document.getElementById('scoreEvaluateButton').disabled = false;
   document.getElementById('trackGenerateButton').disabled = false;
+}
+
+// =====================================================================
+// Job Pipeline — status transitions
+// =====================================================================
+
+/**
+ * Replace the status pill with an inline <select> dropdown.
+ * On selection, call the API, update local state, and revert to the pill.
+ */
+function showStatusDropdown(jobId) {
+  const wrapper = document.getElementById('statusPill-' + jobId);
+  if (!wrapper) return;
+
+  const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
+  const current = job?.pipelineStatus || 'tracked';
+
+  const allStatuses = [
+    { value: 'tracked',      label: 'Tracked' },
+    { value: 'applied',      label: 'Applied' },
+    { value: 'interviewing', label: 'Interviewing' },
+    { value: 'offered',      label: 'Offered' },
+    { value: 'accepted',     label: 'Accepted' },
+    { value: 'rejected',     label: 'Rejected' },
+    { value: 'cancelled',    label: 'Cancelled' },
+    { value: 'withdrawn',    label: 'Withdrawn' },
+    { value: 'declined',     label: 'Declined' },
+  ];
+
+  const options = allStatuses.map((s) =>
+    `<option value="${s.value}" ${s.value === current ? 'selected' : ''}>${s.label}</option>`
+  ).join('');
+
+  wrapper.innerHTML = `<select class="status-dropdown" id="statusSelect-${jobId}">${options}</select>`;
+
+  const select = document.getElementById('statusSelect-' + jobId);
+  if (!select) return;
+
+  select.focus();
+
+  const commit = async () => {
+    const newStatus = select.value;
+    if (newStatus === current) {
+      // No change — revert to pill
+      renderTrackedJobsTable();
+      return;
+    }
+    await handleStatusChange(jobId, newStatus);
+  };
+
+  select.addEventListener('change', commit);
+  select.addEventListener('blur', () => {
+    // Small delay so change event fires first if user picked an option
+    setTimeout(() => {
+      if (document.getElementById('statusSelect-' + jobId)) {
+        renderTrackedJobsTable();
+      }
+    }, 100);
+  });
+}
+
+/**
+ * Update a tracked job's pipeline status via the API.
+ */
+async function handleStatusChange(jobId, newStatus) {
+  const ok = await requireAuth();
+  if (!ok) return;
+
+  try {
+    const resp = await apiFetch(buildJobUrl(jobId, 'status'), {
+      method: 'PATCH',
+      body: JSON.stringify({ status: newStatus }),
+    });
+    if (!resp.ok) {
+      const data = await resp.json().catch(() => ({}));
+      throw new Error(data.error?.message || 'Failed to update status');
+    }
+    // Update the local cache
+    const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
+    if (job) job.pipelineStatus = newStatus;
+    renderTrackedJobsTable();
+    showQuickStatus(`Status updated to ${newStatus}.`, 'success');
+  } catch (err) {
+    showQuickStatus(err.message || 'Failed to update status.', 'error');
+  }
+}
+
+// =====================================================================
+// Analytics tab
+// =====================================================================
+
+async function loadAnalytics() {
+  showElement('analyticsLoading');
+  try {
+    const resp = await apiFetch(apiBase + PATHS.extensionAnalytics);
+    if (!resp.ok) throw new Error('Failed to load analytics');
+    const data = await resp.json();
+    const analytics = data.data || data;
+    renderAnalytics(analytics);
+  } catch (err) {
+    console.error('[hired.video] analytics load error:', err);
+  } finally {
+    hideElement('analyticsLoading');
+  }
+}
+
+function renderAnalytics(data) {
+  // This week snapshot
+  const el = (id) => document.getElementById(id);
+
+  if (el('statTracked')) el('statTracked').textContent = data.thisWeek?.tracked ?? '-';
+  if (el('statApplied')) el('statApplied').textContent = data.thisWeek?.applied ?? '-';
+  if (el('statStreak')) el('statStreak').textContent = data.thisWeek?.streak ? `🔥 ${data.thisWeek.streak}` : '0';
+
+  // Deltas
+  const renderDelta = (id, val) => {
+    const d = el(id);
+    if (!d) return;
+    if (val > 0) { d.textContent = `↑ ${val}`; d.className = 'analytics-stat-delta delta-up'; }
+    else if (val < 0) { d.textContent = `↓ ${Math.abs(val)}`; d.className = 'analytics-stat-delta delta-down'; }
+    else { d.textContent = '—'; d.className = 'analytics-stat-delta'; }
+  };
+  renderDelta('statTrackedDelta', data.thisWeek?.trackedDelta ?? 0);
+  renderDelta('statAppliedDelta', data.thisWeek?.appliedDelta ?? 0);
+
+  // Funnel bars
+  const funnelContainer = el('funnelBars');
+  if (funnelContainer && data.funnel) {
+    const stages = [
+      { key: 'tracked', label: 'Tracked', color: 'var(--foreground-secondary)' },
+      { key: 'applied', label: 'Applied', color: 'var(--brand-blue)' },
+      { key: 'interviewing', label: 'Interviewing', color: 'var(--primary)' },
+      { key: 'offered', label: 'Offered', color: 'var(--warning)' },
+      { key: 'accepted', label: 'Accepted', color: 'var(--success)' },
+      { key: 'rejected', label: 'Rejected', color: 'var(--error)' },
+    ];
+    const maxCount = Math.max(1, ...stages.map((s) => data.funnel[s.key] || 0));
+    funnelContainer.innerHTML = stages.map((s) => {
+      const count = data.funnel[s.key] || 0;
+      const pct = Math.round((count / maxCount) * 100);
+      return `
+        <div class="funnel-row">
+          <div class="funnel-label">${s.label}</div>
+          <div class="funnel-bar-track">
+            <div class="funnel-bar-fill" style="width: ${pct}%; background: ${s.color}"></div>
+          </div>
+          <div class="funnel-count">${count}</div>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // Conversion rates
+  if (el('convApply')) el('convApply').textContent = `${data.conversion?.applyRate ?? 0}%`;
+  if (el('convInterview')) el('convInterview').textContent = `${data.conversion?.interviewRate ?? 0}%`;
+  if (el('convOffer')) el('convOffer').textContent = `${data.conversion?.offerRate ?? 0}%`;
+
+  // Weekly trend
+  const trendContainer = el('weeklyTrend');
+  if (trendContainer && data.weeklyTrend) {
+    const maxWeek = Math.max(1, ...data.weeklyTrend.map((w) => Math.max(w.tracked, w.applied)));
+    trendContainer.innerHTML = data.weeklyTrend.map((w) => `
+      <div class="trend-row">
+        <div class="trend-label">${escapeHtml(w.week)}</div>
+        <div class="trend-bars">
+          <div class="trend-bar trend-bar-tracked" style="width: ${Math.round((w.tracked / maxWeek) * 100)}%" title="${w.tracked} tracked"></div>
+          <div class="trend-bar trend-bar-applied" style="width: ${Math.round((w.applied / maxWeek) * 100)}%" title="${w.applied} applied"></div>
+        </div>
+        <div class="trend-count">${w.tracked}/${w.applied}</div>
+      </div>
+    `).join('') + '<div class="trend-legend"><span class="trend-dot trend-dot-tracked"></span>Tracked <span class="trend-dot trend-dot-applied"></span>Applied</div>';
+  }
+
+  // Response tracker
+  if (el('statGhostRate')) el('statGhostRate').textContent = `${data.ghostRate ?? 0}%`;
+  if (el('statTotalApplied')) el('statTotalApplied').textContent = data.totals?.applied ?? 0;
+  if (el('statTotalOffers')) el('statTotalOffers').textContent = data.totals?.offers ?? 0;
 }

@@ -786,6 +786,12 @@ button, .btn {
   line-height: 1.2;
 }
 
+.banner-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
 .active-page-meta {
   font-size: 12px;
   color: var(--foreground-secondary);
@@ -1038,56 +1044,299 @@ button, .btn {
 }
 
 /* ==========================================================
-   Score result — inline recommendations after scoring
+   Score pill — clickable badge on tracked job rows
    ========================================================== */
-.score-result-header {
+.row-score-pill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+  line-height: 1;
+}
+
+.row-score-pill:hover {
+  filter: brightness(1.15);
+  transform: scale(1.05);
+}
+
+.row-score-pill.score-high { background: var(--success); }
+.row-score-pill.score-medium { background: var(--warning); color: #1a1a1a; }
+.row-score-pill.score-low { background: var(--error); }
+
+/* ==========================================================
+   Score detail — inline expandable panel inside job cards
+   ========================================================== */
+.tracked-job-score-detail {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 8px;
+  animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 500px; }
+}
+
+.score-detail-content {
+  font-size: 12px;
+}
+
+.score-detail-header {
   display: flex;
   align-items: center;
-  gap: 10px;
-  margin-bottom: 8px;
+  gap: 8px;
+  margin-bottom: 6px;
 }
 
-.score-result-badge {
-  font-size: 18px;
-  font-weight: 800;
-  padding: 4px 10px;
-  border-radius: 6px;
-  color: #fff;
-}
-
-.score-result-badge.score-high { background: var(--success); }
-.score-result-badge.score-medium { background: var(--warning); color: #1a1a1a; }
-.score-result-badge.score-low { background: var(--error); }
-
-.score-result-title {
-  font-size: 13px;
+.score-detail-label {
+  font-size: 12px;
   font-weight: 600;
-  color: var(--foreground-primary);
+  color: var(--foreground-secondary);
 }
 
-.score-result-recommendations {
+.score-detail-recommendations {
   font-size: 12px;
   line-height: 1.6;
   color: var(--foreground-secondary);
-  border-top: 1px solid var(--border);
-  padding-top: 8px;
-  margin-bottom: 4px;
 }
 
-.score-result-recommendations p { margin: 4px 0; }
+.score-detail-recommendations p { margin: 4px 0; }
 
-.score-result-recommendations ul,
-.score-result-recommendations ol {
+.score-detail-recommendations ul,
+.score-detail-recommendations ol {
   margin: 4px 0 4px 16px;
   padding: 0;
 }
 
-.score-result-recommendations li { margin-bottom: 4px; }
+.score-detail-recommendations li { margin-bottom: 4px; }
 
-.score-result-actions {
+.score-detail-actions {
+  margin-top: 8px;
   display: flex;
   gap: 8px;
 }
+
+/* ==========================================================
+   Pipeline status pill (clickable → dropdown)
+   ========================================================== */
+.status-pill-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pipeline-status-pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+  line-height: 1.4;
+  transition: filter 0.15s;
+  white-space: nowrap;
+}
+
+.pipeline-status-pill:hover { filter: brightness(0.92); }
+
+.status-tracked     { background: var(--border); color: var(--foreground-secondary); }
+.status-applied     { background: var(--brand-blue-light); color: #1e40af; }
+.status-interviewing { background: #f3e8ff; color: #7c3aed; }
+.status-offered     { background: var(--warning-light); color: #92400e; }
+.status-accepted    { background: var(--success-light); color: #166534; }
+.status-rejected    { background: var(--error-light); color: #991b1b; }
+.status-cancelled   { background: #f3f4f6; color: #6b7280; }
+.status-withdrawn   { background: #f3f4f6; color: #6b7280; }
+.status-declined    { background: var(--error-light); color: #991b1b; }
+
+.status-dropdown {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 6px;
+  border: 2px solid var(--primary);
+  background: var(--background);
+  color: var(--foreground-primary);
+  cursor: pointer;
+  outline: none;
+  max-width: 110px;
+}
+
+/* ==========================================================
+   Analytics tab
+   ========================================================== */
+.analytics-snapshot {
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--brand-blue-light) 100%);
+}
+
+.analytics-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--foreground-secondary);
+  margin-bottom: 8px;
+}
+
+.analytics-row {
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+}
+
+.analytics-stat {
+  text-align: center;
+  flex: 1;
+}
+
+.analytics-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--foreground-primary);
+  line-height: 1.2;
+}
+
+.analytics-stat-label {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+}
+
+.analytics-stat-sub {
+  font-size: 10px;
+  color: var(--foreground-tertiary, #999);
+}
+
+.analytics-stat-delta {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.delta-up { color: var(--success); }
+.delta-down { color: var(--error); }
+
+.analytics-mini-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.analytics-mini-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.analytics-mini-label {
+  font-size: 10px;
+  color: var(--foreground-secondary);
+}
+
+/* Funnel bars */
+.funnel-bars { display: flex; flex-direction: column; gap: 6px; }
+
+.funnel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.funnel-label {
+  font-size: 11px;
+  width: 72px;
+  text-align: right;
+  color: var(--foreground-secondary);
+  flex-shrink: 0;
+}
+
+.funnel-bar-track {
+  flex: 1;
+  height: 14px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.funnel-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease-out;
+}
+
+.funnel-count {
+  font-size: 12px;
+  font-weight: 700;
+  width: 28px;
+  text-align: right;
+  color: var(--foreground-primary);
+}
+
+/* Weekly trend */
+.weekly-trend { display: flex; flex-direction: column; gap: 4px; }
+
+.trend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trend-label {
+  font-size: 10px;
+  width: 60px;
+  text-align: right;
+  color: var(--foreground-secondary);
+  flex-shrink: 0;
+}
+
+.trend-bars {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trend-bar {
+  height: 8px;
+  border-radius: 3px;
+  transition: width 0.4s ease-out;
+}
+
+.trend-bar-tracked { background: var(--foreground-secondary); opacity: 0.4; }
+.trend-bar-applied { background: var(--brand-blue); }
+
+.trend-count {
+  font-size: 10px;
+  width: 36px;
+  color: var(--foreground-secondary);
+}
+
+.trend-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--foreground-secondary);
+  margin-top: 4px;
+  justify-content: center;
+}
+
+.trend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.trend-dot-tracked { background: var(--foreground-secondary); opacity: 0.4; }
+.trend-dot-applied { background: var(--brand-blue); }
 
 /* ==========================================================
    Wizard mode banner
@@ -1409,6 +1658,46 @@ body.premium-unlocked .btn-upgrade-header {
 .profile-card .profile-email {
   font-size: 12px;
   color: var(--foreground-secondary);
+}
+
+.profile-card-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.profile-card-info {
+  min-width: 0;
+  flex: 1;
+}
+
+.profile-card-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+  text-decoration: none;
+}
+
+.icon-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
 }
 
 /* Stats card (tracked job count) */

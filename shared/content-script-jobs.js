@@ -93,13 +93,55 @@ let lastDetectedKey = null;
  * on LinkedIn collection URLs they include the LEFT rail (the job list).
  */
 const FOCUSED_PANE_FINDERS = {
-  'linkedin.com': () =>
-    document.querySelector('.job-details-jobs-unified-top-card')?.closest('.jobs-search__job-details, .jobs-search__job-details--container, .jobs-details, .scaffold-layout__detail') ||
-    document.querySelector('.jobs-search__job-details--container') ||
-    document.querySelector('.jobs-search__job-details') ||
-    document.querySelector('.job-view-layout') ||
-    document.querySelector('.top-card-layout') ||
-    null,
+  'linkedin.com': () => {
+    // ---- Strategy 1: Legacy semantic class names (pre-2025 LinkedIn) ----
+    const legacy =
+      document.querySelector('.job-details-jobs-unified-top-card')?.closest('.jobs-search__job-details, .jobs-search__job-details--container, .jobs-details, .scaffold-layout__detail') ||
+      document.querySelector('.jobs-search__job-details--container') ||
+      document.querySelector('.jobs-search__job-details') ||
+      document.querySelector('.job-view-layout') ||
+      document.querySelector('.top-card-layout');
+    if (legacy) return legacy;
+
+    // ---- Strategy 2: "About the job" content anchor (2025+ obfuscated) --
+    // LinkedIn always renders an "About the job" heading in the detail pane.
+    // Find it, then walk up to the nearest ancestor that contains the full
+    // job card (title + description + Easy Apply). This works regardless of
+    // class name obfuscation.
+    const allHeadings = document.querySelectorAll('h1, h2, h3, h4');
+    for (const h of allHeadings) {
+      const text = (h.textContent || '').trim().toLowerCase();
+      if (text === 'about the job' || text === 'about this role') {
+        // Walk up until we find a container with enough content
+        // (the job detail pane typically has 3000+ chars).
+        let container = h.parentElement;
+        for (let i = 0; i < 8 && container; i++) {
+          if (container === document.body) break;
+          const len = container.innerHTML.length;
+          // Good container: has the job content but isn't the entire page.
+          // The right pane is typically 5K-50K chars; the full page is 200K+.
+          if (len > 3000 && len < 150000) return container;
+          container = container.parentElement;
+        }
+      }
+    }
+
+    // ---- Strategy 3: "Easy Apply" button anchor -------------------------
+    // If "About the job" isn't rendered yet (SPA loading), try to find the
+    // pane via the "Easy Apply" or "Save" buttons which appear immediately.
+    const easyApply = document.querySelector('[aria-label*="Easy Apply"], button[aria-label*="Save"][aria-label*="at"]');
+    if (easyApply) {
+      let container = easyApply;
+      for (let i = 0; i < 10 && container; i++) {
+        if (container === document.body) break;
+        const len = container.innerHTML.length;
+        if (len > 3000 && len < 150000) return container;
+        container = container.parentElement;
+      }
+    }
+
+    return null;
+  },
   'indeed.com': () =>
     document.querySelector('.jobsearch-JobComponent') ||
     document.querySelector('#viewJobSSRRoot') ||
@@ -129,7 +171,10 @@ const FOCUSED_TITLE_SELECTORS = {
     '.job-details-jobs-unified-top-card__job-title',
     '.jobs-unified-top-card__job-title',
     '.top-card-layout__title',
+    // New obfuscated LinkedIn: the job title is typically the first h1
+    // inside the right pane, or an h2 near the top.
     'h1',
+    'h2',
   ],
   'indeed.com': [
     '[data-testid="jobsearch-JobInfoHeader-title"]',
@@ -216,6 +261,31 @@ function pickText(scope, selectors) {
   return '';
 }
 
+/**
+ * Build the canonical job URL. On LinkedIn collections/search pages the
+ * URL is e.g. /jobs/collections/recommended/?currentJobId=12345 — we
+ * rewrite it to /jobs/view/12345/ so dedup and re-opening work properly.
+ */
+function getCanonicalJobUrl() {
+  const url = new URL(window.location.href);
+  const host = url.hostname.toLowerCase();
+
+  if (host.includes('linkedin.com')) {
+    // LinkedIn: extract currentJobId from query string
+    const jobId = url.searchParams.get('currentJobId');
+    if (jobId) {
+      return `https://www.linkedin.com/jobs/view/${jobId}/`;
+    }
+    // Already on /jobs/view/ — use as-is
+    const viewMatch = url.pathname.match(/\/jobs\/view\/(\d+)/);
+    if (viewMatch) {
+      return `https://www.linkedin.com/jobs/view/${viewMatch[1]}/`;
+    }
+  }
+
+  return window.location.href;
+}
+
 function detectJobOnPage() {
   // 1. JSON-LD JobPosting (gold standard, host-agnostic)
   const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
@@ -234,7 +304,7 @@ function detectJobOnPage() {
           ? [loc.addressLocality, loc.addressRegion, loc.addressCountry].filter(Boolean).join(', ')
           : '';
         if (title) {
-          notifyJobDetected({ title, company, location, sourceUrl: window.location.href });
+          notifyJobDetected({ title, company, location, sourceUrl: getCanonicalJobUrl() });
           return true;
         }
       }
@@ -245,80 +315,137 @@ function detectJobOnPage() {
 
   // 2. Focused-pane detection — find the SINGLE job container on the
   // current page and extract title/company/location from inside it.
-  // Skips the page-level h1 / document.title which on collection pages
-  // refer to the LIST, not the focused job.
   const focused = findFocusedPane();
   if (focused) {
     const title = pickText(focused.el, FOCUSED_TITLE_SELECTORS[focused.host]);
     if (title) {
       const company = pickText(focused.el, FOCUSED_COMPANY_SELECTORS[focused.host]);
       const location = pickText(focused.el, FOCUSED_LOCATION_SELECTORS[focused.host]);
-      // Stash the focused pane outerHTML on the window so the side
-      // panel can request it via getHTML and pass ONLY this slice to
-      // /api/jobs/extract — preventing the AI from being confused by
-      // the surrounding job-list rail.
+      // Stash the focused pane outerHTML so the side panel can request
+      // ONLY this slice via getFocusedPaneHTML.
       try {
         window.__hiredVideoFocusedPaneHtml = focused.el.outerHTML;
-      } catch (e) {
-        // Some pages restrict cross-origin access; ignore.
-      }
+      } catch (e) { /* cross-origin restriction */ }
       notifyJobDetected({
         title: title.slice(0, 250),
         company,
         location,
-        sourceUrl: window.location.href,
+        sourceUrl: getCanonicalJobUrl(),
         hasFocusedPane: true,
       });
       return true;
     }
-  } else {
-    // Reset the cached pane when there's no focused job (so a stale
-    // pane from a prior page doesn't get sent on the next click).
-    try {
-      delete window.__hiredVideoFocusedPaneHtml;
-    } catch (e) {}
   }
 
-  // 3. Last-resort fallback for known job hosts where we couldn't find
-  // a focused pane (e.g. brand-new LinkedIn classnames). Only fires on
-  // an allowlist so we don't spam the side panel from arbitrary pages.
-  const KNOWN_HOSTS = [
-    'linkedin.com',
-    'indeed.com',
-    'glassdoor.com',
-    'ziprecruiter.com',
-    'monster.com',
-    'careerbuilder.com',
-    'dice.com',
-    'simplyhired.com',
-    'lever.co',
-    'greenhouse.io',
-    'myworkdayjobs.com',
-    'theladders.com',
-    'wellfound.com',
-    'angel.co',
-    'builtin.com',
-  ];
+  // 3. Fallback: search for "About the job" section even if
+  // findFocusedPane didn't match. This handles cases where the pane
+  // finder's size thresholds don't fit but the content IS there.
   const host = window.location.hostname.toLowerCase();
-  if (!KNOWN_HOSTS.some((h) => host.includes(h))) return false;
+  if (host.includes('linkedin.com')) {
+    const aboutSection = findLinkedInJobSection();
+    if (aboutSection) {
+      const { title, company, location, paneEl } = aboutSection;
+      if (title) {
+        try {
+          window.__hiredVideoFocusedPaneHtml = paneEl.outerHTML;
+        } catch (e) { /* cross-origin */ }
+        notifyJobDetected({
+          title: title.slice(0, 250),
+          company,
+          location,
+          sourceUrl: getCanonicalJobUrl(),
+          hasFocusedPane: true,
+        });
+        return true;
+      }
+    }
+  }
 
-  // Try a job-specific h1 first; otherwise bail rather than echoing
-  // the page title (which on a collection page is the list name).
-  const jobLikeHeading =
-    document.querySelector('h1[class*="job-title"]')?.textContent ||
-    document.querySelector('h1[class*="JobTitle"]')?.textContent ||
-    document.querySelector('h1[class*="top-card"]')?.textContent ||
-    '';
-  const title = jobLikeHeading.trim().slice(0, 250);
-  if (!title) return false;
+  // Reset the cached pane when there's no focused job
+  try { delete window.__hiredVideoFocusedPaneHtml; } catch (e) {}
+  return false;
+}
 
-  notifyJobDetected({
-    title,
-    company: '',
-    location: '',
-    sourceUrl: window.location.href,
-  });
-  return true;
+/**
+ * LinkedIn-specific: find job info by walking the DOM looking for
+ * content anchors ("About the job", "Easy Apply", etc.) rather than
+ * relying on class names which LinkedIn obfuscates.
+ */
+function findLinkedInJobSection() {
+  // Find "About the job" heading
+  const allEls = document.querySelectorAll('h1, h2, h3, h4, [role="heading"]');
+  let aboutEl = null;
+  for (const el of allEls) {
+    const text = (el.textContent || '').trim().toLowerCase();
+    if (text === 'about the job' || text === 'about this role') {
+      aboutEl = el;
+      break;
+    }
+  }
+  if (!aboutEl) return null;
+
+  // Walk up from "About the job" to find the full job detail pane
+  let paneEl = aboutEl;
+  for (let i = 0; i < 10 && paneEl; i++) {
+    if (paneEl === document.body) break;
+    const len = paneEl.innerHTML.length;
+    if (len > 3000 && len < 200000) break;
+    paneEl = paneEl.parentElement;
+  }
+  if (!paneEl || paneEl === document.body) return null;
+
+  // Extract title: the first h1 or h2 inside the pane (before "About the job")
+  let title = '';
+  const headings = paneEl.querySelectorAll('h1, h2');
+  for (const h of headings) {
+    const txt = (h.textContent || '').trim();
+    const lower = txt.toLowerCase();
+    // Skip non-title headings
+    if (lower === 'about the job' || lower === 'about this role') continue;
+    if (lower.includes('how your profile') || lower.includes('people also viewed')) continue;
+    if (txt.length > 5 && txt.length < 200) {
+      title = txt;
+      break;
+    }
+  }
+
+  // Extract company: look for text near the title that mentions a company
+  // On LinkedIn, company name typically appears right after the title as a
+  // link or in a secondary text element.
+  let company = '';
+  let location = '';
+
+  // Try aria-labels on dismiss buttons: "Dismiss {title} job" or link labels
+  const dismissBtns = paneEl.querySelectorAll('button[aria-label*="job"]');
+  for (const btn of dismissBtns) {
+    const label = btn.getAttribute('aria-label') || '';
+    // "Dismiss Director of Software Engineering job"
+    const match = label.match(/^Dismiss\s+(.+?)\s+job$/i);
+    if (match && match[1]) {
+      title = title || match[1];
+      break;
+    }
+  }
+
+  // Look for company in the text between the title and "About the job"
+  // Typically: "Company Name · Location · Posted time"
+  if (aboutEl.parentElement) {
+    const preAbout = [];
+    let sibling = aboutEl.parentElement.previousElementSibling;
+    for (let i = 0; i < 5 && sibling; i++) {
+      preAbout.unshift(sibling.textContent || '');
+      sibling = sibling.previousElementSibling;
+    }
+    const combinedText = preAbout.join(' ').replace(/\s+/g, ' ');
+    // Pattern: "Company · Location (Remote/On-site/Hybrid)"
+    const parts = combinedText.split(/[·•]/);
+    if (parts.length >= 2) {
+      company = company || parts[0].trim().slice(0, 100);
+      location = location || parts[1].trim().slice(0, 100);
+    }
+  }
+
+  return { title, company, location, paneEl };
 }
 
 function notifyJobDetected(payload) {
