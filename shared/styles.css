@@ -1038,6 +1038,58 @@ button, .btn {
 }
 
 /* ==========================================================
+   Score result — inline recommendations after scoring
+   ========================================================== */
+.score-result-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.score-result-badge {
+  font-size: 18px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 6px;
+  color: #fff;
+}
+
+.score-result-badge.score-high { background: var(--success); }
+.score-result-badge.score-medium { background: var(--warning); color: #1a1a1a; }
+.score-result-badge.score-low { background: var(--error); }
+
+.score-result-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground-primary);
+}
+
+.score-result-recommendations {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--foreground-secondary);
+  border-top: 1px solid var(--border);
+  padding-top: 8px;
+  margin-bottom: 4px;
+}
+
+.score-result-recommendations p { margin: 4px 0; }
+
+.score-result-recommendations ul,
+.score-result-recommendations ol {
+  margin: 4px 0 4px 16px;
+  padding: 0;
+}
+
+.score-result-recommendations li { margin-bottom: 4px; }
+
+.score-result-actions {
+  display: flex;
+  gap: 8px;
+}
+
+/* ==========================================================
    Wizard mode banner
    ========================================================== */
 .wizard-banner {

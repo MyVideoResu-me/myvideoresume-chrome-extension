@@ -406,6 +406,7 @@ async function runTailorAndSavePipeline(options = {}) {
 
     // 3. Tailor against the just-tracked job (rehydrates server-side via jobId)
     if (!options.silent) showQuickStatus('Tailoring resume…', 'info');
+    const priorRec1 = jobScores[job.id]?.recommendations || '';
     const tailorResp = await fetch(matchTailor, {
       method: 'POST',
       headers: {
@@ -416,6 +417,7 @@ async function runTailorAndSavePipeline(options = {}) {
         jobId: job.id,
         resumeId: selectedResume.id,
         sourceUrl: currentJobUrl,
+        ...(priorRec1 ? { priorRecommendations: priorRec1 } : {}),
       }),
     });
 
@@ -473,10 +475,16 @@ async function continuePipelineFromTailor(jwtToken, jobId, options = {}) {
   pipelineBusy = true;
   try {
     if (!options.silent) showQuickStatus('Tailoring resume…', 'info');
+    const priorRec2 = jobScores[jobId]?.recommendations || '';
     const tailorResp = await fetch(matchTailor, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
-      body: JSON.stringify({ jobId, resumeId: selectedResume.id, sourceUrl: currentJobUrl }),
+      body: JSON.stringify({
+        jobId,
+        resumeId: selectedResume.id,
+        sourceUrl: currentJobUrl,
+        ...(priorRec2 ? { priorRecommendations: priorRec2 } : {}),
+      }),
     });
     if (tailorResp.status === 401) return handleTokenExpired();
     if (await check429(tailorResp, 'quickStatus')) return;
@@ -779,12 +787,52 @@ async function rowScoreJob(jobId) {
     const data = await resp.json();
     const result = data?.data || data?.result || data;
     const score = result.score ?? 0;
-    saveJobScore(jobId, score, result.summaryRecommendations || '');
+    const recommendations = result.summaryRecommendations || '';
+    saveJobScore(jobId, score, recommendations);
     renderTrackedJobsTable();
-    showQuickStatus(`Score: ${formatScore(score)} — click ⓘ on the row for details.`, 'success');
+    // Show score + recommendations inline immediately
+    showScoreResult(jobId, score, recommendations);
   } catch (err) {
     showQuickStatus(err.message || 'Score failed.', 'error');
   }
+}
+
+/**
+ * Show score result with recommendations expanded inline.
+ * Renders into quickStatus so the user sees the gap analysis
+ * right away without needing to click the ⓘ icon.
+ */
+function showScoreResult(jobId, score, recommendations) {
+  const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
+  const heading = job ? `${job.title || 'Job'}${job.company ? ' — ' + job.company : ''}` : 'Job';
+  const panel = document.getElementById('quickStatus');
+  if (!panel) return;
+
+  const scoreColorClass = score >= 70 ? 'score-high' : score >= 40 ? 'score-medium' : 'score-low';
+  const converter = new showdown.Converter();
+  const recHtml = recommendations
+    ? converter.makeHtml(recommendations)
+    : '<em>No recommendations available.</em>';
+
+  panel.className = 'alert alert-info mt-2';
+  panel.innerHTML = `
+    <div class="score-result-header">
+      <span class="score-result-badge ${scoreColorClass}">${formatScore(score)}</span>
+      <span class="score-result-title">${escapeHtml(heading)}</span>
+    </div>
+    <div class="score-result-recommendations">${recHtml}</div>
+    <div class="score-result-actions mt-2">
+      <button class="btn btn-primary btn-compact" id="scoreResultTailor" data-job-id="${jobId}">✨ Tailor Resume to Fix Gaps</button>
+      <button class="btn btn-outline btn-compact" id="scoreResultClose">Close</button>
+    </div>
+  `;
+  panel.classList.remove('hidden');
+
+  document.getElementById('scoreResultClose')?.addEventListener('click', () => panel.classList.add('hidden'));
+  document.getElementById('scoreResultTailor')?.addEventListener('click', () => {
+    panel.classList.add('hidden');
+    rowTailorJob(jobId);
+  });
 }
 
 async function rowTailorJob(jobId) {
@@ -821,16 +869,22 @@ async function rowTailorJob(jobId) {
   showQuickStatus('Tailoring resume…', 'info');
   try {
     const jwtToken = await getJwtToken();
+    // Pass prior score recommendations so the tailor LLM targets specific gaps
+    const cachedScoreData = jobScores[jobId];
+    const tailorPayload = {
+      jobId,
+      resumeId: selectedResume.id,
+    };
+    if (cachedScoreData?.recommendations) {
+      tailorPayload.priorRecommendations = cachedScoreData.recommendations;
+    }
     const tailorResp = await fetch(matchTailor, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${jwtToken}`,
       },
-      body: JSON.stringify({
-        jobId,
-        resumeId: selectedResume.id,
-      }),
+      body: JSON.stringify(tailorPayload),
     });
     if (tailorResp.status === 401) return handleTokenExpired();
     if (await check429(tailorResp, 'quickStatus')) return;
@@ -1890,11 +1944,13 @@ async function handleTailorGenerate() {
     }
   }
 
+  const priorRecWizard = trackedJob?.id ? (jobScores[trackedJob.id]?.recommendations || '') : '';
   const tailorRequest = {
     jobHtml: currentJobHtml,
     resumeId: selectedResume.id,
     sourceUrl: currentJobUrl,
     jobId: trackedJob?.id,
+    ...(priorRecWizard ? { priorRecommendations: priorRecWizard } : {}),
   };
 
   document.getElementById('trackGenerateButton').disabled = true;
