@@ -45,6 +45,7 @@ const PATHS = {
   resumeMasterGroups: '/api/resumes/mastergroups',
   resumeParse: '/api/resumes/parse',
   resumeCreateFromFile: '/api/resumes/createfromfile',
+  resumeCreateFromText: '/api/resumes/createfromtext',
   // Per-resume actions append the id and verb: /api/resumes/{id}/{action}
   resumeBase: '/api/resumes',
 
@@ -74,6 +75,7 @@ let resumeBase;
 let resumesBase;
 let resumeParseUrl;
 let resumeCreateFromFileUrl;
+let resumeCreateFromTextUrl;
 let jobsBase;
 let jobsExtractUrl;
 let jobsSavedUrl;
@@ -94,6 +96,7 @@ function updateConfiguration() {
     resumesBase = apiBase + PATHS.resumes;
     resumeParseUrl = apiBase + PATHS.resumeParse;
     resumeCreateFromFileUrl = apiBase + PATHS.resumeCreateFromFile;
+    resumeCreateFromTextUrl = apiBase + PATHS.resumeCreateFromText;
     jobsBase = apiBase + PATHS.jobBase;
     jobsExtractUrl = apiBase + PATHS.jobsExtract;
     jobsSavedUrl = apiBase + PATHS.jobsSaved;

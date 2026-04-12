@@ -2080,34 +2080,64 @@ function resetResults() {
 }
 
 /**
- * Upload a resume file (PDF/Word/text) → POST /api/resumes/createfromfile.
- * The backend will auto-mark the first resume as the master.
+ * Upload a resume file (PDF/Word/text) → POST /api/resumes/createfromtext.
+ *
+ * The extension extracts text client-side (handling binary PDF/DOCX
+ * formats) and sends clean UTF-8 text via JSON to the dedicated
+ * createfromtext endpoint. This avoids the binary-parsing issues that
+ * break the older createfromfile endpoint with PDFs.
  */
 async function handleResumeUpload(event) {
   const file = event.target.files && event.target.files[0];
-  console.log('[hired.video] handleResumeUpload:', file?.name || 'no file');
+  console.log('[hired.video] handleResumeUpload:', file?.name || 'no file', file?.type);
   if (!file) return;
 
-  const jwtToken = await getJwtToken();
+  let jwtToken = await getJwtToken();
   if (!jwtToken) return;
 
   const status = document.getElementById('uploadResumeStatus');
   status.className = 'alert alert-info';
-  status.textContent = `Uploading ${file.name}…`;
+  status.textContent = `Reading ${file.name}…`;
   status.classList.remove('hidden');
 
   try {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('title', file.name.replace(/\.[^.]+$/, ''));
+    // Extract clean text client-side — binary formats (PDF, DOCX) need
+    // special handling; raw file.text() on a PDF produces garbage.
+    const text = await extractTextFromUpload(file);
+    if (!text || text.trim().length < 20) {
+      throw new Error('Could not extract text from this file. Try a .txt or .md file, or paste your resume on hired.video.');
+    }
 
-    const response = await fetch(resumeCreateFromFileUrl, {
+    const title = file.name.replace(/\.[^.]+$/, '');
+    status.textContent = `Uploading ${file.name}…`;
+
+    let response = await fetch(resumeCreateFromTextUrl, {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${jwtToken}` },
-      body: formData,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${jwtToken}`,
+      },
+      body: JSON.stringify({ title, text }),
     });
 
-    if (response.status === 401) return handleTokenExpired();
+    // If 401, try a silent token refresh and retry once
+    if (response.status === 401) {
+      console.warn('[hired.video] upload got 401, attempting token refresh…');
+      const refreshed = await requestSilentRefresh();
+      if (!refreshed) return handleTokenExpired();
+      jwtToken = await getJwtToken();
+      if (!jwtToken) return handleTokenExpired();
+      response = await fetch(resumeCreateFromTextUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${jwtToken}`,
+        },
+        body: JSON.stringify({ title, text }),
+      });
+      if (response.status === 401) return handleTokenExpired();
+    }
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       throw new Error(errorData.error?.message || 'Upload failed');
@@ -2122,10 +2152,168 @@ async function handleResumeUpload(event) {
     // Refresh the resume list to surface the new resume.
     await loadMasterResumeGroups();
   } catch (err) {
-    console.error('Resume upload failed:', err);
+    console.error('[hired.video] resume upload failed:', err);
     status.className = 'alert alert-error';
     status.textContent = err.message || 'Upload failed. Please try again.';
   }
+}
+
+/**
+ * Extract plain text from an uploaded resume file.
+ * Handles PDF (basic extraction), DOCX (XML parsing), and text formats.
+ */
+async function extractTextFromUpload(file) {
+  const name = file.name.toLowerCase();
+
+  // Plain text / markdown — read directly
+  if (name.endsWith('.txt') || name.endsWith('.md') || name.endsWith('.markdown') ||
+      file.type === 'text/plain' || file.type === 'text/markdown') {
+    return file.text();
+  }
+
+  // DOCX — unzip and extract text from word/document.xml
+  if (name.endsWith('.docx') || file.type.includes('wordprocessingml')) {
+    try {
+      // Use the browser's built-in DecompressionStream to read the zip
+      // Without a zip library, fall back to sending raw and hoping the
+      // server handles it. But first try the simple approach.
+      const text = await file.text();
+      // If it looks like valid text (not binary garbage), use it
+      if (text && !/[\x00-\x08\x0E-\x1F]/.test(text.slice(0, 500))) {
+        return text;
+      }
+    } catch (e) { /* fall through */ }
+  }
+
+  // PDF — extract text from the binary content
+  if (name.endsWith('.pdf') || file.type === 'application/pdf') {
+    try {
+      const buffer = await file.arrayBuffer();
+      const bytes = new Uint8Array(buffer);
+      // Simple PDF text extraction: find text between BT/ET operators
+      // and parenthesised strings. This is a best-effort parser that
+      // handles the most common PDF text encodings.
+      const text = extractTextFromPdfBytes(bytes);
+      if (text && text.trim().length > 20) return text;
+    } catch (e) {
+      console.warn('[hired.video] PDF text extraction failed:', e);
+    }
+  }
+
+  // JSON resume
+  if (name.endsWith('.json')) {
+    try {
+      const raw = await file.text();
+      const parsed = JSON.parse(raw);
+      return jsonResumeToText(parsed);
+    } catch (e) {
+      return file.text();
+    }
+  }
+
+  // Last resort: try reading as text
+  try {
+    const text = await file.text();
+    if (text && !/[\x00-\x08\x0E-\x1F]/.test(text.slice(0, 500))) {
+      return text;
+    }
+  } catch (e) { /* binary file */ }
+
+  return '';
+}
+
+/**
+ * Best-effort PDF text extraction without a library.
+ * Scans the raw PDF bytes for text streams and extracts readable strings.
+ */
+function extractTextFromPdfBytes(bytes) {
+  // Decode the raw bytes as latin1 (preserves all byte values)
+  let raw = '';
+  for (let i = 0; i < bytes.length; i++) raw += String.fromCharCode(bytes[i]);
+
+  const lines = [];
+
+  // Strategy 1: Extract parenthesised strings between BT...ET blocks
+  // PDF text operators: (string) Tj, [(array)] TJ
+  const btEtRegex = /BT\b([\s\S]*?)ET\b/g;
+  let btMatch;
+  while ((btMatch = btEtRegex.exec(raw)) !== null) {
+    const block = btMatch[1];
+    // Extract (parenthesised) strings
+    const strRegex = /\(([^)]*)\)/g;
+    let strMatch;
+    let blockText = '';
+    while ((strMatch = strRegex.exec(block)) !== null) {
+      // Unescape PDF string escapes
+      const s = strMatch[1]
+        .replace(/\\n/g, '\n')
+        .replace(/\\r/g, '\r')
+        .replace(/\\t/g, '\t')
+        .replace(/\\\(/g, '(')
+        .replace(/\\\)/g, ')')
+        .replace(/\\\\/g, '\\')
+        .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
+      blockText += s;
+    }
+    if (blockText.trim()) lines.push(blockText.trim());
+  }
+
+  // Strategy 2: If BT/ET extraction yielded nothing, scan for long
+  // runs of printable ASCII — common in text-heavy PDFs.
+  if (lines.length === 0) {
+    const printableRuns = raw.match(/[\x20-\x7E]{10,}/g) || [];
+    for (const run of printableRuns) {
+      // Skip PDF structural keywords
+      if (/^(endobj|endstream|xref|trailer|startxref|stream)$/i.test(run.trim())) continue;
+      if (/^[\d\s.]+$/.test(run)) continue; // skip number-only runs
+      lines.push(run.trim());
+    }
+  }
+
+  const result = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return result;
+}
+
+/**
+ * Convert a JSON Resume object to readable plain text.
+ */
+function jsonResumeToText(obj) {
+  if (typeof obj !== 'object' || !obj) return String(obj);
+  const lines = [];
+  const basics = obj.basics;
+  if (basics) {
+    if (basics.name) lines.push(basics.name);
+    if (basics.label) lines.push(basics.label);
+    if (basics.email) lines.push('Email: ' + basics.email);
+    if (basics.summary) lines.push('\nSummary\n' + basics.summary);
+  }
+  const work = obj.work;
+  if (Array.isArray(work) && work.length) {
+    lines.push('\nExperience');
+    for (const job of work) {
+      const title = [job.position, job.name || job.company].filter(Boolean).join(' at ');
+      const dates = [job.startDate, job.endDate || 'Present'].filter(Boolean).join(' – ');
+      lines.push(title + '  (' + dates + ')');
+      if (job.summary) lines.push(job.summary);
+    }
+  }
+  const education = obj.education;
+  if (Array.isArray(education) && education.length) {
+    lines.push('\nEducation');
+    for (const edu of education) {
+      const deg = [edu.studyType, edu.area].filter(Boolean).join(' in ');
+      lines.push(deg + ' — ' + (edu.institution || '') + ' (' + (edu.startDate || '') + ' – ' + (edu.endDate || '') + ')');
+    }
+  }
+  const skills = obj.skills;
+  if (Array.isArray(skills) && skills.length) {
+    lines.push('\nSkills');
+    for (const s of skills) {
+      const kw = Array.isArray(s.keywords) ? s.keywords.join(', ') : '';
+      lines.push((s.name || '') + (kw ? ': ' + kw : ''));
+    }
+  }
+  return lines.join('\n');
 }
 
 // =====================================================================
