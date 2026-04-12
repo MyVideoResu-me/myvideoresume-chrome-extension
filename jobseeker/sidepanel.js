@@ -534,8 +534,11 @@ function showQuickStatus(message, kind) {
  */
 async function handleBannerScore() {
   const ok = await requireAuth();
-  if (!ok || !selectedResume) {
-    showQuickStatus('Select a resume in Settings first.', 'error');
+  if (!ok) return;
+  if (!selectedResume) {
+    showQuickStatus('Upload or select a resume first.', 'warning');
+    switchTab('settings');
+    showResumeSelection();
     return;
   }
   if (!detectedPageJob) {
@@ -665,7 +668,9 @@ async function runTailorAndSavePipeline(options = {}) {
   if (pipelineBusy) return;
 
   if (!selectedResume) {
-    showQuickStatus('Select a resume in the Settings tab first.', 'error');
+    showQuickStatus('Upload or select a resume first.', 'warning');
+    switchTab('settings');
+    showResumeSelection();
     return;
   }
 
@@ -1180,9 +1185,11 @@ async function rowDownloadTailoredVariation(jobId) {
 
 async function rowScoreJob(jobId) {
   const ok = await requireAuth();
-  if (!ok || !selectedResume) {
-    showQuickStatus('Select a resume in Settings first.', 'error');
+  if (!ok) return;
+  if (!selectedResume) {
+    showQuickStatus('Upload or select a resume first.', 'warning');
     switchTab('settings');
+    showResumeSelection();
     return;
   }
   // Use the tailored variation if one exists for this job, otherwise the master
@@ -1216,9 +1223,11 @@ async function rowScoreJob(jobId) {
 
 async function rowTailorJob(jobId) {
   const ok = await requireAuth();
-  if (!ok || !selectedResume) {
-    showQuickStatus('Select a resume in Settings first.', 'error');
+  if (!ok) return;
+  if (!selectedResume) {
+    showQuickStatus('Upload or select a resume first.', 'warning');
     switchTab('settings');
+    showResumeSelection();
     return;
   }
 
@@ -1671,6 +1680,10 @@ function setupEventListeners() {
     console.log('[hired.video] openResumeButton clicked, selectedResume:', selectedResume?.id);
     if (selectedResume?.id) {
       chrome.tabs.create({ url: buildWebUrl('/resumes/' + selectedResume.id) });
+    } else {
+      showQuickStatus('Upload or select a resume first.', 'warning');
+      switchTab('settings');
+      showResumeSelection();
     }
   });
   bind('changeResumeButton', () => {
@@ -2231,8 +2244,9 @@ async function handleScoreEvaluate() {
   if (!jwtToken) return;
 
   if (!selectedResume) {
-    showError('evalRecommendations', 'Please select a resume first');
-    showElement('evalRecommendations');
+    showQuickStatus('Upload or select a resume first.', 'warning');
+    switchTab('settings');
+    showResumeSelection();
     return;
   }
 
@@ -2339,7 +2353,9 @@ async function handleTailorGenerate() {
   if (!jwtToken) return;
 
   if (!selectedResume) {
-    showError('custom', 'Please select a resume first');
+    showQuickStatus('Upload or select a resume first.', 'warning');
+    switchTab('settings');
+    showResumeSelection();
     return;
   }
 
