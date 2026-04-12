@@ -24,13 +24,13 @@ let generatedVariationId = null; // set when "Save as Variation" succeeds
 let currentJobHtml = null;
 let currentJobUrl = null;
 let currentJobOriginalHtml = null; // raw page HTML for the extract API
-let trackedJob = null;             // { id, title, company, sourceUrl, ... }
+let trackedJob = null;             // { id, title, company, sourceUrl, applyUrl, ... }
 
 // New for the two-tab redesign
 let currentTab = 'now';
 let isPremium = false;
 let trackedJobsList = [];
-let detectedPageJob = null; // { title, company, location, sourceUrl } from content script
+let detectedPageJob = null; // { title, company, location, sourceUrl, applyUrl } from content script
 let pipelineBusy = false;
 
 // Per-job persisted caches. Both are jobId -> entry maps stored in
@@ -154,11 +154,12 @@ function saveJobScore(jobId, score, recommendations) {
   chrome.storage.local.set({ [JOB_SCORES_KEY]: jobScores });
 }
 
-function saveJobTailoring(jobId, variationId, masterResumeId, score) {
+function saveJobTailoring(jobId, variationId, masterResumeId, score, variationName) {
   jobTailorings[jobId] = {
     variationId,
     masterResumeId,
     score: score ?? null,
+    variationName: variationName || '',
     tailoredAt: new Date().toISOString(),
   };
   chrome.storage.local.set({ [JOB_TAILORINGS_KEY]: jobTailorings });
@@ -324,6 +325,7 @@ function handleJobDetected(payload) {
       title: matched.title,
       company: matched.company,
       sourceUrl: matched.sourceUrl,
+      applyUrl: matched.applyUrl || matched.sourceUrl,
     };
     currentJobUrl = matched.sourceUrl;
     if (eyebrow) eyebrow.textContent = '✅ Already tracked';
@@ -625,6 +627,7 @@ async function runTailorAndSavePipeline(options = {}) {
               company: candidate.company || '',
               location: candidate.location || '',
               sourceUrl: candidate.sourceUrl || currentJobUrl,
+              applyUrl: candidate.sourceUrl || detectedPageJob?.applyUrl || currentJobUrl,
             };
             chrome.storage.local.set({ [trackedJobKey]: trackedJob });
             // Continue the pipeline from the tailor step.
@@ -646,6 +649,7 @@ async function runTailorAndSavePipeline(options = {}) {
       company: job.company || '',
       location: job.location || '',
       sourceUrl: currentJobUrl,
+      applyUrl: job.applyUrl || detectedPageJob?.applyUrl || currentJobUrl,
     };
     chrome.storage.local.set({ [trackedJobKey]: trackedJob });
 
@@ -690,7 +694,7 @@ async function runTailorAndSavePipeline(options = {}) {
     // returns the same variation without burning AI tokens again.
     if (generatedVariationId && job?.id) {
       const newScore = tailored.newScore ?? tailored.score ?? null;
-      saveJobTailoring(job.id, generatedVariationId, masterId, newScore);
+      saveJobTailoring(job.id, generatedVariationId, masterId, newScore, variationName);
       if (newScore != null) {
         saveJobScore(job.id, newScore, tailored.summaryRecommendations || '');
       }
@@ -751,7 +755,7 @@ async function continuePipelineFromTailor(jwtToken, jobId, options = {}) {
     });
     if (generatedVariationId && jobId) {
       const newScore = tailored.newScore ?? tailored.score ?? null;
-      saveJobTailoring(jobId, generatedVariationId, masterId, newScore);
+      saveJobTailoring(jobId, generatedVariationId, masterId, newScore, variationName);
       if (newScore != null) saveJobScore(jobId, newScore, tailored.summaryRecommendations || '');
     }
 
@@ -797,7 +801,7 @@ async function runScoreOnlyPipeline() {
   if (!extractResp.ok) return;
   const extractData = await extractResp.json();
   const job = extractData?.data || extractData;
-  trackedJob = { id: job.id, title: job.title, company: job.company, sourceUrl: currentJobUrl };
+  trackedJob = { id: job.id, title: job.title, company: job.company, sourceUrl: currentJobUrl, applyUrl: job.applyUrl || detectedPageJob?.applyUrl || currentJobUrl };
 
   await fetch(matchAnalyze, {
     method: 'POST',
@@ -870,20 +874,34 @@ function renderTrackedJobsTable() {
     );
     const pipelineStatus = job.pipelineStatus || 'tracked';
 
-    // Cached score — the pill IS the toggle button for inline recommendations
+    // Score button — shows score number directly when scored
     const cachedScore = jobScores[id];
-    const scorePill = cachedScore
-      ? `<button class="row-score-pill ${scoreClass(cachedScore.score)}" data-action="toggle-score" data-job-id="${id}" title="Click to see recommendations">${formatScore(cachedScore.score)}</button>`
-      : '';
+    const scoreButton = cachedScore
+      ? `<button class="btn btn-outline btn-scored ${scoreClass(cachedScore.score)}" data-action="toggle-score" data-job-id="${id}" title="Click to see recommendations">🎯 ${formatScore(cachedScore.score)}</button>`
+      : `<button class="btn btn-outline" data-action="score" data-job-id="${id}">🎯 Score</button>`;
 
     // Status pill with pencil edit icon — clicking switches to a dropdown
     const statusPill = `<span class="status-pill-wrapper" id="statusPill-${id}"><button class="pipeline-status-pill status-${pipelineStatus}" data-action="edit-status" data-job-id="${id}" title="Change status">${pipelineStatus} ✎</button></span>`;
 
-    // Cached tailoring → button morphs into "Download tailored" instead of re-running AI
+    // Tailor button
     const cachedTailor = jobTailorings[id];
     const tailorButton = cachedTailor
-      ? `<button class="btn btn-success" data-action="download-tailored" data-job-id="${id}" title="Download the resume already tailored for this job">⤓ Tailored Resume</button>`
+      ? `<button class="btn btn-outline btn-tailored" data-action="tailor" data-job-id="${id}" title="Re-tailor this resume">✨ Tailored</button>`
       : `<button class="btn btn-primary" data-action="tailor" data-job-id="${id}">✨ Tailor</button>`;
+
+    // Resume row — shown when a tailored variation exists
+    const resumeName = escapeHtml(cachedTailor?.variationName || '');
+    const resumeRow = cachedTailor ? `
+        <div class="tracked-job-resume-row">
+          <div class="resume-row-info">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            <span class="resume-row-name" title="${resumeName}">${resumeName || 'Tailored resume'}</span>
+          </div>
+          <div class="resume-row-actions">
+            <button class="icon-btn" data-action="download-tailored" data-job-id="${id}" title="Download resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+            <button class="icon-btn" data-action="view-tailored" data-job-id="${id}" title="View resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
+          </div>
+        </div>` : '';
 
     return `
       <div class="tracked-job-row" data-job-id="${id}">
@@ -893,16 +911,16 @@ function renderTrackedJobsTable() {
             <div class="tracked-job-meta">${meta}</div>
           </div>
           <div class="tracked-job-row-trailing">
-            ${scorePill}
             ${statusPill}
             <button class="row-delete icon-btn" data-action="delete" data-job-id="${id}" title="Remove from your tracker"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div>
         </div>
         <div class="tracked-job-actions">
-          <button class="btn btn-outline" data-action="score" data-job-id="${id}">🎯 Score</button>
+          ${scoreButton}
           ${tailorButton}
           <button class="btn btn-outline" data-action="open" data-job-id="${id}">↗ Open</button>
         </div>
+        ${resumeRow}
         <div class="tracked-job-score-detail hidden" id="scoreDetail-${id}"></div>
       </div>
     `;
@@ -975,6 +993,13 @@ async function onTrackedJobAction(event) {
       return rowDownloadTailoredVariation(jobId);
     case 'delete':
       return rowDeleteTrackedJob(jobId);
+    case 'view-tailored': {
+      const cached = jobTailorings[jobId];
+      if (cached?.variationId) {
+        chrome.tabs.create({ url: buildWebUrl(`/resumes/${cached.variationId}`) });
+      }
+      return;
+    }
     case 'open': {
       const openJob = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
       const openUrl = openJob?.sourceUrl || buildWebUrl(`/jobs/${jobId}`);
@@ -1137,6 +1162,7 @@ async function rowTailorJob(jobId) {
     company: job.company || '',
     location: job.location || '',
     sourceUrl: job.sourceUrl || '',
+    applyUrl: job.applyUrl || job.sourceUrl || '',
   };
   pipelineBusy = true;
   const restoreRow = showRowLoading(jobId, 'Tailoring resume…');
@@ -1182,7 +1208,7 @@ async function rowTailorJob(jobId) {
     });
     if (generatedVariationId) {
       const newScore = tailored.newScore ?? tailored.score ?? null;
-      saveJobTailoring(jobId, generatedVariationId, masterId, newScore);
+      saveJobTailoring(jobId, generatedVariationId, masterId, newScore, variationName);
       if (newScore != null) {
         saveJobScore(jobId, newScore, tailored.summaryRecommendations || '');
       }
@@ -2090,6 +2116,7 @@ async function handleTrackJob() {
       company: job.company || job.companyName || '',
       location: job.location || '',
       sourceUrl: currentJobUrl,
+      applyUrl: job.applyUrl || detectedPageJob?.applyUrl || currentJobUrl,
     };
     chrome.storage.local.set({ [trackedJobKey]: trackedJob });
 

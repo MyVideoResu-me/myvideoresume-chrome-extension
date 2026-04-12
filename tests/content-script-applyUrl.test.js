@@ -199,6 +199,19 @@ function loadContentScript(globals) {
   // First strip the auto-executing code at the bottom (scheduleDetect, observers, etc.)
   // so the tests control when detection runs.
 
+  // The content script declares top-level `let` variables and auto-runs
+  // observers / timers. Strip those so we control execution.
+  let modifiedSrc = src;
+
+  // Remove the auto-executing tail: scheduleDetect(), MutationObserver,
+  // history monkey-patches, setInterval, and the onMessage listener.
+  // These start after the `genericJobExtract` function definition.
+  const autoInitMarker = "// Run once on initial load";
+  const autoInitIdx = modifiedSrc.indexOf(autoInitMarker);
+  if (autoInitIdx > 0) {
+    modifiedSrc = modifiedSrc.slice(0, autoInitIdx);
+  }
+
   // Build a wrapper that exposes the inner functions
   const wrappedSrc = `
     "use strict";
@@ -212,23 +225,12 @@ function loadContentScript(globals) {
     const MutationObserver = __globals.MutationObserver;
     const navigator = { userAgent: "test" };
 
-    // Stub out auto-init
-    let __detectJobOnPage, __genericJobExtract, __getCanonicalJobUrl, __notifyJobDetected;
-    let lastDetectedKey = null;
-    let lastDetectedPayload = null;
-
-    ${src}
-
-    // Expose functions
-    __detectJobOnPage = detectJobOnPage;
-    __genericJobExtract = genericJobExtract;
-    __getCanonicalJobUrl = getCanonicalJobUrl;
-    __notifyJobDetected = notifyJobDetected;
+    ${modifiedSrc}
 
     return {
-      detectJobOnPage: __detectJobOnPage,
-      genericJobExtract: __genericJobExtract,
-      getCanonicalJobUrl: __getCanonicalJobUrl,
+      detectJobOnPage,
+      genericJobExtract,
+      getCanonicalJobUrl,
       lastDetectedPayload: () => lastDetectedPayload,
     };
   `;
@@ -300,7 +302,7 @@ describe("content-script-jobs.js — applyUrl in detected payload", () => {
       })}</script>
     </head><body></body></html>`;
 
-    const globals = setupGlobals(html, "https://linkedin.com/jobs/view/99999/");
+    const globals = setupGlobals(html, "https://www.linkedin.com/jobs/view/99999/");
     const script = loadContentScript(globals);
 
     script.detectJobOnPage();
@@ -310,7 +312,7 @@ describe("content-script-jobs.js — applyUrl in detected payload", () => {
     // No explicit apply URL → should fall back to sourceUrl
     assert.equal(
       payload.applyUrl,
-      "https://linkedin.com/jobs/view/99999/",
+      "https://www.linkedin.com/jobs/view/99999/",
       "applyUrl should default to sourceUrl when no JSON-LD url is available"
     );
   });

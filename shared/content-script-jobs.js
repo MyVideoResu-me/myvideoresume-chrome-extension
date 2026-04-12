@@ -332,8 +332,15 @@ function detectJobOnPage() {
         const location = loc
           ? [loc.addressLocality, loc.addressRegion, loc.addressCountry].filter(Boolean).join(', ')
           : '';
+        // Apply URL: prefer directApply (explicit apply link) over url
+        // (canonical job page), then try DOM apply buttons, then fall back
+        // to the sourceUrl (the page the user is on).
+        const directApply = typeof item.directApply === 'string' ? item.directApply.trim() : '';
+        const itemUrl = typeof item.url === 'string' ? item.url.trim() : '';
+        const sourceUrl = getCanonicalJobUrl();
+        const applyUrl = directApply || itemUrl || extractApplyUrl() || sourceUrl;
         if (title) {
-          notifyJobDetected({ title, company, location, sourceUrl: getCanonicalJobUrl() });
+          notifyJobDetected({ title, company, location, sourceUrl, applyUrl });
           return true;
         }
       }
@@ -367,11 +374,13 @@ function detectJobOnPage() {
       try {
         window.__hiredVideoFocusedPaneHtml = focused.el.outerHTML;
       } catch (e) { /* cross-origin restriction */ }
+      const focusedSourceUrl = getCanonicalJobUrl();
       notifyJobDetected({
         title: title.slice(0, 250),
         company,
         location,
-        sourceUrl: getCanonicalJobUrl(),
+        sourceUrl: focusedSourceUrl,
+        applyUrl: extractApplyUrl() || focusedSourceUrl,
         hasFocusedPane: true,
       });
       return true;
@@ -390,11 +399,13 @@ function detectJobOnPage() {
         try {
           window.__hiredVideoFocusedPaneHtml = paneEl.outerHTML;
         } catch (e) { /* cross-origin */ }
+        const aboutSourceUrl = getCanonicalJobUrl();
         notifyJobDetected({
           title: title.slice(0, 250),
           company,
           location,
-          sourceUrl: getCanonicalJobUrl(),
+          sourceUrl: aboutSourceUrl,
+          applyUrl: extractApplyUrl() || aboutSourceUrl,
           hasFocusedPane: true,
         });
         return true;
@@ -571,6 +582,53 @@ function googlePickCompanyLocation(paneEl) {
   return { company: '', location: '' };
 }
 
+// ---- Apply URL extraction -------------------------------------------
+// Scans the page for "Apply" buttons/links that point to an external
+// application system (Workday, Greenhouse, Lever, etc.). The sourceUrl
+// is where the job was found; the applyUrl is where you actually apply.
+
+/**
+ * Look for an apply-button link on the page. Returns the href if found,
+ * or empty string if the page has no distinct apply link.
+ */
+function extractApplyUrl() {
+  // Common selectors for apply buttons/links across major job sites
+  const applySelectors = [
+    'a[data-apply-url]',                            // explicit data attr
+    'a[href*="/apply"]',                             // generic /apply path
+    'a.apply-button', 'a.apply-btn',                // common class names
+    'a[class*="apply" i]',                           // fuzzy class match
+    'a[data-testid*="apply" i]',                     // test IDs
+    'button[data-apply-url]',                        // button with data attr
+  ];
+
+  for (const sel of applySelectors) {
+    try {
+      const els = document.querySelectorAll(sel);
+      for (const el of els) {
+        const href = el.getAttribute('href') || el.dataset?.applyUrl || '';
+        if (!href || href === '#' || href.startsWith('javascript:')) continue;
+        // Resolve relative URLs
+        try {
+          const resolved = new URL(href, window.location.href).href;
+          // Only return if it looks like a real URL (not just an anchor)
+          if (resolved.startsWith('http')) return resolved;
+        } catch (e) { /* invalid URL */ }
+      }
+    } catch (e) { /* bad selector */ }
+  }
+
+  // Also check for LinkedIn's "Apply" / "Easy Apply" button which uses
+  // a different pattern — the actual external apply URL is in a nearby link
+  const linkedInApply = document.querySelector('.jobs-apply-button--top-card a[href]');
+  if (linkedInApply) {
+    const href = linkedInApply.getAttribute('href');
+    if (href && href.startsWith('http')) return href;
+  }
+
+  return '';
+}
+
 // ---- Generic fallback extraction ------------------------------------
 // Used by the `detectJob` handler when no site-specific detection
 // matched. Tries h1, <title>, and common job-page meta patterns.
@@ -622,11 +680,13 @@ function genericJobExtract() {
     document.querySelector('[data-testid*="location"], [class*="job-location"], [class*="jobLocation"]');
   if (locEl) location = locEl.textContent.replace(/\s+/g, ' ').trim();
 
+  const genericSourceUrl = getCanonicalJobUrl();
   return {
     title: title.slice(0, 250),
     company,
     location,
-    sourceUrl: getCanonicalJobUrl(),
+    sourceUrl: genericSourceUrl,
+    applyUrl: extractApplyUrl() || genericSourceUrl,
   };
 }
 

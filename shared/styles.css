@@ -1020,6 +1020,49 @@ button, .btn {
   opacity: 0.7;
 }
 
+/* Score button with inline number */
+.btn-scored.score-high { color: var(--success); border-color: var(--success); }
+.btn-scored.score-medium { color: var(--warning); border-color: var(--warning); }
+.btn-scored.score-low { color: var(--error); border-color: var(--error); }
+
+/* Tailored button — subtle success accent */
+.btn-tailored { color: var(--success); border-color: var(--success); }
+
+/* Resume row — shows tailored variation name with download/view icons */
+.tracked-job-resume-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  margin-top: 2px;
+  background: var(--surface-secondary);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--foreground-secondary);
+}
+
+.resume-row-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.resume-row-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resume-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
 /* Trash button — inherits icon-btn base via class, override hover to red */
 .row-delete.icon-btn:hover {
   color: var(--error);
