@@ -302,6 +302,49 @@ function findMatchingTrackedJob(url) {
   }) || null;
 }
 
+/**
+ * Ensure there is an active (selected) resume. Handles three states:
+ *
+ *  1. No resumes at all → returns 'none'
+ *  2. Resumes exist but none is active → auto-activates master, returns 'auto-activated'
+ *  3. A resume is already active → returns 'ok'
+ *
+ * After this call, `selectedResume` is either set or null (state 1).
+ */
+function ensureActiveResume() {
+  if (selectedResume) return 'ok';
+
+  // No resumes loaded at all
+  if (!resumeGroups || resumeGroups.length === 0) return 'none';
+
+  // Resumes exist — find a master and auto-activate it
+  const allResumes = resumeGroups.flatMap(g => [g.masterResume, ...(g.variations || [])]);
+
+  // Prefer a master resume
+  const master = allResumes.find(r => r.isMaster);
+  if (master) {
+    console.log('[hired.video] ensureActiveResume — auto-activating master:', master.id, master.name || master.title);
+    selectResume(master);
+    // Persist on server (fire and forget)
+    getJwtToken().then(token => {
+      if (token) fetch(buildResumeUrl(master.id, 'setactive'), {
+        method: 'POST', headers: { Authorization: `Bearer ${token}` },
+      }).catch(() => {});
+    });
+    return 'auto-activated';
+  }
+
+  // No master — just pick the first resume
+  const first = allResumes[0];
+  if (first) {
+    console.log('[hired.video] ensureActiveResume — auto-activating first resume:', first.id);
+    selectResume(first);
+    return 'auto-activated';
+  }
+
+  return 'none';
+}
+
 function handleJobDetected(payload) {
   if (!payload || !payload.title) {
     detectedPageJob = null;
@@ -327,31 +370,42 @@ function handleJobDetected(payload) {
   const eyebrow = document.querySelector('#activePageBanner .active-page-eyebrow');
 
   if (matched) {
-    // Already tracked — set up trackedJob state so tailor/score flows
-    // can use the existing jobId without re-extracting.
     trackedJob = buildTrackedJobObj(matched);
     currentJobUrl = matched.sourceUrl;
     if (eyebrow) eyebrow.textContent = '✅ Already tracked';
-    // Hide all banner action buttons — the tracked job card below
-    // has Score, Tailor, Open, and the resume row already.
     hideElement('quickTailorButton');
     hideElement('quickTailorOnlyButton');
     hideElement('quickTrackButton');
     hideElement('quickScoreButton');
+    hideElement('quickStatus');
   } else {
     if (eyebrow) eyebrow.textContent = '📌 Job detected on this page';
-    showElement('quickTailorButton');
-    showElement('quickTailorOnlyButton');
-    showElement('quickTrackButton');
-    showElement('quickScoreButton');
+
+    // Check resume state before showing Tailor/Score buttons
+    const resumeState = ensureActiveResume();
+
+    if (resumeState === 'none') {
+      // No resumes — hide tailor/score, show upload prompt
+      hideElement('quickTailorButton');
+      hideElement('quickTailorOnlyButton');
+      hideElement('quickScoreButton');
+      showElement('quickTrackButton');
+      showQuickStatus('Upload a resume in the Settings tab to enable Tailor & Score.', 'warning');
+    } else {
+      // Resume is active (either already was or just auto-activated)
+      showElement('quickTailorButton');
+      showElement('quickTailorOnlyButton');
+      showElement('quickTrackButton');
+      showElement('quickScoreButton');
+      hideElement('quickStatus');
+    }
   }
 
   hideElement('noJobBanner');
   showElement('activePageBanner');
-  hideElement('quickStatus');
   highlightActiveTrackedJob(matched);
 
-  if (!matched) {
+  if (!matched && selectedResume) {
     if (settings.autoTailor && isPremium) {
       runTailorAndSavePipeline({ track: true, silent: true }).catch((err) =>
         console.warn('[hired.video] auto-tailor failed', err),
@@ -1843,8 +1897,8 @@ async function loadMasterResumeGroups() {
 
     // Determine which resume should be active:
     // 1. Prefer the server's isActive flag
-    // 2. Fall back to locally selected resume
-    // 3. Fall back to the first master resume
+    // 2. Fall back to locally selected resume (if still exists)
+    // 3. Fall back to ensureActiveResume() which auto-activates master
     const allResumes = resumeGroups.flatMap(g => [g.masterResume, ...(g.variations || [])]);
     const serverActive = allResumes.find(r => r.isActive);
     if (serverActive) {
@@ -1852,9 +1906,9 @@ async function loadMasterResumeGroups() {
     } else if (selectedResume) {
       const found = findResumeById(selectedResume.id);
       if (found) selectResume(found);
-      else if (resumeGroups.length > 0) selectResume(resumeGroups[0].masterResume);
-    } else if (resumeGroups.length > 0) {
-      selectResume(resumeGroups[0].masterResume);
+      else ensureActiveResume();
+    } else {
+      ensureActiveResume();
     }
   } catch (error) {
     console.error('Error loading resumes:', error);
