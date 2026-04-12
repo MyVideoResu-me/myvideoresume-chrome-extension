@@ -1862,12 +1862,20 @@ async function loadMasterResumeGroups() {
 
     renderResumeSelection();
 
-    if (!selectedResume && resumeGroups.length > 0) {
-      selectResume(resumeGroups[0].masterResume);
+    // Determine which resume should be active:
+    // 1. Prefer the server's isActive flag
+    // 2. Fall back to locally selected resume
+    // 3. Fall back to the first master resume
+    const allResumes = resumeGroups.flatMap(g => [g.masterResume, ...(g.variations || [])]);
+    const serverActive = allResumes.find(r => r.isActive);
+    if (serverActive) {
+      selectResume(serverActive);
     } else if (selectedResume) {
       const found = findResumeById(selectedResume.id);
       if (found) selectResume(found);
       else if (resumeGroups.length > 0) selectResume(resumeGroups[0].masterResume);
+    } else if (resumeGroups.length > 0) {
+      selectResume(resumeGroups[0].masterResume);
     }
   } catch (error) {
     console.error('Error loading resumes:', error);
@@ -1900,46 +1908,54 @@ function renderResumeSelection() {
     return;
   }
 
-  let html = '';
+  // Build a flat list of all resumes for rendering
+  const allResumes = [];
   for (const group of resumeGroups) {
-    const master = group.masterResume;
-    const variations = group.variations || [];
+    allResumes.push(group.masterResume);
+    for (const v of (group.variations || [])) allResumes.push(v);
+  }
+
+  let html = '';
+  for (const r of allResumes) {
+    const isActive = selectedResume?.id === r.id;
+    const isMaster = !!r.isMaster;
+    const isVariation = !!r.parentId;
+    const name = escapeHtml(r.name || r.title || 'Untitled Resume');
+    const date = formatDate(r.creationDateTime || r.createdAt);
+
+    // Badges
+    const badges = [];
+    if (isMaster) badges.push('<span class="badge badge-master">Master</span>');
+    if (isVariation) badges.push('<span class="badge badge-variation">Variation</span>');
+    if (isActive) badges.push('<span class="badge badge-active">Active</span>');
+
+    // Action buttons
+    const actions = [];
+    // Open in new tab
+    actions.push(`<button class="icon-btn" onclick="event.stopPropagation(); openResumeInTab('${r.id}')" title="View resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>`);
+    // Set as Active (if not already)
+    if (!isActive) {
+      actions.push(`<button class="btn-link" onclick="event.stopPropagation(); setActiveResume('${r.id}')">Set Active</button>`);
+    }
+    // Set as Master (only for non-master resumes)
+    if (!isMaster) {
+      actions.push(`<button class="btn-link" onclick="event.stopPropagation(); promoteToMaster('${r.id}')">Set Master</button>`);
+    }
+
+    const cardClass = `resume-card ${isVariation ? 'variation' : 'master'} ${isActive ? 'selected' : ''}`;
 
     html += `
-      <div class="resume-group">
-        <div class="resume-card master ${selectedResume?.id === master.id ? 'selected' : ''}"
-             data-resume-id="${master.id}"
-             data-is-master="true"
-             onclick="selectResumeById('${master.id}')">
-          <div class="d-flex align-items-center justify-between">
-            <div>
-              <div class="resume-card-title">${escapeHtml(master.name || master.title || 'Untitled Resume')}</div>
-              <div class="resume-card-meta">${formatDate(master.creationDateTime || master.createdAt)}</div>
-            </div>
-            <div class="d-flex align-items-center gap-2">
-              <span class="badge badge-master">Master</span>
-              <button class="icon-btn" onclick="event.stopPropagation(); openResumeInTab('${master.id}')" title="View resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
-            </div>
+      <div class="${cardClass}" data-resume-id="${r.id}" onclick="setActiveResume('${r.id}')">
+        <div class="d-flex align-items-center justify-between">
+          <div>
+            <div class="resume-card-title">${name}</div>
+            <div class="resume-card-meta">${date}</div>
+          </div>
+          <div class="d-flex align-items-center gap-2">
+            ${badges.join('')}
+            ${actions.join('')}
           </div>
         </div>
-        ${variations.map(v => `
-          <div class="resume-card variation ${selectedResume?.id === v.id ? 'selected' : ''}"
-               data-resume-id="${v.id}"
-               data-is-master="false"
-               onclick="selectResumeById('${v.id}')">
-            <div class="d-flex align-items-center justify-between">
-              <div>
-                <div class="resume-card-title">${escapeHtml(v.name || v.title || 'Untitled Variation')}</div>
-                <div class="resume-card-meta">${formatDate(v.creationDateTime || v.createdAt)}</div>
-              </div>
-              <div class="d-flex align-items-center gap-2">
-                <span class="badge badge-variation">Variation</span>
-                <button class="icon-btn" onclick="event.stopPropagation(); openResumeInTab('${v.id}')" title="View resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
-                <button class="btn-link" onclick="event.stopPropagation(); promoteToMaster('${v.id}')">Set as Master</button>
-              </div>
-            </div>
-          </div>
-        `).join('')}
       </div>
     `;
   }
@@ -1957,22 +1973,43 @@ window.selectResumeById = function (id) {
   if (resume) selectResume(resume);
 };
 
+/** Set a resume (any — master or variation) as the active resume used for scoring/tailoring. */
+window.setActiveResume = async function (id) {
+  const resume = findResumeById(id);
+  if (!resume) return;
+  selectResume(resume);
+  // Persist on the server so the "active" flag survives across devices
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) return;
+  try {
+    await fetch(buildResumeUrl(id, 'setactive'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    });
+  } catch (err) {
+    console.warn('[hired.video] setactive failed:', err);
+  }
+  renderResumeSelection();
+};
+
 window.promoteToMaster = async function (id) {
   const jwtToken = await getJwtToken();
   if (!jwtToken) return;
 
   try {
-    const url = buildResumeUrl(id, 'setmaster');
-    const response = await fetch(url, {
+    const response = await fetch(buildResumeUrl(id, 'setmaster'), {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${jwtToken}` },
+      headers: { Authorization: `Bearer ${jwtToken}` },
     });
     if (response.status === 401) return handleTokenExpired();
-    if (!response.ok) throw new Error('Failed to set as master');
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Failed to set as master');
+    }
     await loadMasterResumeGroups();
   } catch (err) {
-    console.error('Failed to promote variation to master:', err);
-    showError('resumeSelectionContainer', 'Could not set this resume as master. Please try again.');
+    console.error('Failed to promote to master:', err);
+    showQuickStatus(err.message || 'Could not set this resume as master.', 'error');
   }
 };
 

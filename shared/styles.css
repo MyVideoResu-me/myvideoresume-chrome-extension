@@ -299,6 +299,11 @@ button, .btn {
   color: var(--brand-blue);
 }
 
+.badge-active {
+  background-color: var(--success-light, #d1fae5);
+  color: var(--success);
+}
+
 /* Scores */
 .score-display {
   display: inline-flex;
