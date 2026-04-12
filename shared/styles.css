@@ -1063,6 +1063,19 @@ button, .btn {
   flex-shrink: 0;
 }
 
+/* "from Master Resume" suffix in the resume row */
+.resume-row-source {
+  color: var(--foreground-secondary);
+  font-style: italic;
+}
+
+/* "Scored with: ..." label in the score detail panel */
+.score-detail-resume-label {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+  margin-bottom: 6px;
+}
+
 /* Trash button — inherits icon-btn base via class, override hover to red */
 .row-delete.icon-btn:hover {
   color: var(--error);

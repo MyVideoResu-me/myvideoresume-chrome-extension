@@ -145,21 +145,23 @@ function loadJobCaches() {
   });
 }
 
-function saveJobScore(jobId, score, recommendations) {
+function saveJobScore(jobId, score, recommendations, resumeName) {
   jobScores[jobId] = {
     score,
     recommendations: recommendations || '',
+    resumeName: resumeName || '',
     scoredAt: new Date().toISOString(),
   };
   chrome.storage.local.set({ [JOB_SCORES_KEY]: jobScores });
 }
 
-function saveJobTailoring(jobId, variationId, masterResumeId, score, variationName) {
+function saveJobTailoring(jobId, variationId, masterResumeId, score, variationName, masterResumeName) {
   jobTailorings[jobId] = {
     variationId,
     masterResumeId,
     score: score ?? null,
     variationName: variationName || '',
+    masterResumeName: masterResumeName || '',
     tailoredAt: new Date().toISOString(),
   };
   chrome.storage.local.set({ [JOB_TAILORINGS_KEY]: jobTailorings });
@@ -502,7 +504,7 @@ async function handleBannerScore() {
     const recommendations = result.summaryRecommendations || '';
 
     // Cache the score
-    if (jobId) saveJobScore(jobId, score, recommendations);
+    if (jobId) saveJobScore(jobId, score, recommendations, selectedResume?.name || selectedResume?.title || 'Resume');
     hideElement('quickStatus');
     renderBannerScoreResult(score, recommendations, jobId);
   } catch (err) {
@@ -701,9 +703,10 @@ async function runTailorAndSavePipeline(options = {}) {
     // returns the same variation without burning AI tokens again.
     if (generatedVariationId && job?.id) {
       const newScore = tailored.newScore ?? tailored.score ?? null;
-      saveJobTailoring(job.id, generatedVariationId, masterId, newScore, variationName);
+      const masterName = selectedResume?.name || selectedResume?.title || 'Resume';
+      saveJobTailoring(job.id, generatedVariationId, masterId, newScore, variationName, masterName);
       if (newScore != null) {
-        saveJobScore(job.id, newScore, tailored.summaryRecommendations || '');
+        saveJobScore(job.id, newScore, tailored.summaryRecommendations || '', variationName);
       }
     }
 
@@ -762,8 +765,9 @@ async function continuePipelineFromTailor(jwtToken, jobId, options = {}) {
     });
     if (generatedVariationId && jobId) {
       const newScore = tailored.newScore ?? tailored.score ?? null;
-      saveJobTailoring(jobId, generatedVariationId, masterId, newScore, variationName);
-      if (newScore != null) saveJobScore(jobId, newScore, tailored.summaryRecommendations || '');
+      const masterName2 = selectedResume?.name || selectedResume?.title || 'Resume';
+      saveJobTailoring(jobId, generatedVariationId, masterId, newScore, variationName, masterName2);
+      if (newScore != null) saveJobScore(jobId, newScore, tailored.summaryRecommendations || '', variationName);
     }
 
     showQuickStatus(
@@ -897,8 +901,9 @@ function renderTrackedJobsTable() {
 
     // Score button — shows score number directly when scored
     const cachedScore = jobScores[id];
+    const scoreResumeTip = cachedScore?.resumeName ? ` (${cachedScore.resumeName})` : '';
     const scoreButton = cachedScore
-      ? `<button class="btn btn-outline btn-scored ${scoreClass(cachedScore.score)}" data-action="toggle-score" data-job-id="${id}" title="Click to see recommendations">🎯 ${formatScore(cachedScore.score)}</button>`
+      ? `<button class="btn btn-outline btn-scored ${scoreClass(cachedScore.score)}" data-action="toggle-score" data-job-id="${id}" title="Scored with${scoreResumeTip} — click to see recommendations">🎯 ${formatScore(cachedScore.score)}</button>`
       : `<button class="btn btn-outline" data-action="score" data-job-id="${id}">🎯 Score</button>`;
 
     // Status pill with pencil edit icon — clicking switches to a dropdown
@@ -911,12 +916,16 @@ function renderTrackedJobsTable() {
       : `<button class="btn btn-primary" data-action="tailor" data-job-id="${id}">✨ Tailor</button>`;
 
     // Resume row — shown when a tailored variation exists
-    const resumeName = escapeHtml(cachedTailor?.variationName || '');
+    const resumeDisplayName = escapeHtml(cachedTailor?.variationName || '');
+    const masterDisplayName = escapeHtml(cachedTailor?.masterResumeName || '');
+    const resumeFullTip = masterDisplayName
+      ? `${resumeDisplayName || 'Tailored resume'} (from ${masterDisplayName})`
+      : resumeDisplayName || 'Tailored resume';
     const resumeRow = cachedTailor ? `
         <div class="tracked-job-resume-row">
           <div class="resume-row-info">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
-            <span class="resume-row-name" title="${resumeName}">${resumeName || 'Tailored resume'}</span>
+            <span class="resume-row-name" title="${escapeHtml(resumeFullTip)}">${resumeDisplayName || 'Tailored resume'}${masterDisplayName ? `<span class="resume-row-source"> from ${masterDisplayName}</span>` : ''}</span>
           </div>
           <div class="resume-row-actions">
             <button class="icon-btn" data-action="download-tailored" data-job-id="${id}" title="Download resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
@@ -1075,8 +1084,14 @@ function toggleInlineScore(jobId) {
       </div>`
     : `<button class="btn btn-primary btn-compact" data-action="tailor" data-job-id="${jobId}">✨ Tailor to Fix Gaps</button>`;
 
+  const scoredWithName = escapeHtml(cached.resumeName || '');
+  const scoredWithLabel = scoredWithName
+    ? `<div class="score-detail-resume-label">Scored with: <strong>${scoredWithName}</strong></div>`
+    : '';
+
   panel.innerHTML = `
     <div class="score-detail-content">
+      ${scoredWithLabel}
       <div class="score-detail-recommendations">${recHtml}</div>
       <div class="score-detail-actions">
         ${actionHtml}
@@ -1157,6 +1172,7 @@ async function rowScoreJob(jobId) {
   // Use the tailored variation if one exists for this job, otherwise the master
   const cachedTailorForScore = jobTailorings[jobId];
   const resumeIdForScore = cachedTailorForScore?.variationId || selectedResume.id;
+  const scoreResumeName = cachedTailorForScore?.variationName || selectedResume.name || selectedResume.title || 'Resume';
   const restoreRow = showRowLoading(jobId, 'Scoring…');
   const jwtToken = await getJwtToken();
   try {
@@ -1172,7 +1188,7 @@ async function rowScoreJob(jobId) {
     const result = data?.data || data?.result || data;
     const score = result.score ?? 0;
     const recommendations = result.summaryRecommendations || '';
-    saveJobScore(jobId, score, recommendations);
+    saveJobScore(jobId, score, recommendations, scoreResumeName);
     renderTrackedJobsTable();
     // Auto-expand the inline score detail panel for this job
     toggleInlineScore(jobId);
@@ -1257,9 +1273,10 @@ async function rowTailorJob(jobId) {
     });
     if (generatedVariationId) {
       const newScore = tailored.newScore ?? tailored.score ?? null;
-      saveJobTailoring(jobId, generatedVariationId, masterId, newScore, variationName);
+      const masterName3 = selectedResume?.name || selectedResume?.title || 'Resume';
+      saveJobTailoring(jobId, generatedVariationId, masterId, newScore, variationName, masterName3);
       if (newScore != null) {
-        saveJobScore(jobId, newScore, tailored.summaryRecommendations || '');
+        saveJobScore(jobId, newScore, tailored.summaryRecommendations || '', variationName);
       }
       renderTrackedJobsTable();
     }
