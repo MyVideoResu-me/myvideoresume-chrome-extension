@@ -43,6 +43,14 @@ let jobTailorings = {};
 const JOB_SCORES_KEY = 'jobScores';
 const JOB_TAILORINGS_KEY = 'jobTailorings';
 
+// Shared SVG icons (14×14, Feather-style) used across rendered UI.
+const ICON = {
+  document: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
+  download: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+  externalLink: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
+  trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+};
+
 // Default user settings — persisted in chrome.storage.local under `settings`.
 const DEFAULT_SETTINGS = {
   autoDetect: true,
@@ -224,7 +232,7 @@ async function loadPremiumState() {
       return;
     }
     const data = await response.json();
-    const profile = data?.data || data;
+    const profile = unwrapResponse(data);
     setPremium(!!profile?.isPremium);
   } catch (err) {
     console.warn('[hired.video] loadPremiumState failed', err);
@@ -321,13 +329,7 @@ function handleJobDetected(payload) {
   if (matched) {
     // Already tracked — set up trackedJob state so tailor/score flows
     // can use the existing jobId without re-extracting.
-    trackedJob = {
-      id: matched.id || matched.Id,
-      title: matched.title,
-      company: matched.company,
-      sourceUrl: matched.sourceUrl,
-      applyUrl: matched.applyUrl || matched.sourceUrl,
-    };
+    trackedJob = buildTrackedJobObj(matched);
     currentJobUrl = matched.sourceUrl;
     if (eyebrow) eyebrow.textContent = '✅ Already tracked';
     // Hide all banner action buttons — the tracked job card below
@@ -408,10 +410,15 @@ async function handleManualScan() {
 
 /**
  * Ask the active tab's content script to re-run job detection and
- * surface the result in the banner. Used after tab switches.
+ * surface the result in the banner. Used after tab switches and
+ * initial panel open.
+ *
+ * @param {object} [opts]
+ * @param {boolean} [opts.force] - Skip the autoDetect check (e.g.
+ *   for first-open "Already tracked" awareness).
  */
-function requestActiveTabDetection() {
-  if (settings.autoDetect === false) return;
+function requestActiveTabDetection(opts) {
+  if (!opts?.force && settings.autoDetect === false) return;
   chrome.runtime.sendMessage({ action: 'detectJob' }, (response) => {
     if (chrome.runtime.lastError) return;
     if (response?.payload) {
@@ -480,13 +487,13 @@ async function handleBannerScore() {
       if (await check429(analyzeResp, 'quickStatus')) return;
       if (!analyzeResp.ok) throw new Error('Score failed');
       const data = await analyzeResp.json();
-      const result = data?.data || data;
+      const result = unwrapResponse(data);
       renderBannerScoreResult(result.score ?? 0, result.summaryRecommendations || '');
       return;
     }
 
     const extractData = await extractResp.json();
-    const job = extractData?.data || extractData;
+    const job = unwrapResponse(extractData);
     const jobId = job.id;
 
     // Now score
@@ -499,7 +506,7 @@ async function handleBannerScore() {
     if (await check429(resp, 'quickStatus')) return;
     if (!resp.ok) throw new Error('Score failed');
     const data = await resp.json();
-    const result = data?.data || data;
+    const result = unwrapResponse(data);
     const score = result.score ?? 0;
     const recommendations = result.summaryRecommendations || '';
 
@@ -620,7 +627,7 @@ async function runTailorAndSavePipeline(options = {}) {
     if (!extractResp.ok) throw new Error('Job extraction failed');
 
     const extractData = await extractResp.json();
-    const jobPayload = extractData?.data || extractData;
+    const jobPayload = unwrapResponse(extractData);
 
     // ---- Dedup: handle duplicate_candidates response ----
     if (jobPayload.duplicate_candidates && Array.isArray(jobPayload.duplicate_candidates)) {
@@ -630,14 +637,10 @@ async function runTailorAndSavePipeline(options = {}) {
           jobPayload.duplicate_candidates,
           // "Use existing" — bookmark the selected candidate and continue pipeline with it.
           (candidate) => {
-            trackedJob = {
-              id: candidate.id,
-              title: candidate.title || 'Untitled job',
-              company: candidate.company || '',
-              location: candidate.location || '',
-              sourceUrl: candidate.sourceUrl || currentJobUrl,
-              applyUrl: candidate.sourceUrl || detectedPageJob?.applyUrl || currentJobUrl,
-            };
+            trackedJob = buildTrackedJobObj(candidate, {
+              sourceUrl: currentJobUrl,
+              applyUrl: detectedPageJob?.applyUrl || currentJobUrl,
+            });
             chrome.storage.local.set({ [trackedJobKey]: trackedJob });
             // Continue the pipeline from the tailor step.
             continuePipelineFromTailor(jwtToken, candidate.id, options);
@@ -652,67 +655,27 @@ async function runTailorAndSavePipeline(options = {}) {
     }
 
     const job = jobPayload;
-    trackedJob = {
-      id: job.id,
-      title: job.title || 'Untitled job',
-      company: job.company || '',
-      location: job.location || '',
+    trackedJob = buildTrackedJobObj(job, {
       sourceUrl: currentJobUrl,
-      applyUrl: job.applyUrl || detectedPageJob?.applyUrl || currentJobUrl,
-    };
+      applyUrl: detectedPageJob?.applyUrl || currentJobUrl,
+    });
     chrome.storage.local.set({ [trackedJobKey]: trackedJob });
 
-    // 3. Tailor against the just-tracked job (rehydrates server-side via jobId)
+    // 3–4. Tailor + save as variation (shared helper)
     if (!options.silent) showQuickStatus('Tailoring resume…', 'info');
-    const priorRec1 = jobScores[job.id]?.recommendations || '';
-    const tailorResp = await fetch(matchTailor, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({
-        jobId: job.id,
-        resumeId: selectedResume.id,
-        sourceUrl: currentJobUrl,
-        ...(priorRec1 ? { priorRecommendations: priorRec1 } : {}),
-      }),
-    });
-
-    if (tailorResp.status === 401) return handleTokenExpired();
-    if (await check429(tailorResp, 'quickStatus')) return;
-    if (!tailorResp.ok) throw new Error('Tailor failed');
-
-    const tailorData = await tailorResp.json();
-    const tailored = tailorData?.data || tailorData?.result || tailorData;
-    generatedResumeData = tailored;
-
-    // 4. Save as variation under the master (shared helper in utils.js)
-    if (!options.silent) showQuickStatus('Saving variation…', 'info');
-    const masterId = getMasterResumeId(selectedResume);
-    const variationName = `${trackedJob.title}${trackedJob.company ? ' - ' + trackedJob.company : ''}`;
-    generatedVariationId = await saveAsVariation(masterId, {
-      name: variationName,
-      description: `Generated for ${trackedJob.title}`,
-      markdownResume: tailored.markdownResume,
+    const result = await tailorAndSaveVariation({
       jobId: job.id,
+      selectedResume,
+      trackedJob,
       sourceUrl: currentJobUrl,
+      priorRecommendations: jobScores[job.id]?.recommendations || '',
     });
-
-    // Cache the result so a future click on this job in the tracker
-    // returns the same variation without burning AI tokens again.
-    if (generatedVariationId && job?.id) {
-      const newScore = tailored.newScore ?? tailored.score ?? null;
-      const masterName = selectedResume?.name || selectedResume?.title || 'Resume';
-      saveJobTailoring(job.id, generatedVariationId, masterId, newScore, variationName, masterName);
-      if (newScore != null) {
-        saveJobScore(job.id, newScore, tailored.summaryRecommendations || '', variationName);
-      }
-    }
+    generatedResumeData = result.tailored;
+    generatedVariationId = result.variationId;
 
     // 5. Refresh table + show success
     showQuickStatus(
-      `✅ Tailored resume saved (new score ${formatScore(tailored.newScore || tailored.score || 0)}).`,
+      `✅ Tailored resume saved (new score ${formatScore(result.tailored.newScore || result.tailored.score || 0)}).`,
       'success',
     );
     loadTrackedJobsTable();
@@ -730,48 +693,22 @@ async function runTailorAndSavePipeline(options = {}) {
  * extract. Used when the dedup modal's "Use existing" button picks an
  * already-tracked job — we just need to tailor + save the variation.
  */
-async function continuePipelineFromTailor(jwtToken, jobId, options = {}) {
+async function continuePipelineFromTailor(_jwtToken, jobId, options = {}) {
   pipelineBusy = true;
   try {
     if (!options.silent) showQuickStatus('Tailoring resume…', 'info');
-    const priorRec2 = jobScores[jobId]?.recommendations || '';
-    const tailorResp = await fetch(matchTailor, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
-      body: JSON.stringify({
-        jobId,
-        resumeId: selectedResume.id,
-        sourceUrl: currentJobUrl,
-        ...(priorRec2 ? { priorRecommendations: priorRec2 } : {}),
-      }),
-    });
-    if (tailorResp.status === 401) return handleTokenExpired();
-    if (await check429(tailorResp, 'quickStatus')) return;
-    if (!tailorResp.ok) throw new Error('Tailor failed');
-
-    const tailorData = await tailorResp.json();
-    const tailored = tailorData?.data || tailorData?.result || tailorData;
-    generatedResumeData = tailored;
-
-    if (!options.silent) showQuickStatus('Saving variation…', 'info');
-    const masterId = getMasterResumeId(selectedResume);
-    const variationName = `${trackedJob.title}${trackedJob.company ? ' - ' + trackedJob.company : ''}`;
-    generatedVariationId = await saveAsVariation(masterId, {
-      name: variationName,
-      description: `Generated for ${trackedJob.title}`,
-      markdownResume: tailored.markdownResume,
+    const result = await tailorAndSaveVariation({
       jobId,
+      selectedResume,
+      trackedJob,
       sourceUrl: currentJobUrl,
+      priorRecommendations: jobScores[jobId]?.recommendations || '',
     });
-    if (generatedVariationId && jobId) {
-      const newScore = tailored.newScore ?? tailored.score ?? null;
-      const masterName2 = selectedResume?.name || selectedResume?.title || 'Resume';
-      saveJobTailoring(jobId, generatedVariationId, masterId, newScore, variationName, masterName2);
-      if (newScore != null) saveJobScore(jobId, newScore, tailored.summaryRecommendations || '', variationName);
-    }
+    generatedResumeData = result.tailored;
+    generatedVariationId = result.variationId;
 
     showQuickStatus(
-      `✅ Tailored resume saved (new score ${formatScore(tailored.newScore || tailored.score || 0)}).`,
+      `✅ Tailored resume saved (new score ${formatScore(result.tailored.newScore || result.tailored.score || 0)}).`,
       'success',
     );
     loadTrackedJobsTable();
@@ -811,8 +748,11 @@ async function runScoreOnlyPipeline() {
   });
   if (!extractResp.ok) return;
   const extractData = await extractResp.json();
-  const job = extractData?.data || extractData;
-  trackedJob = { id: job.id, title: job.title, company: job.company, sourceUrl: currentJobUrl, applyUrl: job.applyUrl || detectedPageJob?.applyUrl || currentJobUrl };
+  const job = unwrapResponse(extractData);
+  trackedJob = buildTrackedJobObj(job, {
+    sourceUrl: currentJobUrl,
+    applyUrl: detectedPageJob?.applyUrl || currentJobUrl,
+  });
 
   await fetch(matchAnalyze, {
     method: 'POST',
@@ -856,19 +796,12 @@ async function loadTrackedJobsTable() {
       const matched = findMatchingTrackedJob(detectedPageJob.sourceUrl);
       if (matched) handleJobDetected(detectedPageJob);
     } else {
-      // First-open detection: the panel just opened on an already-loaded
-      // page, so the content script's jobDetected message was lost. Now
-      // that trackedJobsList is populated, ask the content script what's
-      // on the active tab — if it matches a tracked job, the user sees
-      // "Already tracked" immediately. This runs regardless of the
-      // autoDetect setting because recognising an existing tracked job
-      // is context awareness, not auto-detection.
-      chrome.runtime.sendMessage({ action: 'detectJob' }, (response) => {
-        if (chrome.runtime.lastError) return;
-        if (response?.payload) {
-          handleJobDetected(response.payload);
-        }
-      });
+      // First-open: the panel just opened on an already-loaded page.
+      // Re-run detection now that trackedJobsList is populated so the
+      // "Already tracked" banner shows up immediately. Force bypasses
+      // the autoDetect setting — recognising a tracked job is context
+      // awareness, not auto-detection.
+      requestActiveTabDetection({ force: true });
     }
   } catch (err) {
     console.error('loadTrackedJobsTable failed:', err);
@@ -924,12 +857,12 @@ function renderTrackedJobsTable() {
     const resumeRow = cachedTailor ? `
         <div class="tracked-job-resume-row">
           <div class="resume-row-info">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            ${ICON.document}
             <span class="resume-row-name" title="${escapeHtml(resumeFullTip)}">${resumeDisplayName || 'Tailored resume'}${masterDisplayName ? `<span class="resume-row-source"> from ${masterDisplayName}</span>` : ''}</span>
           </div>
           <div class="resume-row-actions">
-            <button class="icon-btn" data-action="download-tailored" data-job-id="${id}" title="Download resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-            <button class="icon-btn" data-action="view-tailored" data-job-id="${id}" title="View resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
+            <button class="icon-btn" data-action="download-tailored" data-job-id="${id}" title="Download resume">${ICON.download}</button>
+            <button class="icon-btn" data-action="view-tailored" data-job-id="${id}" title="View resume">${ICON.externalLink}</button>
           </div>
         </div>` : '';
 
@@ -942,7 +875,7 @@ function renderTrackedJobsTable() {
           </div>
           <div class="tracked-job-row-trailing">
             ${statusPill}
-            <button class="row-delete icon-btn" data-action="delete" data-job-id="${id}" title="Remove from your tracker"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+            <button class="row-delete icon-btn" data-action="delete" data-job-id="${id}" title="Remove from your tracker">${ICON.trash}</button>
           </div>
         </div>
         <div class="tracked-job-actions">
@@ -1074,12 +1007,12 @@ function toggleInlineScore(jobId) {
   const actionHtml = cachedTailorDetail
     ? `<div class="tracked-job-resume-row mt-2">
         <div class="resume-row-info">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          ${ICON.document}
           <span class="resume-row-name" title="${resumeNameDetail}">${resumeNameDetail || 'Tailored resume'}</span>
         </div>
         <div class="resume-row-actions">
-          <button class="icon-btn" data-action="download-tailored" data-job-id="${jobId}" title="Download resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
-          <button class="icon-btn" data-action="view-tailored" data-job-id="${jobId}" title="View resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
+          <button class="icon-btn" data-action="download-tailored" data-job-id="${jobId}" title="Download resume">${ICON.download}</button>
+          <button class="icon-btn" data-action="view-tailored" data-job-id="${jobId}" title="View resume">${ICON.externalLink}</button>
         </div>
       </div>`
     : `<button class="btn btn-primary btn-compact" data-action="tailor" data-job-id="${jobId}">✨ Tailor to Fix Gaps</button>`;
@@ -1147,19 +1080,9 @@ async function rowDownloadTailoredVariation(jobId) {
   const ok = await requireAuth();
   if (!ok) return;
   const cached = jobTailorings[jobId];
-  if (!cached) {
-    // No cached tailoring — fall back to the heuristic resolver.
-    return rowDownloadResume(jobId);
-  }
+  if (!cached) return rowDownloadResume(jobId);
   const format = isPremium ? settings.downloadFormat || 'pdf' : 'pdf';
-  // Override the variation id so handleDownload picks the cached one.
-  const previous = generatedVariationId;
-  generatedVariationId = cached.variationId;
-  try {
-    await handleDownload(format);
-  } finally {
-    generatedVariationId = previous;
-  }
+  await handleDownload(format, cached.variationId);
 }
 
 async function rowScoreJob(jobId) {
@@ -1185,7 +1108,7 @@ async function rowScoreJob(jobId) {
     if (await check429(resp, 'quickStatus')) { restoreRow(); return; }
     if (!resp.ok) throw new Error('Score failed');
     const data = await resp.json();
-    const result = data?.data || data?.result || data;
+    const result = unwrapResponse(data);
     const score = result.score ?? 0;
     const recommendations = result.summaryRecommendations || '';
     saveJobScore(jobId, score, recommendations, scoreResumeName);
@@ -1220,69 +1143,23 @@ async function rowTailorJob(jobId) {
 
   const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
   if (!job) return;
-  // Reuse the fast pipeline but skip the extract step by pre-seeding state.
-  trackedJob = {
-    id: jobId,
-    title: job.title || 'Untitled job',
-    company: job.company || '',
-    location: job.location || '',
-    sourceUrl: job.sourceUrl || '',
-    applyUrl: job.applyUrl || job.sourceUrl || '',
-  };
+  trackedJob = buildTrackedJobObj(job);
   pipelineBusy = true;
   const restoreRow = showRowLoading(jobId, 'Tailoring resume…');
   try {
-    const jwtToken = await getJwtToken();
-    // Pass prior score recommendations (truncated) so the tailor LLM targets specific gaps
-    const cachedScoreData = jobScores[jobId];
-    const tailorPayload = {
+    const result = await tailorAndSaveVariation({
       jobId,
-      resumeId: selectedResume.id,
-    };
-    if (cachedScoreData?.recommendations) {
-      // Truncate to keep the LLM prompt manageable for free models
-      tailorPayload.priorRecommendations = cachedScoreData.recommendations.slice(0, 800);
-    }
-    const tailorController = new AbortController();
-    const tailorTimeout = setTimeout(() => tailorController.abort(), 90000); // 90s timeout
-    const tailorResp = await fetch(matchTailor, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify(tailorPayload),
-      signal: tailorController.signal,
-    });
-    clearTimeout(tailorTimeout);
-    if (tailorResp.status === 401) return handleTokenExpired();
-    if (await check429(tailorResp, 'quickStatus')) return;
-    if (!tailorResp.ok) throw new Error('Tailor failed');
-    const tailorData = await tailorResp.json();
-    const tailored = tailorData?.data || tailorData;
-    generatedResumeData = tailored;
-
-    const masterId = getMasterResumeId(selectedResume);
-    const variationName = `${trackedJob.title}${trackedJob.company ? ' - ' + trackedJob.company : ''}`;
-    generatedVariationId = await saveAsVariation(masterId, {
-      name: variationName,
-      description: `Generated for ${trackedJob.title}`,
-      markdownResume: tailored.markdownResume,
-      jobId,
+      selectedResume,
+      trackedJob,
       sourceUrl: job.sourceUrl,
+      priorRecommendations: jobScores[jobId]?.recommendations || '',
     });
-    if (generatedVariationId) {
-      const newScore = tailored.newScore ?? tailored.score ?? null;
-      const masterName3 = selectedResume?.name || selectedResume?.title || 'Resume';
-      saveJobTailoring(jobId, generatedVariationId, masterId, newScore, variationName, masterName3);
-      if (newScore != null) {
-        saveJobScore(jobId, newScore, tailored.summaryRecommendations || '', variationName);
-      }
-      renderTrackedJobsTable();
-    }
+    generatedResumeData = result.tailored;
+    generatedVariationId = result.variationId;
+    renderTrackedJobsTable();
 
     showQuickStatus(
-      `✅ Tailored variation saved (new score ${formatScore(tailored.newScore || tailored.score || 0)}).`,
+      `✅ Tailored variation saved (new score ${formatScore(result.tailored.newScore || result.tailored.score || 0)}).`,
       'success',
     );
     loadMasterResumeGroups();
@@ -1344,16 +1221,25 @@ async function rowDownloadResume(jobId) {
     resumeIdToDownload = selectedResume.id;
   }
 
-  // handleDownload reads generatedVariationId and selectedResume.id;
-  // temporarily override generatedVariationId so the existing download
-  // helper picks the row's variation without us having to fork it.
-  const previous = generatedVariationId;
-  generatedVariationId = resumeIdToDownload;
-  try {
-    await handleDownload(format);
-  } finally {
-    generatedVariationId = previous;
-  }
+  await handleDownload(format, resumeIdToDownload);
+}
+
+/**
+ * Reset all page-specific state when the user navigates away or
+ * switches tabs. Centralised so every call site stays in sync.
+ */
+function resetPageState() {
+  currentJobHtml = null;
+  currentJobUrl = null;
+  currentJobOriginalHtml = null;
+  trackedJob = null;
+  generatedVariationId = null;
+  detectedPageJob = null;
+  hideElement('currentJobDisplay');
+  hideElement('activePageBanner');
+  showElement('noJobBanner');
+  hideElement('quickStatus');
+  clearPreviousResults();
 }
 
 /**
@@ -1364,32 +1250,10 @@ function setupUrlChangeListener() {
   chrome.runtime.onMessage.addListener((message, _sender, _sendResponse) => {
     if (message.action === 'urlChanged') {
       consoleAlerts('URL changed to: ' + message.url);
-      currentJobHtml = null;
-      currentJobUrl = null;
-      currentJobOriginalHtml = null;
-      trackedJob = null;
-      generatedVariationId = null;
-      detectedPageJob = null;
-      hideElement('currentJobDisplay');
-      hideElement('activePageBanner');
-      showElement('noJobBanner');
-      hideElement('quickStatus');
-      clearPreviousResults();
+      resetPageState();
     }
     if (message.action === 'tabActivated') {
-      // User switched to a different tab — clear stale state from the
-      // previous tab and re-run detection on the newly active tab.
-      currentJobHtml = null;
-      currentJobUrl = null;
-      currentJobOriginalHtml = null;
-      trackedJob = null;
-      generatedVariationId = null;
-      detectedPageJob = null;
-      hideElement('currentJobDisplay');
-      hideElement('activePageBanner');
-      showElement('noJobBanner');
-      hideElement('quickStatus');
-      clearPreviousResults();
+      resetPageState();
       requestActiveTabDetection();
     }
     if (message.action === 'jobDetected') {
@@ -1522,8 +1386,8 @@ function showSignedOutState() {
   const stripName = document.getElementById('resumeStripName');
   if (stripName) stripName.textContent = '—';
 
-  const oldBadge = document.getElementById('trackedJobCount');
-  if (oldBadge) oldBadge.textContent = '—';
+  const badge = document.getElementById('trackedJobsCountBadge');
+  if (badge) badge.textContent = '—';
 
   // Clear any leftover signed-in UI state. Without this the previously-
   // tracked job, eval scores, generated resume preview, and profile name
@@ -1706,17 +1570,25 @@ function setupEventListeners() {
   }
 
   // ---- Resume manager (Settings tab) ----
-  bind('refreshResumesButton', gate(loadMasterResumeGroups));
+  bind('refreshResumesButton', gate(() => {
+    console.log('[hired.video] refreshResumesButton clicked');
+    return loadMasterResumeGroups();
+  }));
   bind('openResumeButton', () => {
+    console.log('[hired.video] openResumeButton clicked, selectedResume:', selectedResume?.id);
     if (selectedResume?.id) {
       chrome.tabs.create({ url: buildWebUrl('/resumes/' + selectedResume.id) });
     }
   });
   bind('changeResumeButton', () => {
+    console.log('[hired.video] changeResumeButton clicked');
     switchTab('settings');
     showResumeSelection();
   });
-  bind('uploadResumeButton', gate(() => document.getElementById('uploadResumeInput').click()));
+  bind('uploadResumeButton', gate(() => {
+    console.log('[hired.video] uploadResumeButton clicked');
+    document.getElementById('uploadResumeInput').click();
+  }));
   bind('uploadResumeInput', handleResumeUpload, 'change');
   bind('signOutButton', handleSignOut);
 
@@ -1776,7 +1648,7 @@ async function loadCurrentUser() {
     if (!response.ok) return;
 
     const data = await response.json();
-    const user = data?.data || data;
+    const user = unwrapResponse(data);
     if (!user) return;
 
     const nameEl = document.getElementById('profileName');
@@ -1827,9 +1699,10 @@ async function handleSignOut() {
 // =====================================================================
 
 async function loadMasterResumeGroups() {
+  console.log('[hired.video] loadMasterResumeGroups called');
   const jwtToken = await getJwtToken();
   if (!jwtToken) {
-    // Silent no-op when called automatically (e.g. on init).
+    console.log('[hired.video] loadMasterResumeGroups — no JWT, skipping');
     return;
   }
 
@@ -1897,6 +1770,7 @@ function findResumeById(id) {
 
 function renderResumeSelection() {
   const container = document.getElementById('resumeSelectionContainer');
+  console.log('[hired.video] renderResumeSelection — groups:', resumeGroups.length);
 
   if (resumeGroups.length === 0) {
     container.innerHTML = `
@@ -1929,23 +1803,21 @@ function renderResumeSelection() {
     if (isVariation) badges.push('<span class="badge badge-variation">Variation</span>');
     if (isActive) badges.push('<span class="badge badge-active">Active</span>');
 
-    // Action buttons
+    // Action buttons — use data-* attributes instead of inline onclick
+    // (MV3 CSP blocks inline event handlers)
     const actions = [];
-    // Open in new tab
-    actions.push(`<button class="icon-btn" onclick="event.stopPropagation(); openResumeInTab('${r.id}')" title="View resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>`);
-    // Set as Active (if not already)
+    actions.push(`<button class="icon-btn" data-resume-action="open" data-resume-id="${r.id}" title="View resume">${ICON.externalLink}</button>`);
     if (!isActive) {
-      actions.push(`<button class="btn-link" onclick="event.stopPropagation(); setActiveResume('${r.id}')">Set Active</button>`);
+      actions.push(`<button class="btn-link" data-resume-action="set-active" data-resume-id="${r.id}">Set Active</button>`);
     }
-    // Set as Master (only for non-master resumes)
     if (!isMaster) {
-      actions.push(`<button class="btn-link" onclick="event.stopPropagation(); promoteToMaster('${r.id}')">Set Master</button>`);
+      actions.push(`<button class="btn-link" data-resume-action="set-master" data-resume-id="${r.id}">Set Master</button>`);
     }
 
     const cardClass = `resume-card ${isVariation ? 'variation' : 'master'} ${isActive ? 'selected' : ''}`;
 
     html += `
-      <div class="${cardClass}" data-resume-id="${r.id}" onclick="setActiveResume('${r.id}')">
+      <div class="${cardClass}" data-resume-action="set-active" data-resume-id="${r.id}">
         <div class="d-flex align-items-center justify-between">
           <div>
             <div class="resume-card-title">${name}</div>
@@ -1961,24 +1833,52 @@ function renderResumeSelection() {
   }
 
   container.innerHTML = html;
+
+  // Wire event listeners via addEventListener (MV3-safe)
+  container.querySelectorAll('[data-resume-action]').forEach((el) => {
+    el.addEventListener('click', onResumeAction);
+  });
+
   showElement('resumeSelectionContainer');
 }
 
-window.openResumeInTab = function (id) {
-  chrome.tabs.create({ url: buildWebUrl('/resumes/' + id) });
-};
+/**
+ * Delegated handler for resume card actions. Dispatches based on
+ * the data-resume-action attribute. Replaces inline onclick handlers
+ * which MV3 CSP blocks.
+ */
+function onResumeAction(event) {
+  event.stopPropagation();
+  const el = event.currentTarget;
+  const action = el.dataset.resumeAction;
+  const id = el.dataset.resumeId;
+  if (!id) return;
+  console.log('[hired.video] onResumeAction:', action, id);
 
-window.selectResumeById = function (id) {
-  const resume = findResumeById(id);
-  if (resume) selectResume(resume);
-};
+  switch (action) {
+    case 'open':
+      return openResumeInTab(id);
+    case 'set-active':
+      return setActiveResume(id);
+    case 'set-master':
+      return promoteToMaster(id);
+  }
+}
+
+function openResumeInTab(id) {
+  console.log('[hired.video] openResumeInTab:', id);
+  chrome.tabs.create({ url: buildWebUrl('/resumes/' + id) });
+}
 
 /** Set a resume (any — master or variation) as the active resume used for scoring/tailoring. */
-window.setActiveResume = async function (id) {
+async function setActiveResume(id) {
+  console.log('[hired.video] setActiveResume:', id);
   const resume = findResumeById(id);
-  if (!resume) return;
+  if (!resume) {
+    console.warn('[hired.video] setActiveResume — resume not found:', id);
+    return;
+  }
   selectResume(resume);
-  // Persist on the server so the "active" flag survives across devices
   const jwtToken = await getJwtToken();
   if (!jwtToken) return;
   try {
@@ -1990,9 +1890,10 @@ window.setActiveResume = async function (id) {
     console.warn('[hired.video] setactive failed:', err);
   }
   renderResumeSelection();
-};
+}
 
-window.promoteToMaster = async function (id) {
+async function promoteToMaster(id) {
+  console.log('[hired.video] promoteToMaster:', id);
   const jwtToken = await getJwtToken();
   if (!jwtToken) return;
 
@@ -2008,12 +1909,13 @@ window.promoteToMaster = async function (id) {
     }
     await loadMasterResumeGroups();
   } catch (err) {
-    console.error('Failed to promote to master:', err);
+    console.error('[hired.video] promoteToMaster failed:', err);
     showQuickStatus(err.message || 'Could not set this resume as master.', 'error');
   }
-};
+}
 
 function selectResume(resume) {
+  console.log('[hired.video] selectResume:', resume?.id, resume?.name || resume?.title);
   selectedResume = resume;
   chrome.storage.local.set({ [selectedResumeKey]: resume });
 
@@ -2077,6 +1979,7 @@ function resetResults() {
  */
 async function handleResumeUpload(event) {
   const file = event.target.files && event.target.files[0];
+  console.log('[hired.video] handleResumeUpload:', file?.name || 'no file');
   if (!file) return;
 
   const jwtToken = await getJwtToken();
@@ -2122,31 +2025,6 @@ async function handleResumeUpload(event) {
 // =====================================================================
 // Job tracking
 // =====================================================================
-
-/**
- * Load the count of tracked jobs to display on the stats card.
- */
-async function loadTrackedJobCount() {
-  const jwtToken = await getJwtToken();
-  if (!jwtToken) return;
-
-  try {
-    const response = await fetch(jobsSavedUrl, {
-      method: 'GET',
-      headers: { 'Authorization': `Bearer ${jwtToken}` },
-    });
-    if (response.status === 401) return handleTokenExpired();
-    if (!response.ok) throw new Error('Failed to load tracked jobs');
-
-    const data = await response.json();
-    const items = data?.data?.items || data?.items || data?.data || data || [];
-    const count = Array.isArray(items) ? items.length : (items.total || 0);
-    document.getElementById('trackedJobCount').textContent = count;
-  } catch (err) {
-    console.error('Tracked job count fetch failed:', err);
-    document.getElementById('trackedJobCount').textContent = '?';
-  }
-}
 
 /**
  * Render the currently-tracked job in the side panel.
@@ -2224,20 +2102,16 @@ async function handleTrackJob() {
 
     const data = await response.json();
     consoleAlerts('Job extracted: ' + JSON.stringify(data));
-    const job = data?.data || data?.result || data;
+    const job = unwrapResponse(data);
 
-    trackedJob = {
-      id: job.id,
-      title: job.title || 'Untitled job',
-      company: job.company || job.companyName || '',
-      location: job.location || '',
+    trackedJob = buildTrackedJobObj(job, {
       sourceUrl: currentJobUrl,
-      applyUrl: job.applyUrl || detectedPageJob?.applyUrl || currentJobUrl,
-    };
+      applyUrl: detectedPageJob?.applyUrl || currentJobUrl,
+    });
     chrome.storage.local.set({ [trackedJobKey]: trackedJob });
 
     renderTrackedJob();
-    loadTrackedJobCount(); // refresh stats card
+    loadTrackedJobsTable();
   } catch (err) {
     console.error('Track job failed:', err);
     const errEl = document.getElementById('trackJobError');
@@ -2317,7 +2191,7 @@ async function handleScoreEvaluate() {
       return;
     }
 
-    const result = data.result || data.data || data;
+    const result = unwrapResponse(data);
     const score = result.score || result.oldScore || 0;
     document.getElementById('evalScore').textContent = formatScore(score);
     applyScoreStyle('evalScore', score);
@@ -2426,7 +2300,7 @@ async function handleTailorGenerate() {
       return;
     }
 
-    const result = data.result || data.data || data;
+    const result = unwrapResponse(data);
     generatedResumeData = result;
 
     if (result.markdownResume) {
@@ -2500,10 +2374,7 @@ async function handleSaveVariation() {
     return;
   }
 
-  let masterResumeId = selectedResume.id;
-  if (!selectedResume.isMaster && selectedResume.parentId) {
-    masterResumeId = selectedResume.parentId;
-  }
+  const masterId = getMasterResumeId(selectedResume);
 
   document.getElementById('saveVariationButton').disabled = true;
   showElement('saveVariationLoading');
@@ -2511,36 +2382,15 @@ async function handleSaveVariation() {
   hideElement('saveVariationSuccess');
 
   try {
-    const createVariationUrl = buildResumeUrl(masterResumeId, 'createvariation');
-
-    const response = await fetch(createVariationUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({
-        name: variationName,
-        description: trackedJob
-          ? `Generated for: ${trackedJob.title} at ${trackedJob.company || 'unknown company'}`
-          : `Generated for: ${currentJobUrl || 'Job Application'}`,
-        resumeData: generatedResumeData.markdownResume,
-        jobId: trackedJob?.id,
-        sourceUrl: currentJobUrl,
-      }),
+    generatedVariationId = await saveAsVariation(masterId, {
+      name: variationName,
+      description: trackedJob
+        ? `Generated for: ${trackedJob.title} at ${trackedJob.company || 'unknown company'}`
+        : `Generated for: ${currentJobUrl || 'Job Application'}`,
+      markdownResume: generatedResumeData.markdownResume,
+      jobId: trackedJob?.id,
+      sourceUrl: currentJobUrl,
     });
-
-    if (response.status === 401) return handleTokenExpired();
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || 'Failed to save variation');
-    }
-
-    const data = await response.json();
-    consoleAlerts('Variation saved: ' + JSON.stringify(data));
-
-    const saved = data?.data || data?.result || data;
-    generatedVariationId = saved?.id || null;
 
     showElement('saveVariationSuccess');
     if (trackedJob && generatedVariationId) {
@@ -2597,7 +2447,7 @@ async function handleMarkApplied() {
     }
 
     showStatus('markAppliedStatus', '✅ Recorded! This resume is now linked to the job in your tracker.', 'success');
-    loadTrackedJobCount();
+    loadTrackedJobsTable();
   } catch (err) {
     console.error('Mark applied failed:', err);
     showStatus('markAppliedStatus', err.message || 'Could not record your application. Please try again.', 'error');
@@ -2617,11 +2467,11 @@ function showStatus(id, message, kind) {
 // Resume download
 // =====================================================================
 
-async function handleDownload(format) {
+async function handleDownload(format, overrideResumeId) {
   const jwtToken = await getJwtToken();
   if (!jwtToken) return;
 
-  const resumeIdToDownload = generatedVariationId || selectedResume?.id;
+  const resumeIdToDownload = overrideResumeId || generatedVariationId || selectedResume?.id;
   if (!resumeIdToDownload) {
     showError('downloadError', 'No resume selected');
     showElement('downloadError');
@@ -2881,7 +2731,7 @@ async function loadAnalytics() {
     const resp = await apiFetch(apiBase + PATHS.extensionAnalytics);
     if (!resp.ok) throw new Error('Failed to load analytics');
     const data = await resp.json();
-    const analytics = data.data || data;
+    const analytics = unwrapResponse(data);
     renderAnalytics(analytics);
   } catch (err) {
     console.error('[hired.video] analytics load error:', err);

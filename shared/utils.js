@@ -213,3 +213,88 @@ function getMasterResumeId(resume) {
   if (!resume) return null;
   return resume.isMaster || !resume.parentId ? resume.id : resume.parentId;
 }
+
+/**
+ * Unwrap an API response payload. The backend sometimes wraps in
+ * { data: ... } or { result: ... }; this normalises the variation.
+ */
+function unwrapResponse(data) {
+  return data?.data || data?.result || data;
+}
+
+/**
+ * Build a canonical tracked-job object from a raw API response or
+ * detected payload. Keeps every call site consistent.
+ */
+function buildTrackedJobObj(raw, fallbacks = {}) {
+  return {
+    id: raw.id || raw.Id || fallbacks.id,
+    title: raw.title || raw.Title || fallbacks.title || 'Untitled job',
+    company: raw.company || raw.companyName || fallbacks.company || '',
+    location: raw.location || fallbacks.location || '',
+    sourceUrl: raw.sourceUrl || fallbacks.sourceUrl || '',
+    applyUrl: raw.applyUrl || fallbacks.applyUrl || raw.sourceUrl || fallbacks.sourceUrl || '',
+  };
+}
+
+/**
+ * Shared tailor → save-as-variation → cache flow.
+ *
+ * Calls /api/match/tailor, saves the result as a resume variation,
+ * and updates the local jobScores / jobTailorings caches.
+ *
+ * @param {object} opts
+ * @param {string} opts.jobId          - The tracked job to tailor against
+ * @param {object} opts.selectedResume - The active resume object
+ * @param {object} opts.trackedJob     - The tracked job object (for naming)
+ * @param {string} [opts.sourceUrl]    - Source URL for the job
+ * @param {string} [opts.priorRecommendations] - Prior score recs to pass to the LLM
+ * @returns {{ tailored, variationId, variationName }} or throws
+ */
+async function tailorAndSaveVariation(opts) {
+  const { jobId, selectedResume: resume, trackedJob: job, sourceUrl } = opts;
+
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) throw new Error('Not authenticated');
+
+  const payload = { jobId, resumeId: resume.id };
+  if (sourceUrl) payload.sourceUrl = sourceUrl;
+  if (opts.priorRecommendations) {
+    payload.priorRecommendations = opts.priorRecommendations.slice(0, 800);
+  }
+
+  const tailorResp = await fetch(matchTailor, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
+    body: JSON.stringify(payload),
+  });
+  if (tailorResp.status === 401) { handleTokenExpired(); throw new Error('Session expired'); }
+  if (tailorResp.status === 429) {
+    await check429(tailorResp, 'quickStatus');
+    throw new Error('Rate limit reached');
+  }
+  if (!tailorResp.ok) throw new Error('Tailor failed');
+
+  const tailored = unwrapResponse(await tailorResp.json());
+
+  const masterId = getMasterResumeId(resume);
+  const variationName = `${job.title}${job.company ? ' - ' + job.company : ''}`;
+  const variationId = await saveAsVariation(masterId, {
+    name: variationName,
+    description: `Generated for ${job.title}`,
+    markdownResume: tailored.markdownResume,
+    jobId,
+    sourceUrl,
+  });
+
+  if (variationId) {
+    const newScore = tailored.newScore ?? tailored.score ?? null;
+    const masterName = resume?.name || resume?.title || 'Resume';
+    saveJobTailoring(jobId, variationId, masterId, newScore, variationName, masterName);
+    if (newScore != null) {
+      saveJobScore(jobId, newScore, tailored.summaryRecommendations || '', variationName);
+    }
+  }
+
+  return { tailored, variationId, variationName };
+}
