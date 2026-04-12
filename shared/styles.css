@@ -900,6 +900,13 @@ button, .btn {
   box-shadow: 0 2px 8px rgba(124, 58, 237, 0.08);
 }
 
+/* Active row — the tracked job that matches the current page URL */
+.tracked-job-row-active {
+  border-color: var(--primary);
+  background: var(--primary-light);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.12);
+}
+
 .tracked-job-title {
   font-size: 13px;
   font-weight: 600;

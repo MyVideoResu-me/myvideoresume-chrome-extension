@@ -251,30 +251,124 @@ function openUpgradePage(e) {
 // Active page banner & job detection
 // =====================================================================
 
+/**
+ * Normalise a URL for comparison: strip trailing slashes, fragments,
+ * and common tracking query params so that small variations still match.
+ */
+function normalizeUrlForMatch(raw) {
+  if (!raw) return '';
+  try {
+    const u = new URL(raw);
+    // LinkedIn canonical: /jobs/view/12345/ vs ?currentJobId=12345
+    if (u.hostname.includes('linkedin.com')) {
+      const jobId = u.searchParams.get('currentJobId');
+      if (jobId) return `https://www.linkedin.com/jobs/view/${jobId}/`;
+      const m = u.pathname.match(/\/jobs\/view\/(\d+)/);
+      if (m) return `https://www.linkedin.com/jobs/view/${m[1]}/`;
+    }
+    u.hash = '';
+    // Remove common tracking params
+    for (const p of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'ref', 'fbclid', 'gclid']) {
+      u.searchParams.delete(p);
+    }
+    return u.toString().replace(/\/+$/, '');
+  } catch {
+    return raw.replace(/\/+$/, '').split('#')[0];
+  }
+}
+
+/**
+ * Find a tracked job whose sourceUrl matches the given URL.
+ * Returns the matched job object or null.
+ */
+function findMatchingTrackedJob(url) {
+  if (!url || !trackedJobsList.length) return null;
+  const norm = normalizeUrlForMatch(url);
+  if (!norm) return null;
+  return trackedJobsList.find((j) => {
+    const jUrl = normalizeUrlForMatch(j.sourceUrl);
+    return jUrl && jUrl === norm;
+  }) || null;
+}
+
 function handleJobDetected(payload) {
   if (!payload || !payload.title) {
     detectedPageJob = null;
     showElement('noJobBanner');
     hideElement('activePageBanner');
+    highlightActiveTrackedJob(null);
     return;
   }
   detectedPageJob = payload;
-  document.getElementById('activePageTitle').textContent = payload.title;
-  const meta = [payload.company, payload.location].filter(Boolean).join(' • ');
+
+  // Check if this job is already tracked — if so, wire up state and
+  // swap the banner to "Already tracked" mode so the user doesn't
+  // re-extract.
+  const matched = findMatchingTrackedJob(payload.sourceUrl);
+
+  document.getElementById('activePageTitle').textContent =
+    matched?.title || payload.title;
+  const meta = matched
+    ? [matched.company, matched.location].filter(Boolean).join(' • ')
+    : [payload.company, payload.location].filter(Boolean).join(' • ');
   document.getElementById('activePageMeta').textContent = meta;
+
+  const eyebrow = document.querySelector('#activePageBanner .active-page-eyebrow');
+  const actionsGrid = document.querySelector('#activePageBanner .banner-actions-grid');
+
+  if (matched) {
+    // Already tracked — set up trackedJob state so tailor/score flows
+    // can use the existing jobId without re-extracting.
+    trackedJob = {
+      id: matched.id || matched.Id,
+      title: matched.title,
+      company: matched.company,
+      sourceUrl: matched.sourceUrl,
+    };
+    currentJobUrl = matched.sourceUrl;
+    if (eyebrow) eyebrow.textContent = '✅ Already tracked';
+    if (actionsGrid) {
+      // Hide "Track only" since it's already tracked; show the rest
+      hideElement('quickTrackButton');
+    }
+  } else {
+    if (eyebrow) eyebrow.textContent = '📌 Job detected on this page';
+    if (actionsGrid) {
+      showElement('quickTrackButton');
+    }
+  }
+
   hideElement('noJobBanner');
   showElement('activePageBanner');
   hideElement('quickStatus');
+  highlightActiveTrackedJob(matched);
 
-  if (settings.autoTailor && isPremium) {
-    // Premium-only background tailoring.
-    runTailorAndSavePipeline({ track: true, silent: true }).catch((err) =>
-      console.warn('[hired.video] auto-tailor failed', err),
-    );
-  } else if (settings.autoScore) {
-    // Score now so the badge appears in the row instantly when the user clicks Tailor.
-    // (Implemented via the same fast pipeline but stopping after analyze.)
-    runScoreOnlyPipeline().catch((err) => console.warn('[hired.video] auto-score failed', err));
+  if (!matched) {
+    if (settings.autoTailor && isPremium) {
+      runTailorAndSavePipeline({ track: true, silent: true }).catch((err) =>
+        console.warn('[hired.video] auto-tailor failed', err),
+      );
+    } else if (settings.autoScore) {
+      runScoreOnlyPipeline().catch((err) => console.warn('[hired.video] auto-score failed', err));
+    }
+  }
+}
+
+/**
+ * Highlight the tracked job row that matches the given job (or clear all
+ * highlights when null). Also scrolls the highlighted row into view.
+ */
+function highlightActiveTrackedJob(matchedJob) {
+  // Clear all existing highlights
+  document.querySelectorAll('.tracked-job-row-active').forEach((el) =>
+    el.classList.remove('tracked-job-row-active'),
+  );
+  if (!matchedJob) return;
+  const id = matchedJob.id || matchedJob.Id;
+  const row = document.querySelector(`.tracked-job-row[data-job-id="${id}"]`);
+  if (row) {
+    row.classList.add('tracked-job-row-active');
+    row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   }
 }
 
@@ -739,6 +833,14 @@ async function loadTrackedJobsTable() {
     const items = data?.data?.items || data?.data || data?.items || data || [];
     trackedJobsList = Array.isArray(items) ? items : [];
     renderTrackedJobsTable();
+
+    // If a job is detected on the current page and it now matches a
+    // tracked job (the list just loaded), refresh the banner to show
+    // "Already tracked" instead of the default detection banner.
+    if (detectedPageJob?.sourceUrl) {
+      const matched = findMatchingTrackedJob(detectedPageJob.sourceUrl);
+      if (matched) handleJobDetected(detectedPageJob);
+    }
   } catch (err) {
     console.error('loadTrackedJobsTable failed:', err);
   } finally {
@@ -811,6 +913,12 @@ function renderTrackedJobsTable() {
   list.querySelectorAll('button[data-action]').forEach((btn) => {
     btn.addEventListener('click', onTrackedJobAction);
   });
+
+  // Re-apply the active-row highlight for the current page's URL
+  if (detectedPageJob?.sourceUrl) {
+    const matched = findMatchingTrackedJob(detectedPageJob.sourceUrl);
+    highlightActiveTrackedJob(matched);
+  }
 }
 
 function scoreClass(score) {
