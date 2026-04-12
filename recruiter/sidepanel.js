@@ -340,7 +340,7 @@ function setupDetectionListeners() {
       detectedPageCompany = msg.payload;
       showCompanyDetectedBanner(msg.payload);
     }
-    if (msg.action === 'urlChanged') {
+    if (msg.action === 'urlChanged' || msg.action === 'tabActivated') {
       clearDetectionBanners();
     }
     if (msg.action === 'authStateChanged') {

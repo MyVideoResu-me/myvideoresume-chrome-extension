@@ -146,6 +146,11 @@ chrome.storage.onChanged.addListener((changes, area) => {
   });
 });
 
+// ---- Tab activation — notify the side panel when the user switches tabs
+chrome.tabs.onActivated.addListener((activeInfo) => {
+  chrome.runtime.sendMessage({ action: 'tabActivated', tabId: activeInfo.tabId }).catch(() => {});
+});
+
 // ---- Message handlers ----------------------------------------------
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
@@ -182,6 +187,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'jobDetected') {
     chrome.runtime.sendMessage(request).catch(() => {});
     return false;
+  }
+
+  // ---- On-demand job detection from the active tab -----------------
+  if (request.action === 'detectJob') {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (!tab || !tab.id || (tab.url && tab.url.startsWith('chrome://'))) {
+        sendResponse({ payload: null });
+        return;
+      }
+      chrome.tabs.sendMessage(tab.id, { action: 'detectJob' }, (response) => {
+        if (chrome.runtime.lastError || !response) {
+          sendResponse({ payload: null });
+        } else {
+          sendResponse({ payload: response });
+        }
+      });
+    });
+    return true; // async response
   }
 
   // ---- Focused-pane HTML retrieval --------------------------------

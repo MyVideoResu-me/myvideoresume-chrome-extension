@@ -66,7 +66,12 @@
 
     <!-- Active page banner — auto-shown when content script detects a job -->
     <div id="activePageBanner" class="card active-page-banner hidden">
-      <div class="active-page-eyebrow">📌 Job detected on this page</div>
+      <div class="d-flex align-items-center justify-between">
+        <div class="active-page-eyebrow">📌 Job detected on this page</div>
+        <button id="rescanButton" class="icon-btn" title="Re-scan this page">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
+      </div>
       <div id="activePageTitle" class="active-page-title">—</div>
       <div id="activePageMeta" class="active-page-meta"></div>
       <div class="banner-actions-grid mt-2">
@@ -104,7 +109,9 @@
     <div class="card tracked-jobs-card">
       <div class="d-flex align-items-center justify-between mb-2">
         <h4 class="card-title m-0">Tracked Jobs <span id="trackedJobsCountBadge" class="badge badge-muted">0</span></h4>
-        <button id="refreshJobsButton" class="btn btn-outline btn-compact">Refresh</button>
+        <button id="refreshJobsButton" class="icon-btn" title="Refresh tracked jobs">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
       </div>
       <div id="trackedJobsLoading" class="loading-container hidden">
         <div class="spinner-border" aria-hidden="true"></div>
@@ -329,7 +336,9 @@
       </div>
       <div id="resumeListEmptyHint" class="text-sm text-muted hidden">Sign in to see your saved resumes here.</div>
       <div class="d-flex gap-2 mt-2">
-        <button id="refreshResumesButton" class="btn btn-secondary btn-compact">🔄 Refresh</button>
+        <button id="refreshResumesButton" class="icon-btn" title="Refresh resumes">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+        </button>
         <button id="uploadResumeButton" class="btn btn-secondary btn-compact">📤 Upload PDF/Word</button>
         <input id="uploadResumeInput" type="file" class="hidden" accept=".pdf,.doc,.docx,.txt,.md" />
       </div>

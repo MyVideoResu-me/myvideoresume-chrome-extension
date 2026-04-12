@@ -81,6 +81,7 @@ function waitForContent(timeout = 3000) {
 // a known site marker is present.
 
 let lastDetectedKey = null;
+let lastDetectedPayload = null;
 
 /**
  * Per-host "focused pane" finders. Each entry returns the DOM container
@@ -153,6 +154,38 @@ const FOCUSED_PANE_FINDERS = {
     document.querySelector('.job_details') ||
     document.querySelector('#job_desc') ||
     null,
+  'google.com': () => {
+    // Google Jobs renders a detail flyout when a job card is clicked in
+    // search results. Class names are obfuscated and change frequently,
+    // so we anchor on characteristic semantic content instead.
+
+    // Strategy 1: "Job highlights" or "Full job description" heading
+    for (const h of document.querySelectorAll('h2, h3')) {
+      const txt = (h.textContent || '').trim().toLowerCase();
+      if (txt === 'job highlights' || txt === 'full job description') {
+        let el = h;
+        for (let i = 0; i < 12 && el; i++) {
+          if (el === document.body) break;
+          el = el.parentElement;
+          if (el && el.innerHTML.length > 3000 && el.innerHTML.length < 300000) return el;
+        }
+      }
+    }
+
+    // Strategy 2: "Apply on …" link cluster (unique to the job detail panel)
+    for (const a of document.querySelectorAll('a')) {
+      if (/^Apply\s+(on|at|in)\s+/i.test((a.textContent || '').trim())) {
+        let el = a;
+        for (let i = 0; i < 12 && el; i++) {
+          if (el === document.body) break;
+          el = el.parentElement;
+          if (el && el.innerHTML.length > 3000 && el.innerHTML.length < 300000) return el;
+        }
+      }
+    }
+
+    return null;
+  },
 };
 
 /**
@@ -313,13 +346,22 @@ function detectJobOnPage() {
   // current page and extract title/company/location from inside it.
   const focused = findFocusedPane();
   if (focused) {
-    // LinkedIn needs special title extraction that filters noise headings
+    // LinkedIn and Google need custom title extraction that filters noise headings
     const title = focused.host === 'linkedin.com'
       ? linkedInPickTitle(focused.el)
+      : focused.host === 'google.com'
+      ? googlePickTitle(focused.el)
       : pickText(focused.el, FOCUSED_TITLE_SELECTORS[focused.host]);
     if (title) {
-      const company = pickText(focused.el, FOCUSED_COMPANY_SELECTORS[focused.host]);
-      const location = pickText(focused.el, FOCUSED_LOCATION_SELECTORS[focused.host]);
+      let company, location;
+      if (focused.host === 'google.com') {
+        const meta = googlePickCompanyLocation(focused.el);
+        company = meta.company;
+        location = meta.location;
+      } else {
+        company = pickText(focused.el, FOCUSED_COMPANY_SELECTORS[focused.host]);
+        location = pickText(focused.el, FOCUSED_LOCATION_SELECTORS[focused.host]);
+      }
       // Stash the focused pane outerHTML so the side panel can request
       // ONLY this slice via getFocusedPaneHTML.
       try {
@@ -472,10 +514,127 @@ function findLinkedInJobSection() {
   return { title, company, location, paneEl };
 }
 
+// ---- Google Jobs helpers ------------------------------------------------
+
+/** Headings that are section labels, NOT job titles — filter these out. */
+const GOOGLE_JOBS_NOISE_HEADINGS = new Set([
+  'job highlights', 'qualifications', 'responsibilities', 'benefits',
+  'full job description', 'job description', 'about the company',
+  'related searches', 'jobs', 'job postings', 'saved jobs', 'following',
+  'more job highlights', 'how you match', 'reviews', 'description',
+]);
+
+/**
+ * Google-specific title picker. Finds the first h2 in the job detail
+ * panel that isn't a section heading.
+ */
+function googlePickTitle(paneEl) {
+  if (!paneEl) return '';
+  for (const h of paneEl.querySelectorAll('h2')) {
+    const txt = h.textContent.replace(/\s+/g, ' ').trim();
+    if (!txt || txt.length < 4 || txt.length > 300) continue;
+    if (GOOGLE_JOBS_NOISE_HEADINGS.has(txt.toLowerCase())) continue;
+    const lower = txt.toLowerCase();
+    if (lower.startsWith('about ') || lower.startsWith('how ') ||
+        lower.startsWith('related ') || lower.startsWith('people ') ||
+        lower.startsWith('similar ')) continue;
+    return txt;
+  }
+  return '';
+}
+
+/**
+ * Extract company and location from Google Jobs' metadata line.
+ * Google renders "Company • Location • via Source" below the title.
+ */
+function googlePickCompanyLocation(paneEl) {
+  if (!paneEl) return { company: '', location: '' };
+  // Walk text nodes looking for the bullet-separated metadata line
+  const walker = document.createTreeWalker(paneEl, NodeFilter.SHOW_ELEMENT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const text = (node.textContent || '').replace(/\s+/g, ' ').trim();
+    if (!text.includes('•') || text.length < 5 || text.length > 300) continue;
+    // Skip elements whose children have too much nested content (sections)
+    if (node.children.length > 10) continue;
+    // Check inner HTML length — metadata lines are short, not huge sections
+    if (node.innerHTML.length > 1000) continue;
+    const parts = text.split('•').map(p => p.trim()).filter(Boolean);
+    if (parts.length >= 2) {
+      const filtered = parts.filter(p => !p.toLowerCase().startsWith('via '));
+      return {
+        company: filtered[0] || '',
+        location: filtered.length > 1 ? filtered.slice(1).join(', ') : '',
+      };
+    }
+  }
+  return { company: '', location: '' };
+}
+
+// ---- Generic fallback extraction ------------------------------------
+// Used by the `detectJob` handler when no site-specific detection
+// matched. Tries h1, <title>, and common job-page meta patterns.
+
+/** Headings that are generic site chrome, not job titles. */
+const GENERIC_NOISE = new Set([
+  'home', 'careers', 'jobs', 'job openings', 'open positions',
+  'search results', 'apply now', 'sign in', 'log in', 'menu',
+]);
+
+function genericJobExtract() {
+  let title = '';
+
+  // 1. First h1 on the page — most job pages put the title in h1
+  const h1 = document.querySelector('h1');
+  if (h1) {
+    const txt = h1.textContent.replace(/\s+/g, ' ').trim();
+    if (txt && txt.length > 3 && txt.length < 200 &&
+        !GENERIC_NOISE.has(txt.toLowerCase())) {
+      title = txt;
+    }
+  }
+
+  // 2. Fallback to <title> tag, stripping common site suffixes
+  if (!title) {
+    const raw = document.title.replace(/\s+/g, ' ').trim();
+    if (raw) {
+      // Remove trailing "- Company | Careers" style suffixes
+      const cleaned = raw
+        .replace(/\s*[-|–—•]\s*(Careers|Jobs|Hiring|Apply|Company|Recruit|Job Board|Openings).*$/i, '')
+        .trim();
+      if (cleaned && cleaned.length > 3 && cleaned.length < 200 &&
+          !GENERIC_NOISE.has(cleaned.toLowerCase())) {
+        title = cleaned;
+      }
+    }
+  }
+
+  if (!title) return null;
+
+  // Try to extract company from common meta tags
+  let company = '';
+  const ogSiteName = document.querySelector('meta[property="og:site_name"]');
+  if (ogSiteName) company = (ogSiteName.content || '').trim();
+
+  // Try to extract location from structured data or common patterns
+  let location = '';
+  const locEl =
+    document.querySelector('[data-testid*="location"], [class*="job-location"], [class*="jobLocation"]');
+  if (locEl) location = locEl.textContent.replace(/\s+/g, ' ').trim();
+
+  return {
+    title: title.slice(0, 250),
+    company,
+    location,
+    sourceUrl: getCanonicalJobUrl(),
+  };
+}
+
 function notifyJobDetected(payload) {
   const key = `${payload.title}|${payload.sourceUrl}`;
   if (key === lastDetectedKey) return;
   lastDetectedKey = key;
+  lastDetectedPayload = payload;
   chrome.runtime
     .sendMessage({ action: 'jobDetected', payload })
     .catch(() => {
@@ -561,6 +720,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === "ping") {
     // Simple ping to check if content script is loaded
     sendResponse({ status: "ready", url: getCanonicalJobUrl() });
+    return true;
+  }
+
+  if (request.action === "detectJob") {
+    // Re-run detection from scratch and return the payload directly.
+    // Resets the dedupe key so the detection fires even if the same job
+    // was already detected (e.g. before the side panel was open).
+    lastDetectedKey = null;
+    lastDetectedPayload = null;
+    detectJobOnPage();
+
+    // If site-specific detection failed, try generic DOM extraction so
+    // we still surface a real title on sites we don't have selectors for.
+    if (!lastDetectedPayload) {
+      const generic = genericJobExtract();
+      if (generic) lastDetectedPayload = generic;
+    }
+
+    sendResponse(lastDetectedPayload);
     return true;
   }
 

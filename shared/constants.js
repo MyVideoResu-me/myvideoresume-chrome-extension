@@ -281,6 +281,14 @@ const JOB_SITE_PARSERS = {
             '.job-description',
             '[class*="job-description"]'
         ]
+    },
+    // Google Jobs (search results)
+    google: {
+        hostPatterns: ['google.com'],
+        selectors: [
+            '[data-async-type="jobs"]',
+            '#gws-plugins-body-content',
+        ]
     }
 };
 
@@ -354,6 +362,10 @@ const JOB_PANE_SELECTORS = {
     angellist: [
         '.job-listing-content',
         '[class*="styles_jobDetails"]',
+    ],
+    google: [
+        '[data-async-type="jobs"]',
+        '#gws-plugins-body-content',
     ],
 };
 

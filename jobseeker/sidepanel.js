@@ -282,15 +282,37 @@ async function handleManualScan() {
   const ok = await requireAuth();
   if (!ok) return;
   await capturePageHtmlLegacy();
-  if (currentJobUrl) {
-    handleJobDetected({
-      title: 'Detected page',
-      company: '',
-      location: '',
-      sourceUrl: currentJobUrl,
+  if (!currentJobUrl) return;
+
+  // Ask the content script to re-run detection for real title/company/location
+  const detected = await new Promise((resolve) => {
+    chrome.runtime.sendMessage({ action: 'detectJob' }, (response) => {
+      if (chrome.runtime.lastError) { resolve(null); return; }
+      resolve(response?.payload || null);
     });
-    showQuickStatus('Page scanned — click Tailor & Save to continue.', 'info');
-  }
+  });
+
+  handleJobDetected(detected || {
+    title: 'Detected page',
+    company: '',
+    location: '',
+    sourceUrl: currentJobUrl,
+  });
+  showQuickStatus('Page scanned — click Tailor & Save to continue.', 'info');
+}
+
+/**
+ * Ask the active tab's content script to re-run job detection and
+ * surface the result in the banner. Used after tab switches.
+ */
+function requestActiveTabDetection() {
+  if (settings.autoDetect === false) return;
+  chrome.runtime.sendMessage({ action: 'detectJob' }, (response) => {
+    if (chrome.runtime.lastError) return;
+    if (response?.payload) {
+      handleJobDetected(response.payload);
+    }
+  });
 }
 
 function showQuickStatus(message, kind) {
@@ -771,7 +793,7 @@ function renderTrackedJobsTable() {
           <div class="tracked-job-row-trailing">
             ${scorePill}
             ${statusPill}
-            <button class="row-delete" data-action="delete" data-job-id="${id}" title="Remove from your tracker">🗑</button>
+            <button class="row-delete icon-btn" data-action="delete" data-job-id="${id}" title="Remove from your tracker"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
           </div>
         </div>
         <div class="tracked-job-actions">
@@ -1154,6 +1176,22 @@ function setupUrlChangeListener() {
       hideElement('quickStatus');
       clearPreviousResults();
     }
+    if (message.action === 'tabActivated') {
+      // User switched to a different tab — clear stale state from the
+      // previous tab and re-run detection on the newly active tab.
+      currentJobHtml = null;
+      currentJobUrl = null;
+      currentJobOriginalHtml = null;
+      trackedJob = null;
+      generatedVariationId = null;
+      detectedPageJob = null;
+      hideElement('currentJobDisplay');
+      hideElement('activePageBanner');
+      showElement('noJobBanner');
+      hideElement('quickStatus');
+      clearPreviousResults();
+      requestActiveTabDetection();
+    }
     if (message.action === 'jobDetected') {
       // Content script saw a JSON-LD JobPosting (or matched selector)
       // on the active tab. Surface the active-page banner if the
@@ -1406,6 +1444,7 @@ function setupEventListeners() {
   bind('quickTrackButton', gate(handleTrackJob));
   bind('quickScoreButton', gate(handleBannerScore));
   bind('manualScanButton', gate(handleManualScan));
+  bind('rescanButton', gate(handleManualScan));
   bind('refreshJobsButton', gate(loadTrackedJobsTable));
   bind('openWizardButton', () => {
     settings.wizardMode = true;
@@ -2365,7 +2404,14 @@ async function handleDownload(format) {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${selectedResume?.name || 'resume'}.${format}`;
+      // Prefer the filename from Content-Disposition (the backend sets the
+      // correct extension when e.g. PDF isn't available and it falls back
+      // to .txt or .md).
+      const disposition = response.headers.get('content-disposition') || '';
+      const filenameMatch = disposition.match(/filename="?([^";\n]+)"?/);
+      a.download = filenameMatch
+        ? filenameMatch[1]
+        : `${selectedResume?.name || 'resume'}.${format}`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
