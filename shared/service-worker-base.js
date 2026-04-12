@@ -199,7 +199,31 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       }
       chrome.tabs.sendMessage(tab.id, { action: 'detectJob' }, (response) => {
         if (chrome.runtime.lastError || !response) {
-          sendResponse({ payload: null });
+          // Content script not loaded on this tab (e.g. tab predates
+          // the extension install). Inject it on the fly, then retry.
+          console.warn('[hired.video] detectJob: content script not responding, injecting…',
+            chrome.runtime.lastError?.message);
+          chrome.scripting.executeScript(
+            { target: { tabId: tab.id }, files: ['content-script-jobs.js'] },
+            () => {
+              if (chrome.runtime.lastError) {
+                console.warn('[hired.video] detectJob: injection failed', chrome.runtime.lastError.message);
+                sendResponse({ payload: null });
+                return;
+              }
+              // Give the newly-injected script a moment to initialise
+              // (scheduleDetect runs at 500ms). Then retry.
+              setTimeout(() => {
+                chrome.tabs.sendMessage(tab.id, { action: 'detectJob' }, (retryResponse) => {
+                  if (chrome.runtime.lastError || !retryResponse) {
+                    sendResponse({ payload: null });
+                  } else {
+                    sendResponse({ payload: retryResponse });
+                  }
+                });
+              }, 800);
+            }
+          );
         } else {
           sendResponse({ payload: response });
         }
