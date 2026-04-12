@@ -315,7 +315,6 @@ function handleJobDetected(payload) {
   document.getElementById('activePageMeta').textContent = meta;
 
   const eyebrow = document.querySelector('#activePageBanner .active-page-eyebrow');
-  const actionsGrid = document.querySelector('#activePageBanner .banner-actions-grid');
 
   if (matched) {
     // Already tracked — set up trackedJob state so tailor/score flows
@@ -329,15 +328,18 @@ function handleJobDetected(payload) {
     };
     currentJobUrl = matched.sourceUrl;
     if (eyebrow) eyebrow.textContent = '✅ Already tracked';
-    if (actionsGrid) {
-      // Hide "Track only" since it's already tracked; show the rest
-      hideElement('quickTrackButton');
-    }
+    // Hide all banner action buttons — the tracked job card below
+    // has Score, Tailor, Open, and the resume row already.
+    hideElement('quickTailorButton');
+    hideElement('quickTailorOnlyButton');
+    hideElement('quickTrackButton');
+    hideElement('quickScoreButton');
   } else {
     if (eyebrow) eyebrow.textContent = '📌 Job detected on this page';
-    if (actionsGrid) {
-      showElement('quickTrackButton');
-    }
+    showElement('quickTailorButton');
+    showElement('quickTailorOnlyButton');
+    showElement('quickTrackButton');
+    showElement('quickScoreButton');
   }
 
   hideElement('noJobBanner');
@@ -388,13 +390,18 @@ async function handleManualScan() {
     });
   });
 
-  handleJobDetected(detected || {
+  const payload = detected || {
     title: 'Detected page',
     company: '',
     location: '',
     sourceUrl: currentJobUrl,
-  });
-  showQuickStatus('Page scanned — click Tailor & Save to continue.', 'info');
+  };
+  handleJobDetected(payload);
+
+  // Only show the "click Tailor & Save" hint for new/untracked jobs
+  if (!findMatchingTrackedJob(payload.sourceUrl)) {
+    showQuickStatus('Page scanned — click Tailor & Save to continue.', 'info');
+  }
 }
 
 /**
@@ -844,6 +851,20 @@ async function loadTrackedJobsTable() {
     if (detectedPageJob?.sourceUrl) {
       const matched = findMatchingTrackedJob(detectedPageJob.sourceUrl);
       if (matched) handleJobDetected(detectedPageJob);
+    } else {
+      // First-open detection: the panel just opened on an already-loaded
+      // page, so the content script's jobDetected message was lost. Now
+      // that trackedJobsList is populated, ask the content script what's
+      // on the active tab — if it matches a tracked job, the user sees
+      // "Already tracked" immediately. This runs regardless of the
+      // autoDetect setting because recognising an existing tracked job
+      // is context awareness, not auto-detection.
+      chrome.runtime.sendMessage({ action: 'detectJob' }, (response) => {
+        if (chrome.runtime.lastError) return;
+        if (response?.payload) {
+          handleJobDetected(response.payload);
+        }
+      });
     }
   } catch (err) {
     console.error('loadTrackedJobsTable failed:', err);
@@ -1037,20 +1058,45 @@ function toggleInlineScore(jobId) {
     ? converter.makeHtml(cached.recommendations)
     : '<em>No recommendations available.</em>';
 
+  // Show "Tailor to Fix Gaps" if not yet tailored, or the tailored
+  // resume row if a variation exists.
+  const cachedTailorDetail = jobTailorings[jobId];
+  const resumeNameDetail = escapeHtml(cachedTailorDetail?.variationName || '');
+  const actionHtml = cachedTailorDetail
+    ? `<div class="tracked-job-resume-row mt-2">
+        <div class="resume-row-info">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+          <span class="resume-row-name" title="${resumeNameDetail}">${resumeNameDetail || 'Tailored resume'}</span>
+        </div>
+        <div class="resume-row-actions">
+          <button class="icon-btn" data-action="download-tailored" data-job-id="${jobId}" title="Download resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
+          <button class="icon-btn" data-action="view-tailored" data-job-id="${jobId}" title="View resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
+        </div>
+      </div>`
+    : `<button class="btn btn-primary btn-compact" data-action="tailor" data-job-id="${jobId}">✨ Tailor to Fix Gaps</button>`;
+
   panel.innerHTML = `
     <div class="score-detail-content">
       <div class="score-detail-recommendations">${recHtml}</div>
       <div class="score-detail-actions">
-        <button class="btn btn-primary btn-compact" data-action="tailor" data-job-id="${jobId}">✨ Tailor to Fix Gaps</button>
+        ${actionHtml}
+        <button class="btn btn-outline btn-compact" data-action="rescore" data-job-id="${jobId}">🔄 Re-score</button>
       </div>
     </div>
   `;
   panel.classList.remove('hidden');
 
-  // Wire the tailor button inside the detail panel
+  // Wire buttons inside the detail panel
   panel.querySelector('[data-action="tailor"]')?.addEventListener('click', () => {
     panel.classList.add('hidden');
     rowTailorJob(jobId);
+  });
+  panel.querySelector('[data-action="rescore"]')?.addEventListener('click', () => {
+    panel.classList.add('hidden');
+    rowScoreJob(jobId);
+  });
+  panel.querySelectorAll('[data-action="download-tailored"], [data-action="view-tailored"]').forEach((btn) => {
+    btn.addEventListener('click', onTrackedJobAction);
   });
 }
 
@@ -1108,13 +1154,16 @@ async function rowScoreJob(jobId) {
     switchTab('settings');
     return;
   }
+  // Use the tailored variation if one exists for this job, otherwise the master
+  const cachedTailorForScore = jobTailorings[jobId];
+  const resumeIdForScore = cachedTailorForScore?.variationId || selectedResume.id;
   const restoreRow = showRowLoading(jobId, 'Scoring…');
   const jwtToken = await getJwtToken();
   try {
     const resp = await fetch(matchAnalyze, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
-      body: JSON.stringify({ jobId, resumeId: selectedResume.id }),
+      body: JSON.stringify({ jobId, resumeId: resumeIdForScore }),
     });
     if (resp.status === 401) return handleTokenExpired();
     if (await check429(resp, 'quickStatus')) { restoreRow(); return; }
@@ -1641,6 +1690,11 @@ function setupEventListeners() {
 
   // ---- Resume manager (Settings tab) ----
   bind('refreshResumesButton', gate(loadMasterResumeGroups));
+  bind('openResumeButton', () => {
+    if (selectedResume?.id) {
+      chrome.tabs.create({ url: buildWebUrl('/resumes/' + selectedResume.id) });
+    }
+  });
   bind('changeResumeButton', () => {
     switchTab('settings');
     showResumeSelection();
@@ -1845,7 +1899,10 @@ function renderResumeSelection() {
               <div class="resume-card-title">${escapeHtml(master.name || master.title || 'Untitled Resume')}</div>
               <div class="resume-card-meta">${formatDate(master.creationDateTime || master.createdAt)}</div>
             </div>
-            <span class="badge badge-master">Master</span>
+            <div class="d-flex align-items-center gap-2">
+              <span class="badge badge-master">Master</span>
+              <button class="icon-btn" onclick="event.stopPropagation(); openResumeInTab('${master.id}')" title="View resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
+            </div>
           </div>
         </div>
         ${variations.map(v => `
@@ -1860,6 +1917,7 @@ function renderResumeSelection() {
               </div>
               <div class="d-flex align-items-center gap-2">
                 <span class="badge badge-variation">Variation</span>
+                <button class="icon-btn" onclick="event.stopPropagation(); openResumeInTab('${v.id}')" title="View resume"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></button>
                 <button class="btn-link" onclick="event.stopPropagation(); promoteToMaster('${v.id}')">Set as Master</button>
               </div>
             </div>
@@ -1872,6 +1930,10 @@ function renderResumeSelection() {
   container.innerHTML = html;
   showElement('resumeSelectionContainer');
 }
+
+window.openResumeInTab = function (id) {
+  chrome.tabs.create({ url: buildWebUrl('/resumes/' + id) });
+};
 
 window.selectResumeById = function (id) {
   const resume = findResumeById(id);
