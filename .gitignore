@@ -409,3 +409,6 @@ FodyWeavers.xsd
 # web-ext (Mozilla extension dev tool)
 .web-ext-profile/
 web-ext-artifacts/
+
+# CRX signing keys (private — never commit)
+*.pem
