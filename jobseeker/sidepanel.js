@@ -1973,6 +1973,7 @@ function renderResumeSelection() {
     if (!isMaster) {
       actions.push(`<button class="btn-link" data-resume-action="set-master" data-resume-id="${r.id}">Set Master</button>`);
     }
+    actions.push(`<button class="icon-btn row-delete" data-resume-action="delete" data-resume-id="${r.id}" title="Delete resume">${ICON.trash}</button>`);
 
     const cardClass = `resume-card ${isVariation ? 'variation' : 'master'} ${isActive ? 'selected' : ''}`;
 
@@ -2022,6 +2023,53 @@ function onResumeAction(event) {
       return setActiveResume(id);
     case 'set-master':
       return promoteToMaster(id);
+    case 'delete':
+      return deleteResume(id);
+  }
+}
+
+async function deleteResume(id) {
+  console.log('[hired.video] deleteResume:', id);
+  const resume = findResumeById(id);
+  if (!resume) {
+    console.warn('[hired.video] deleteResume — resume not found:', id);
+    return;
+  }
+
+  const name = resume.name || resume.title || 'this resume';
+  const variationCount = resume.isMaster
+    ? (resumeGroups.find(g => g.masterResume?.id === id)?.variations?.length || 0)
+    : 0;
+  const msg = variationCount > 0
+    ? `Delete master resume "${name}"?\n\nIts ${variationCount} variation${variationCount === 1 ? '' : 's'} will be kept but unlinked from a master. This cannot be undone.`
+    : `Delete "${name}"?\n\nThis cannot be undone.`;
+
+  if (!window.confirm(msg)) return;
+
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) return;
+
+  try {
+    const response = await fetch(`${resumeBase}/${id}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    });
+    if (response.status === 401) return handleTokenExpired();
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Failed to delete resume');
+    }
+
+    if (selectedResume?.id === id) {
+      selectedResume = null;
+      chrome.storage.local.remove(selectedResumeKey);
+    }
+
+    showQuickStatus(`Deleted "${name}".`, 'success');
+    await loadMasterResumeGroups();
+  } catch (err) {
+    console.error('[hired.video] deleteResume failed:', err);
+    showQuickStatus(err.message || 'Could not delete this resume.', 'error');
   }
 }
 
