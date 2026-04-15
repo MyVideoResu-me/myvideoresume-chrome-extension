@@ -97,20 +97,31 @@ const FOCUSED_PANE_FINDERS = {
   'linkedin.com': () => {
     // ---- Strategy 1: #job-details (stable id, most reliable) ----
     // This id wraps the job description section and is NOT obfuscated.
-    // Walk up from it to capture the full detail pane (title + desc).
+    // Prefer the nearest known right-pane wrapper so the pane NEVER
+    // includes the left rail — otherwise left-rail selectors like
+    // .job-card-list__title would match the top sidebar item instead
+    // of the currently-selected job.
     const jobDetails = document.getElementById('job-details');
     if (jobDetails) {
-      // Walk up to a container that also includes the title card above
+      const rightPane = jobDetails.closest(
+        '.jobs-search__job-details, .jobs-details, .scaffold-layout__detail'
+      );
+      if (rightPane) return rightPane;
+
+      // Fallback walk-up — bail out if we ever encounter a sidebar marker,
+      // since that means we've walked past the right-pane boundary.
       let container = jobDetails;
       for (let i = 0; i < 6 && container; i++) {
         if (container === document.body) break;
         container = container.parentElement;
-        // Stop when we have enough content (title + description)
-        if (container && container.innerHTML.length > 3000 && container.innerHTML.length < 200000) {
+        if (!container) break;
+        if (container.querySelector('.job-card-container, .jobs-search-results-list, .scaffold-layout__list')) {
+          break;
+        }
+        if (container.innerHTML.length > 3000 && container.innerHTML.length < 200000) {
           return container;
         }
       }
-      // Fallback: return #job-details itself if walk-up didn't find a good container
       return jobDetails.parentElement || jobDetails;
     }
 
@@ -196,11 +207,13 @@ const FOCUSED_PANE_FINDERS = {
  */
 const FOCUSED_TITLE_SELECTORS = {
   'linkedin.com': [
-    // Legacy BEM selectors (stable when present)
+    // Right-pane detail-card selectors only. `.job-card-list__title` is
+    // intentionally EXCLUDED here — it matches the LEFT RAIL sidebar
+    // items, and when scoped against a wide paneEl it returns the TOP
+    // sidebar job instead of the currently-selected one.
     '.job-details-jobs-unified-top-card__job-title h1',
     '.job-details-jobs-unified-top-card__job-title',
     '.jobs-unified-top-card__job-title',
-    '.job-card-list__title',
     '.top-card-layout__title',
     // Generic headings handled by linkedInPickTitle() below — NOT listed
     // here because pickText can't filter out "About the job" etc.
@@ -763,6 +776,25 @@ window.addEventListener('popstate', notifyUrlChange);
 
 // Also check periodically for URL changes (fallback for edge cases)
 setInterval(notifyUrlChange, 1000);
+
+// LinkedIn: clicking a sidebar card swaps the right pane in place and
+// does not always trigger a URL change fast enough. Listen on capture
+// so we schedule re-detection before the throttled MutationObserver.
+document.addEventListener('click', (e) => {
+  const host = window.location.hostname.toLowerCase();
+  if (!host.includes('linkedin.com')) return;
+  const target = e.target;
+  if (!target || !target.closest) return;
+  const card = target.closest(
+    '.job-card-container--clickable, .job-card-list__entity-lockup, .job-card-job-posting-card-wrapper, [data-job-id]'
+  );
+  if (!card) return;
+  lastDetectedKey = null;
+  lastDetectedPayload = null;
+  setTimeout(detectJobOnPage, 300);
+  setTimeout(detectJobOnPage, 900);
+  setTimeout(detectJobOnPage, 2000);
+}, true);
 
 // Send the HTML back to the background script
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
