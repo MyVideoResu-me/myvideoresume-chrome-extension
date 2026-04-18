@@ -189,6 +189,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return false;
   }
 
+  // ---- hired.video tab → extension bridge --------------------------
+  // auth-bridge.js forwards web-app mutations (resume created/deleted
+  // on /resumes, etc.) here. We relay to the side panel via
+  // chrome.runtime.sendMessage so it can re-fetch affected lists.
+  if (request.action === 'webAppEvent') {
+    chrome.runtime.sendMessage({
+      action: 'webAppEvent',
+      type: request.type,
+      payload: request.payload ?? null,
+    }).catch(() => {}); // side panel closed
+    return false;
+  }
+
   // ---- Extension → hired.video tab bridge --------------------------
   // Relays a custom event to any open hired.video/localhost tab so the
   // web app can react to extension-side changes (e.g. re-fetch the

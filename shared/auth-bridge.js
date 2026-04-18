@@ -120,4 +120,25 @@
     }
     return false;
   });
+
+  // ---- web → extension event bridge ----------------------------------
+  // The reverse of the block above: the web app dispatches a
+  // `hired.video:notify-extension` CustomEvent whenever it mutates a
+  // resource the side panel might be showing (resume created/deleted,
+  // tracked job updated, etc.). We forward the payload to the service
+  // worker, which relays it to the side panel.
+  //
+  // This closes the loop so stale state doesn't linger in either
+  // direction — both the web tab and the side panel stay in sync with
+  // whatever the user just did, regardless of which surface they used.
+  window.addEventListener('hired.video:notify-extension', (e) => {
+    const detail = (e && e.detail) || {};
+    chrome.runtime.sendMessage({
+      action: 'webAppEvent',
+      type: detail.type,
+      payload: detail.payload ?? null,
+    }).catch(() => {
+      // Extension reloading / service worker asleep — ignore.
+    });
+  });
 })();

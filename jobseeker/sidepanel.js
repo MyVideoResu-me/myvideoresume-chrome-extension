@@ -116,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initializeApp();
   setupUrlChangeListener();
   setupAuthSyncListener();
+  setupWebAppEventListener();
 
   // Re-check premium status when the side panel regains visibility
   // (e.g. user returns from the pricing/upgrade page in another tab).
@@ -2553,6 +2554,26 @@ function setupAuthSyncListener() {
       // together refresh the upgrade CTA, locked toggles, and body class.
       initializeApp();
     }
+    return false;
+  });
+}
+
+/**
+ * Listen for web-app mutations forwarded via the auth-bridge → SW relay
+ * so the side panel doesn't show stale state after the user creates or
+ * deletes a resume on hired.video/resumes (or mutates any other shared
+ * resource). Keeps both surfaces in sync without the user having to
+ * reload the side panel.
+ */
+function setupWebAppEventListener() {
+  chrome.runtime.onMessage.addListener((message) => {
+    if (!message || message.action !== 'webAppEvent') return false;
+    console.log('[hired.video] webAppEvent received:', message.type);
+    if (message.type === 'resume-changed') {
+      loadMasterResumeGroups();
+    }
+    // Add more resource handlers here as the surface area grows
+    // (tracked-job changes, applications, etc.).
     return false;
   });
 }
