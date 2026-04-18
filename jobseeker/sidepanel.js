@@ -67,6 +67,10 @@ const ICON = {
   // across the UI.
   edit: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="16 3 21 8 8 21 3 21 3 16 16 3"/></svg>',
   trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
+  // Spinner — swapped into action buttons while an async op is in flight
+  // so the user gets visible feedback instead of clicking the same button
+  // repeatedly. Relies on .icon-btn-spinner CSS for the rotate animation.
+  spinner: '<svg class="icon-btn-spinner" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M21 12a9 9 0 1 1-6.219-8.56" /></svg>',
 };
 
 // Default user settings — persisted in chrome.storage.local under `settings`.
@@ -1775,14 +1779,14 @@ function renderTrackedJobsTable() {
           </div>
         </div>` : '';
 
-    // Apply button — shown when we have a distinct apply URL (the link
-    // a user clicks from the job listing to reach the actual application
-    // form). Falls back silently when applyUrl is missing or matches the
-    // source listing page.
-    const sourceNorm = normalizeUrlForMatch(job.sourceUrl);
-    const applyNorm = normalizeUrlForMatch(job.applyUrl);
-    const hasDistinctApply = applyNorm && applyNorm !== sourceNorm;
-    const applyButton = hasDistinctApply
+    // Apply button (#3 step in the Score → Tailor → Apply flow). Shown
+    // whenever we have an applyUrl at all — even when it matches
+    // sourceUrl. The title link opens in a NEW tab; this button
+    // navigates the CURRENT tab. So they're not redundant even for
+    // sites like Home Depot where the posting page IS the apply page —
+    // the user might not be on that tab right now.
+    const applyTarget = job.applyUrl || job.sourceUrl;
+    const applyButton = applyTarget
       ? `<button class="btn btn-primary" data-action="apply" data-job-id="${id}" title="Open the application page in this tab"><span class="step-num">3</span>↗ Apply / Autofill</button>`
       : '';
 
@@ -1906,14 +1910,17 @@ async function onTrackedJobAction(event) {
       // the same browsing context. findMatchingTrackedJob will reconcile
       // the new URL back to this tracked job, and the sidepanel swaps to
       // Autofill mode without treating the apply page as a new job.
+      // Falls back to sourceUrl when applyUrl is missing — matches the
+      // button's display logic above.
       const applyJob = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
-      if (!applyJob?.applyUrl) return;
+      const target = applyJob?.applyUrl || applyJob?.sourceUrl;
+      if (!target) return;
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tab = tabs[0];
         if (tab?.id !== undefined) {
-          chrome.tabs.update(tab.id, { url: applyJob.applyUrl });
+          chrome.tabs.update(tab.id, { url: target });
         } else {
-          chrome.tabs.create({ url: applyJob.applyUrl });
+          chrome.tabs.create({ url: target });
         }
       });
       return;
@@ -2031,9 +2038,19 @@ const REFRESHABLE_FIELD_MAP = [
 function detectMissingFields(job) {
   if (!job) return [];
   const isEmpty = (v) => v == null || v === '' || (Array.isArray(v) && v.length === 0);
-  return REFRESHABLE_FIELD_MAP
+  const missing = REFRESHABLE_FIELD_MAP
     .filter(({ dtoGetter }) => isEmpty(dtoGetter(job)))
     .map(({ columnName }) => columnName);
+
+  // applyUrl needs special treatment — the DTO echoes job.sourceUrl as
+  // the fallback when no distinct apply URL was persisted, so the naive
+  // "is the DTO field empty?" check can't see it's a stand-in. Treat
+  // `applyUrl == sourceUrl` as "missing" so the server gets a chance to
+  // replace it with a fresh candidate from the current page.
+  const applyIsFallback =
+    !job.applyUrl || job.applyUrl === job.sourceUrl;
+  if (applyIsFallback) missing.push('applyUrl');
+  return missing;
 }
 
 /**
@@ -2058,10 +2075,18 @@ async function handleRefreshJob(jobId) {
   const rescanBtn = document.querySelector(
     `.tracked-job-row[data-job-id="${jobId}"] .row-rescan`,
   );
+  // Guard against rapid double-clicks — the button will be disabled while
+  // in-flight, but if the second click lands before the browser paints the
+  // disabled state, bail early.
+  if (rescanBtn?.dataset.loading === '1') return;
   const originalHtml = rescanBtn?.innerHTML;
+  const originalTitle = rescanBtn?.title;
   if (rescanBtn) {
     rescanBtn.disabled = true;
+    rescanBtn.dataset.loading = '1';
     rescanBtn.classList.add('is-loading');
+    rescanBtn.innerHTML = ICON.spinner;
+    rescanBtn.title = 'Scanning…';
   }
 
   showQuickStatus('Scanning page for missing job info…', 'info');
@@ -2125,8 +2150,10 @@ async function handleRefreshJob(jobId) {
   } finally {
     if (rescanBtn) {
       rescanBtn.disabled = false;
+      delete rescanBtn.dataset.loading;
       rescanBtn.classList.remove('is-loading');
       if (originalHtml !== undefined) rescanBtn.innerHTML = originalHtml;
+      if (originalTitle !== undefined) rescanBtn.title = originalTitle;
     }
   }
 }

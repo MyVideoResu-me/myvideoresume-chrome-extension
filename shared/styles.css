@@ -460,6 +460,19 @@ button, .btn {
   flex-shrink: 0;
 }
 
+/* Inline spinner swapped into row-action icon buttons while an async
+   operation is in flight. The button's innerHTML is replaced with
+   ICON.spinner — this class spins the svg itself (so the stroke color
+   inherits from currentColor and matches the button's other icons). */
+.icon-btn-spinner {
+  animation: spinner-border 0.75s linear infinite;
+}
+
+.icon-btn.is-loading {
+  cursor: wait;
+  opacity: 0.7;
+}
+
 /* Tabs */
 .tabs {
   display: flex;
