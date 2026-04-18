@@ -30,9 +30,9 @@ let activeConversationId = null;
 let activeRecipientId = null;
 let pendingJobAttachment = null; // job card to attach when composing
 
-// Settings
+// Settings - all auto-detect features are PAID for the recruiter extension.
 const DEFAULT_SETTINGS = {
-  autoDetectJobs: true,
+  autoDetectJobs: false,       // PAID
   autoDetectProfiles: false,   // PAID
   autoDetectCompanies: false,  // PAID
   autoScore: false,            // PAID
@@ -134,18 +134,21 @@ async function loadUserProfile(token) {
 }
 
 function applyPremiumGating() {
-  // Auto-detect settings
+  // Auto-detect settings — all four are gated for the recruiter extension.
+  const jobsToggle = document.getElementById('settingAutoDetectJobs');
   const profileToggle = document.getElementById('settingAutoDetectProfiles');
   const companyToggle = document.getElementById('settingAutoDetectCompanies');
   const scoreToggle = document.getElementById('settingAutoScore');
 
   if (!isPremium) {
+    if (jobsToggle) jobsToggle.disabled = true;
     if (profileToggle) profileToggle.disabled = true;
     if (companyToggle) companyToggle.disabled = true;
     if (scoreToggle) scoreToggle.disabled = true;
     showElement('autoDetectUpgrade');
     hideElement('headerUpgradeButton');
   } else {
+    if (jobsToggle) jobsToggle.disabled = false;
     if (profileToggle) profileToggle.disabled = false;
     if (companyToggle) companyToggle.disabled = false;
     if (scoreToggle) scoreToggle.disabled = false;

@@ -11,12 +11,15 @@
     "pack": "node scripts/pack-crx.js",
     "pack:jobseeker": "node scripts/pack-crx.js jobseeker",
     "pack:recruiter": "node scripts/pack-crx.js recruiter",
-    "dev:jobseeker": "npm run build:jobseeker && web-ext run --source-dir=dist/jobseeker --target=chromium",
-    "dev:recruiter": "npm run build:recruiter && web-ext run --source-dir=dist/recruiter --target=chromium",
+    "watch:jobseeker": "node scripts/build.js jobseeker --watch",
+    "watch:recruiter": "node scripts/build.js recruiter --watch",
+    "dev:jobseeker": "concurrently -k -n build,web-ext -c blue,green \"npm run watch:jobseeker\" \"web-ext run --source-dir=dist/jobseeker --target=chromium\"",
+    "dev:recruiter": "concurrently -k -n build,web-ext -c blue,green \"npm run watch:recruiter\" \"web-ext run --source-dir=dist/recruiter --target=chromium\"",
     "lint:jobseeker": "npm run build:jobseeker && web-ext lint --source-dir=dist/jobseeker",
     "lint:recruiter": "npm run build:recruiter && web-ext lint --source-dir=dist/recruiter"
   },
   "devDependencies": {
+    "concurrently": "^9.2.1",
     "crx3": "^2.0.0",
     "sharp": "^0.34.5",
     "web-ext": "^10.1.0"

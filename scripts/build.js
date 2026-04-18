@@ -143,11 +143,14 @@ function listFiles(dir, base) {
 
 // ---- Main ---------------------------------------------------------------
 
-const target = process.argv[2]; // 'jobseeker', 'recruiter', or undefined (both)
+const args = process.argv.slice(2);
+const flags = new Set(args.filter((a) => a.startsWith('--')));
+const target = args.find((a) => !a.startsWith('--')); // 'jobseeker', 'recruiter', or undefined (both)
+const isWatch = flags.has('--watch');
 
 if (target && !EXTENSIONS[target]) {
   console.error(`Unknown target: ${target}`);
-  console.error('Usage: node scripts/build.js [jobseeker|recruiter]');
+  console.error('Usage: node scripts/build.js [jobseeker|recruiter] [--watch]');
   process.exit(1);
 }
 
@@ -158,3 +161,37 @@ for (const t of targets) {
 }
 
 console.log('\nBuild complete.');
+
+if (isWatch) {
+  // Dev loop: rebuild whenever the shared/ dir or the selected extension's
+  // own src dir changes. web-ext's --source-dir watcher picks up the
+  // resulting dist/ changes and reloads the extension in Chrome.
+  //
+  // We debounce by 150ms because fs.watch fires multiple events per save
+  // on many editors (separate events for mtime + content), and our build
+  // takes ~200ms — without debounce every save triggers a build storm.
+  console.log('\nWatching for changes... (Ctrl-C to stop)');
+  const watched = new Set([SHARED_DIR, ...targets.map((t) => EXTENSIONS[t].src)]);
+  let pending = null;
+  const rebuild = () => {
+    pending = null;
+    for (const t of targets) {
+      try {
+        buildExtension(t);
+      } catch (err) {
+        console.error(`Build failed for ${t}:`, err.message);
+      }
+    }
+    console.log('Rebuild complete. Watching...');
+  };
+  for (const dir of watched) {
+    if (!fs.existsSync(dir)) continue;
+    fs.watch(dir, { recursive: true }, (_event, filename) => {
+      if (!filename) return;
+      // Ignore editor temp files (vim swap, JetBrains ___jb_tmp___, etc.)
+      if (/(^|\/|\\)\.|___jb_|~$|\.swp$/.test(filename)) return;
+      if (pending) clearTimeout(pending);
+      pending = setTimeout(rebuild, 150);
+    });
+  }
+}
