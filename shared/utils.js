@@ -247,8 +247,7 @@ function buildTrackedJobObj(raw, fallbacks = {}) {
  * @param {string} opts.jobId          - The tracked job to tailor against
  * @param {object} opts.selectedResume - The active resume object
  * @param {object} opts.trackedJob     - The tracked job object (for naming)
- * @param {string} [opts.sourceUrl]    - Source URL for the job
- * @param {string} [opts.priorRecommendations] - Prior score recs to pass to the LLM
+ * @param {string} [opts.sourceUrl]    - Source URL stored with the saved variation
  * @returns {{ tailored, variationId, variationName }} or throws
  */
 async function tailorAndSaveVariation(opts) {
