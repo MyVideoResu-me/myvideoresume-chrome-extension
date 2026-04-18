@@ -189,6 +189,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return false;
   }
 
+  // ---- Extension → hired.video tab bridge --------------------------
+  // Relays a custom event to any open hired.video/localhost tab so the
+  // web app can react to extension-side changes (e.g. re-fetch the
+  // resume list after an extension-triggered upload). auth-bridge.js,
+  // which is already injected on these hosts, picks this up and turns
+  // it into a window-level CustomEvent.
+  if (request.action === 'broadcastToWebApp') {
+    chrome.tabs.query(
+      { url: ['https://hired.video/*', 'https://www.hired.video/*', 'http://localhost:3000/*'] },
+      (tabs) => {
+        for (const tab of tabs) {
+          if (!tab?.id) continue;
+          chrome.tabs.sendMessage(tab.id, {
+            action: 'hiredVideoExtensionEvent',
+            type: request.type,
+            payload: request.payload ?? null,
+          }).catch(() => {}); // tab may not have the content script ready
+        }
+      },
+    );
+    return false;
+  }
+
   // ---- On-demand job detection from the active tab -----------------
   if (request.action === 'detectJob') {
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {

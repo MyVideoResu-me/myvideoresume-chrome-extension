@@ -99,4 +99,25 @@
   chrome.storage.onChanged.addListener((changes, area) => {
     if (area === 'local' && changes.jwtToken) pullExtensionToken();
   });
+
+  // ---- extension → web event bridge ----------------------------------
+  // Relays `hiredVideoExtensionEvent` messages from the service worker
+  // into a window-level CustomEvent so the web app (which can't use
+  // chrome.runtime directly) can subscribe with addEventListener.
+  //
+  // Fires for any cross-context change made from the extension that the
+  // open web page should react to — e.g. the user uploads a resume from
+  // the side panel, and /resumes needs to re-fetch so the new row
+  // appears without a manual browser refresh.
+  chrome.runtime.onMessage.addListener((msg) => {
+    if (!msg || msg.action !== 'hiredVideoExtensionEvent') return false;
+    try {
+      window.dispatchEvent(new CustomEvent('hired.video:extension-event', {
+        detail: { type: msg.type, payload: msg.payload ?? null },
+      }));
+    } catch {
+      // Page gone / navigated — soft-fail.
+    }
+    return false;
+  });
 })();

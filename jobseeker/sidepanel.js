@@ -48,6 +48,28 @@ let jobTailorings = {};
 const JOB_SCORES_KEY = 'jobScores';
 const JOB_TAILORINGS_KEY = 'jobTailorings';
 
+// Hosts we will never treat as job pages. Mirrors
+// JOBSEEKER_SKIP_HOSTS in content-script-jobs.js — the content script's
+// skip guard already blocks auto-detection, but the side panel's manual
+// "Scan this page" path has its own HTML-parse fallback that bypasses the
+// content script entirely. Without this guard, clicking Scan on
+// hired.video/home surfaces the site's own og:title as a "detected job".
+const SKIP_DETECTION_HOSTS = new Set([
+  'hired.video',
+  'www.hired.video',
+  'localhost',
+  '127.0.0.1',
+]);
+
+function isSkipDetectionUrl(url) {
+  if (!url) return false;
+  try {
+    return SKIP_DETECTION_HOSTS.has(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
 // Shared SVG icons (14×14, Feather-style) used across rendered UI.
 const ICON = {
   document: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
@@ -708,6 +730,19 @@ async function handleManualScan() {
   await capturePageHtmlLegacy();
   if (!currentJobUrl) return;
 
+  // Skip hired.video's own pages — clicking Scan on /home surfaces the
+  // site's own og:title ("hired.video — AI Video Resumes…") as a
+  // false-positive job. The content script's detectJob bails for these
+  // hosts, but the HTML-parse fallback below bypasses that, so we have
+  // to repeat the check here.
+  if (isSkipDetectionUrl(currentJobUrl)) {
+    showQuickStatus(
+      "This is hired.video — open a job posting on another site to scan.",
+      'info',
+    );
+    return;
+  }
+
   // Ask the content script to re-run detection for real title/company/location
   const detected = await new Promise((resolve) => {
     chrome.runtime.sendMessage({ action: 'detectJob' }, (response) => {
@@ -837,6 +872,12 @@ function requestActiveTabDetection(opts) {
   chrome.runtime.sendMessage({ action: 'detectJob' }, (response) => {
     if (chrome.runtime.lastError) return;
     if (response?.payload) {
+      // Defensive: the content script's skip-host guard should have
+      // prevented this, but if detection ever slips through on
+      // hired.video (e.g. a legacy tab with a stale script), drop it
+      // here so the false-positive banner never appears.
+      const srcUrl = response.payload.sourceUrl || response.payload.applyUrl;
+      if (isSkipDetectionUrl(srcUrl)) return;
       handleJobDetected(response.payload);
       return;
     }
@@ -2620,11 +2661,7 @@ function showSignedOutState() {
   renderTrackedJobsTable();
   setPremium(false);
 
-  const stripName = document.getElementById('resumeStripName');
-  if (stripName) {
-    stripName.textContent = '—';
-    stripName.setAttribute('href', '#');
-  }
+  updateActiveResumeStrip(null);
 
   const badge = document.getElementById('trackedJobsCountBadge');
   if (badge) {
@@ -3056,15 +3093,25 @@ async function loadMasterResumeGroups() {
     // 2. Fall back to locally selected resume (if still exists)
     // 3. Fall back to ensureActiveResume() which auto-activates master
     const allResumes = resumeGroups.flatMap(g => [g.masterResume, ...(g.variations || [])]);
-    const serverActive = allResumes.find(r => r.isActive);
-    if (serverActive) {
-      selectResume(serverActive);
-    } else if (selectedResume) {
-      const found = findResumeById(selectedResume.id);
-      if (found) selectResume(found);
-      else ensureActiveResume();
+
+    if (allResumes.length === 0) {
+      // Signed in but no resumes uploaded yet — clear the profile card's
+      // active-resume strip so the View/Edit icons don't link into
+      // non-existent /resumes/<id> pages.
+      selectedResume = null;
+      chrome.storage.local.remove(selectedResumeKey);
+      updateActiveResumeStrip(null);
     } else {
-      ensureActiveResume();
+      const serverActive = allResumes.find(r => r.isActive);
+      if (serverActive) {
+        selectResume(serverActive);
+      } else if (selectedResume) {
+        const found = findResumeById(selectedResume.id);
+        if (found) selectResume(found);
+        else ensureActiveResume();
+      } else {
+        ensureActiveResume();
+      }
     }
 
     // First load of the session: if the user has no master resume
@@ -3299,6 +3346,36 @@ async function promoteToMaster(id) {
   }
 }
 
+/**
+ * Update the compact "Active resume" strip inside the profile card.
+ * Pass a resume object to show its name and enable the View/Edit icons;
+ * pass null when there's no active resume — hides both icons so the
+ * user can't click a View button that would open a 404.
+ */
+function updateActiveResumeStrip(resume) {
+  const strip = document.getElementById('resumeStripName');
+  const openBtn = document.getElementById('openResumeButton');
+  const editBtn = document.getElementById('changeResumeButton');
+
+  if (resume && resume.id) {
+    const displayName = resume.name || resume.title || 'Untitled Resume';
+    const badgeText = resume.isMaster ? ' (Master)' : '';
+    if (strip) {
+      strip.textContent = displayName + badgeText;
+      strip.href = buildWebUrl('/resumes/' + resume.id);
+    }
+    if (openBtn) openBtn.classList.remove('hidden');
+    if (editBtn) editBtn.classList.remove('hidden');
+  } else {
+    if (strip) {
+      strip.textContent = '—';
+      strip.setAttribute('href', '#');
+    }
+    if (openBtn) openBtn.classList.add('hidden');
+    if (editBtn) editBtn.classList.add('hidden');
+  }
+}
+
 function selectResume(resume) {
   console.log('[hired.video] selectResume:', resume?.id, resume?.name || resume?.title);
   selectedResume = resume;
@@ -3308,14 +3385,7 @@ function selectResume(resume) {
   document.getElementById('selectedResumeName').textContent = displayName;
 
   // Mirror the selection into the compact strip inside the profile card.
-  // The name is now a hyperlink that opens the resume on hired.video in a
-  // new tab — same target as the adjacent View icon.
-  const strip = document.getElementById('resumeStripName');
-  if (strip) {
-    const badgeText = resume.isMaster ? ' (Master)' : '';
-    strip.textContent = displayName + badgeText;
-    if (resume.id) strip.href = buildWebUrl('/resumes/' + resume.id);
-  }
+  updateActiveResumeStrip(resume);
 
   const badge = document.getElementById('selectedResumeBadge');
   if (resume.isMaster) {
@@ -3433,6 +3503,14 @@ async function handleResumeUpload(event) {
 
     // Refresh the resume list to surface the new resume.
     await loadMasterResumeGroups();
+
+    // Tell any open hired.video tab to re-fetch its resume list — the
+    // web app has no way to know about extension-side uploads, so
+    // without this the user has to hit F5 on /resumes to see the new row.
+    chrome.runtime.sendMessage({
+      action: 'broadcastToWebApp',
+      type: 'resume-changed',
+    }).catch(() => {});
   } catch (err) {
     console.error('[hired.video] resume upload failed:', err);
     status.className = 'alert alert-error';
@@ -3467,15 +3545,16 @@ async function extractTextFromUpload(file) {
     } catch (e) { /* fall through */ }
   }
 
-  // PDF — extract text from the binary content
+  // PDF — extract text from the binary content. Uses the Flate-aware
+  // async extractor since almost every modern PDF (Word-exported, Google
+  // Docs, etc.) stores its text content in FlateDecode-compressed
+  // streams. The old regex-only approach silently returned just the
+  // PDF's structural metadata.
   if (name.endsWith('.pdf') || file.type === 'application/pdf') {
     try {
       const buffer = await file.arrayBuffer();
       const bytes = new Uint8Array(buffer);
-      // Simple PDF text extraction: find text between BT/ET operators
-      // and parenthesised strings. This is a best-effort parser that
-      // handles the most common PDF text encodings.
-      const text = extractTextFromPdfBytes(bytes);
+      const text = await extractTextFromPdfBytes(bytes);
       if (text && text.trim().length > 20) return text;
     } catch (e) {
       console.warn('[hired.video] PDF text extraction failed:', e);
@@ -3505,55 +3584,77 @@ async function extractTextFromUpload(file) {
 }
 
 /**
- * Best-effort PDF text extraction without a library.
- * Scans the raw PDF bytes for text streams and extracts readable strings.
+ * Extract human-readable text from a PDF by decompressing FlateDecode
+ * streams and parsing BT...ET text blocks. Mirrors the server-side
+ * utils/pdf-extract.ts so client-side uploads produce the same output
+ * the `/api/resumes/parse` multipart path does.
+ *
+ * Modern Word/Google-Docs-exported PDFs store text content inside
+ * /FlateDecode streams, which are zlib-compressed. Without decompressing
+ * them, you only see PDF structural metadata (Lang, MarkInfo, Pages…)
+ * — which is what the AI parser was receiving when this ran the old
+ * regex-only version.
+ *
+ * Relies on the Web Streams DecompressionStream API, available in
+ * Chrome 80+ and all supported extension targets.
  */
-function extractTextFromPdfBytes(bytes) {
-  // Decode the raw bytes as latin1 (preserves all byte values)
-  let raw = '';
-  for (let i = 0; i < bytes.length; i++) raw += String.fromCharCode(bytes[i]);
+async function extractTextFromPdfBytes(bytes) {
+  // Decode the raw bytes as latin1 so byte values map 1:1 to char codes.
+  const pdfStr = new TextDecoder('latin1').decode(bytes);
+  const texts = [];
 
-  const lines = [];
+  // Find every stream…endstream block.
+  const streamRe = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
+  let m;
+  while ((m = streamRe.exec(pdfStr)) !== null) {
+    const before = pdfStr.slice(Math.max(0, m.index - 300), m.index);
+    const isFlateDecode = /\/FlateDecode/.test(before);
+    let content = m[1];
 
-  // Strategy 1: Extract parenthesised strings between BT...ET blocks
-  // PDF text operators: (string) Tj, [(array)] TJ
-  const btEtRegex = /BT\b([\s\S]*?)ET\b/g;
-  let btMatch;
-  while ((btMatch = btEtRegex.exec(raw)) !== null) {
-    const block = btMatch[1];
-    // Extract (parenthesised) strings
-    const strRegex = /\(([^)]*)\)/g;
-    let strMatch;
-    let blockText = '';
-    while ((strMatch = strRegex.exec(block)) !== null) {
-      // Unescape PDF string escapes
-      const s = strMatch[1]
-        .replace(/\\n/g, '\n')
-        .replace(/\\r/g, '\r')
-        .replace(/\\t/g, '\t')
-        .replace(/\\\(/g, '(')
-        .replace(/\\\)/g, ')')
-        .replace(/\\\\/g, '\\')
-        .replace(/\\(\d{3})/g, (_, oct) => String.fromCharCode(parseInt(oct, 8)));
-      blockText += s;
+    if (isFlateDecode) {
+      try {
+        const streamBytes = new Uint8Array(content.length);
+        for (let i = 0; i < content.length; i++) streamBytes[i] = content.charCodeAt(i) & 0xff;
+
+        const ds = new DecompressionStream('deflate');
+        const writer = ds.writable.getWriter();
+        const reader = ds.readable.getReader();
+        writer.write(streamBytes);
+        writer.close();
+
+        const chunks = [];
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+        }
+        const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
+        let off = 0;
+        for (const c of chunks) { out.set(c, off); off += c.length; }
+        content = new TextDecoder('latin1').decode(out);
+      } catch {
+        continue; // skip streams that fail to decompress
+      }
     }
-    if (blockText.trim()) lines.push(blockText.trim());
+
+    // Extract text from BT...ET blocks.
+    const btRe = /BT([\s\S]*?)ET/g;
+    let bt;
+    while ((bt = btRe.exec(content)) !== null) {
+      const ops = bt[1].match(/\((?:[^\\)]|\\.)*\)\s*Tj|\[(?:[^\]])*\]\s*TJ/g) ?? [];
+      for (const op of ops) {
+        const parens = op.match(/\((?:[^\\)]|\\.)*\)/g) ?? [];
+        for (const p of parens) {
+          const text = p.slice(1, -1)
+            .replace(/\\n/g, '\n').replace(/\\r/g, '').replace(/\\t/g, ' ')
+            .replace(/\\\(/g, '(').replace(/\\\)/g, ')').replace(/\\\\/g, '\\');
+          if (text.trim()) texts.push(text.trim());
+        }
+      }
+    }
   }
 
-  // Strategy 2: If BT/ET extraction yielded nothing, scan for long
-  // runs of printable ASCII — common in text-heavy PDFs.
-  if (lines.length === 0) {
-    const printableRuns = raw.match(/[\x20-\x7E]{10,}/g) || [];
-    for (const run of printableRuns) {
-      // Skip PDF structural keywords
-      if (/^(endobj|endstream|xref|trailer|startxref|stream)$/i.test(run.trim())) continue;
-      if (/^[\d\s.]+$/.test(run)) continue; // skip number-only runs
-      lines.push(run.trim());
-    }
-  }
-
-  const result = lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
-  return result;
+  return texts.join(' ').replace(/\s{2,}/g, ' ').trim();
 }
 
 /**
