@@ -1766,7 +1766,7 @@ function renderTrackedJobsTable() {
 
     const titleHref = job.sourceUrl || job.applyUrl || '';
     const titleHtml = titleHref
-      ? `<a class="tracked-job-title" href="${escapeHtml(titleHref)}" target="_blank" rel="noopener noreferrer" title="Open job posting in new tab">${title}</a>`
+      ? `<a class="tracked-job-title" href="${escapeHtml(titleHref)}" target="_blank" rel="noopener noreferrer" title="Open job posting in new tab">${title}<span class="tracked-job-title-icon" aria-hidden="true">${ICON.externalLink}</span></a>`
       : `<div class="tracked-job-title">${title}</div>`;
 
     return `

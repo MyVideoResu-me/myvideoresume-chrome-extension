@@ -1012,6 +1012,18 @@ a.tracked-job-title:hover {
   text-decoration: underline;
 }
 
+.tracked-job-title-icon {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 6px;
+  color: var(--foreground-secondary);
+  transition: color 0.15s;
+}
+
+a.tracked-job-title:hover .tracked-job-title-icon {
+  color: var(--primary);
+}
+
 /* Step number badge prepended to the action buttons (#1 Score, #2 Tailor, #3 Apply) */
 .tracked-job-actions .btn .step-num {
   display: inline-flex;
