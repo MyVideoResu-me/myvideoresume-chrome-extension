@@ -2768,11 +2768,16 @@ function setupEventListeners() {
       if (e.key === 'Enter' || e.key === ' ') triggerRefresh(e);
     });
   }
-  bind('openWizardButton', () => {
+  // Wizard mode is only useful signed in — the wizard's steps all call
+  // auth-required APIs (tailor, save, apply). Gate it so a signed-out
+  // click bounces to login.html instead of silently enabling wizard UI
+  // the user can't actually use.
+  bind('openWizardButton', gate(() => {
     settings.wizardMode = true;
     saveSettings();
     applySettingsToUI();
-  });
+  }));
+  // Exit is safe for signed-out users (it only clears local UI state).
   bind('exitWizardButton', () => {
     settings.wizardMode = false;
     saveSettings();
@@ -2874,8 +2879,8 @@ function setupEventListeners() {
       profileBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
     }
   };
-  bind('resumeManagerEditToggle', toggleResumeManagerEditMode);
-  bind('changeResumeButton', toggleResumeManagerEditMode);
+  bind('resumeManagerEditToggle', gate(toggleResumeManagerEditMode));
+  bind('changeResumeButton', gate(toggleResumeManagerEditMode));
 
   const openActiveResume = (e) => {
     if (e) e.preventDefault();
