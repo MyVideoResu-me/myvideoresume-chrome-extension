@@ -257,11 +257,9 @@ async function tailorAndSaveVariation(opts) {
   const jwtToken = await getJwtToken();
   if (!jwtToken) throw new Error('Not authenticated');
 
+  // Backend derives sourceUrl from the jobItems row and priorRecommendations
+  // from the resume_match_scores cache — don't echo either back.
   const payload = { jobId, resumeId: resume.id };
-  if (sourceUrl) payload.sourceUrl = sourceUrl;
-  if (opts.priorRecommendations) {
-    payload.priorRecommendations = opts.priorRecommendations.slice(0, 800);
-  }
 
   const tailorResp = await fetch(matchTailor, {
     method: 'POST',

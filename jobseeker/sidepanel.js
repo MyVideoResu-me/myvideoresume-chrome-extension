@@ -1565,7 +1565,6 @@ async function runTailorAndSavePipeline(options = {}) {
       selectedResume,
       trackedJob,
       sourceUrl: currentJobUrl,
-      priorRecommendations: jobScores[job.id]?.recommendations || '',
     });
     generatedResumeData = result.tailored;
     generatedVariationId = result.variationId;
@@ -1599,7 +1598,6 @@ async function continuePipelineFromTailor(_jwtToken, jobId, options = {}) {
       selectedResume,
       trackedJob,
       sourceUrl: currentJobUrl,
-      priorRecommendations: jobScores[jobId]?.recommendations || '',
     });
     generatedResumeData = result.tailored;
     generatedVariationId = result.variationId;
@@ -1657,7 +1655,7 @@ async function runScoreOnlyPipeline() {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${jwtToken}`,
     },
-    body: JSON.stringify({ jobId: job.id, resumeId: selectedResume.id, sourceUrl: currentJobUrl }),
+    body: JSON.stringify({ jobId: job.id, resumeId: selectedResume.id }),
   });
   loadTrackedJobsTable();
 }
@@ -2219,7 +2217,6 @@ async function rowTailorJob(jobId) {
       selectedResume,
       trackedJob,
       sourceUrl: job.sourceUrl,
-      priorRecommendations: jobScores[jobId]?.recommendations || '',
     });
     generatedResumeData = result.tailored;
     generatedVariationId = result.variationId;
@@ -3501,7 +3498,6 @@ async function handleScoreEvaluate() {
   const analyzeRequest = {
     jobHtml: currentJobHtml,
     resumeId: selectedResume.id,
-    sourceUrl: currentJobUrl,
     jobId: trackedJob?.id,
   };
 
@@ -3606,13 +3602,10 @@ async function handleTailorGenerate() {
     }
   }
 
-  const priorRecWizard = trackedJob?.id ? (jobScores[trackedJob.id]?.recommendations || '') : '';
   const tailorRequest = {
     jobHtml: currentJobHtml,
     resumeId: selectedResume.id,
-    sourceUrl: currentJobUrl,
     jobId: trackedJob?.id,
-    ...(priorRecWizard ? { priorRecommendations: priorRecWizard } : {}),
   };
 
   document.getElementById('trackGenerateButton').disabled = true;
