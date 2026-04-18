@@ -3514,15 +3514,20 @@ function updateActiveResumeStrip(resume) {
       strip.href = buildWebUrl('/resumes/' + effective.id);
     }
     if (openBtn) openBtn.classList.remove('hidden');
-    if (editBtn) editBtn.classList.remove('hidden');
   } else {
     if (strip) {
       strip.textContent = '—';
       strip.setAttribute('href', '#');
     }
+    // Hide only the external-link "View" icon when there's no resume
+    // — it would open /resumes/<nothing>. The edit pencil stays visible
+    // because it toggles Resume Manager edit mode, which is how the
+    // user gets into the upload/create flow from the empty state.
     if (openBtn) openBtn.classList.add('hidden');
-    if (editBtn) editBtn.classList.add('hidden');
   }
+  // Edit pencil is always visible — it's a manager-level action
+  // (toggle edit mode), independent of whether a resume is active.
+  if (editBtn) editBtn.classList.remove('hidden');
 }
 
 /**
@@ -3708,15 +3713,25 @@ async function extractTextFromUpload(file) {
   // Docs, etc.) stores its text content in FlateDecode-compressed
   // streams. The old regex-only approach silently returned just the
   // PDF's structural metadata.
+  //
+  // IMPORTANT: if extraction fails we THROW, not fall through to the
+  // "last resort" path. A PDF's raw bytes contain NULL characters that
+  // Postgres JSONB rejects outright ("unsupported Unicode escape sequence")
+  // — sending them serves no one.
   if (name.endsWith('.pdf') || file.type === 'application/pdf') {
+    const buffer = await file.arrayBuffer();
+    const bytes = new Uint8Array(buffer);
+    let extracted = '';
     try {
-      const buffer = await file.arrayBuffer();
-      const bytes = new Uint8Array(buffer);
-      const text = await extractTextFromPdfBytes(bytes);
-      if (text && text.trim().length > 20) return text;
+      extracted = await extractTextFromPdfBytes(bytes);
     } catch (e) {
-      console.warn('[hired.video] PDF text extraction failed:', e);
+      console.warn('[hired.video] PDF text extraction threw:', e);
     }
+    if (extracted && extracted.trim().length > 20) return extracted;
+    throw new Error(
+      "We couldn't pull text out of this PDF — it might be scanned images, encrypted, or an unusual format. " +
+      "Try saving it as a Word document or pasting the resume text directly on hired.video.",
+    );
   }
 
   // JSON resume
@@ -3730,15 +3745,53 @@ async function extractTextFromUpload(file) {
     }
   }
 
-  // Last resort: try reading as text
+  // Last resort: read as text IF the content really looks like text.
+  // The old check only scanned the first 500 chars for control codes,
+  // which falsely passed PDFs (their ASCII header + binary-data-as-
+  // replacement-chars sails through) and DOCX/ZIP archives. Be stricter:
+  //   - Reject anything with a NULL byte (Postgres JSONB rejects these
+  //     with "unsupported Unicode escape sequence")
+  //   - Reject anything whose first bytes match a known binary signature
+  //   - Reject anything with a high ratio of Unicode replacement chars
   try {
     const text = await file.text();
-    if (text && !/[\x00-\x08\x0E-\x1F]/.test(text.slice(0, 500))) {
-      return text;
+    if (!text) return '';
+    if (looksLikeBinary(text)) {
+      throw new Error(
+        "This file looks like a binary format we can't read directly. " +
+        "Try a .txt, .md, .pdf, or .docx file.",
+      );
     }
-  } catch (e) { /* binary file */ }
+    return text;
+  } catch (e) {
+    if (e instanceof Error && e.message) throw e;
+  }
 
   return '';
+}
+
+/**
+ * Heuristic: does this string look like raw binary bytes read as text?
+ * Catches PDFs (start with `%PDF`), DOCX/ZIPs (start with `PK\x03\x04`),
+ * and anything with NULL bytes or a lot of Unicode replacement chars
+ * (U+FFFD) — all indicators that we're looking at a binary file
+ * masquerading as UTF-8 text.
+ */
+function looksLikeBinary(text) {
+  if (!text) return false;
+  const head = text.slice(0, 16);
+  if (head.startsWith('%PDF')) return true;
+  if (head.startsWith('PK\u0003\u0004')) return true;
+  if (text.indexOf('\u0000') !== -1) return true;
+  // Count replacement chars in a window — binary decoded as UTF-8
+  // usually sprays U+FFFD across the output.
+  const sample = text.slice(0, 4000);
+  let replacementCount = 0;
+  for (const ch of sample) {
+    if (ch === '\uFFFD') replacementCount++;
+  }
+  if (replacementCount > sample.length * 0.05) return true;
+  return false;
 }
 
 /**
@@ -3760,39 +3813,30 @@ async function extractTextFromPdfBytes(bytes) {
   // Decode the raw bytes as latin1 so byte values map 1:1 to char codes.
   const pdfStr = new TextDecoder('latin1').decode(bytes);
   const texts = [];
+  let streamsSeen = 0;
+  let streamsDecoded = 0;
+  let inflateFailures = 0;
 
   // Find every stream…endstream block.
   const streamRe = /stream\r?\n([\s\S]*?)\r?\nendstream/g;
   let m;
   while ((m = streamRe.exec(pdfStr)) !== null) {
+    streamsSeen++;
     const before = pdfStr.slice(Math.max(0, m.index - 300), m.index);
     const isFlateDecode = /\/FlateDecode/.test(before);
     let content = m[1];
 
     if (isFlateDecode) {
-      try {
-        const streamBytes = new Uint8Array(content.length);
-        for (let i = 0; i < content.length; i++) streamBytes[i] = content.charCodeAt(i) & 0xff;
-
-        const ds = new DecompressionStream('deflate');
-        const writer = ds.writable.getWriter();
-        const reader = ds.readable.getReader();
-        writer.write(streamBytes);
-        writer.close();
-
-        const chunks = [];
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          chunks.push(value);
-        }
-        const out = new Uint8Array(chunks.reduce((n, c) => n + c.length, 0));
-        let off = 0;
-        for (const c of chunks) { out.set(c, off); off += c.length; }
-        content = new TextDecoder('latin1').decode(out);
-      } catch {
+      // Convert latin1-decoded chars back to raw bytes.
+      const streamBytes = new Uint8Array(content.length);
+      for (let i = 0; i < content.length; i++) streamBytes[i] = content.charCodeAt(i) & 0xff;
+      const inflated = await inflateBytes(streamBytes);
+      if (!inflated) {
+        inflateFailures++;
         continue; // skip streams that fail to decompress
       }
+      content = new TextDecoder('latin1').decode(inflated);
+      streamsDecoded++;
     }
 
     // Extract text from BT...ET blocks.
@@ -3812,7 +3856,35 @@ async function extractTextFromPdfBytes(bytes) {
     }
   }
 
-  return texts.join(' ').replace(/\s{2,}/g, ' ').trim();
+  const result = texts.join(' ').replace(/\s{2,}/g, ' ').trim();
+  console.log(
+    `[hired.video] PDF extraction: ${streamsSeen} streams, ${streamsDecoded} decoded, ` +
+    `${inflateFailures} inflate failures, ${result.length} chars of text extracted`,
+  );
+  return result;
+}
+
+/**
+ * Decompress a zlib/deflate byte array (what PDF /FlateDecode streams
+ * contain). Returns null on failure. Tries zlib-framed first (`deflate`),
+ * falls back to raw deflate if the zlib header is missing.
+ *
+ * Uses the Response+Blob pattern rather than a manual writer/reader pair
+ * so stream back-pressure and teardown are handled correctly — that was
+ * the reason the earlier implementation returned empty strings silently
+ * in Chrome's sidepanel context.
+ */
+async function inflateBytes(bytes) {
+  for (const format of ['deflate', 'deflate-raw']) {
+    try {
+      const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream(format));
+      const buf = await new Response(stream).arrayBuffer();
+      return new Uint8Array(buf);
+    } catch {
+      // Try the next format.
+    }
+  }
+  return null;
 }
 
 /**
