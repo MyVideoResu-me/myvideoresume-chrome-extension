@@ -918,7 +918,85 @@ button, .btn {
   display: none;
 }
 
+/* ---- Autofill review panel (inside #autofillDetail) --------------- */
+.autofill-review {
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--background);
+}
+
+.autofill-review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.autofill-review-ats {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--foreground-secondary);
+  letter-spacing: 0.05em;
+}
+
+.autofill-group {
+  margin-top: 6px;
+}
+
+.autofill-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--foreground-secondary);
+  margin-bottom: 3px;
+}
+
+.autofill-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.autofill-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 3px 4px;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+.autofill-row-icon {
+  flex: 0 0 auto;
+  width: 14px;
+  font-size: 11px;
+}
+
+.autofill-row-label {
+  flex: 0 0 auto;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.autofill-row-value {
+  flex: 1 1 auto;
+  color: var(--foreground-secondary);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.autofill-row-filled    { background: rgba(16, 185, 129, 0.06); }
+.autofill-row-skipped   { background: rgba(245, 158, 11, 0.06); }
+.autofill-row-error     { background: rgba(239, 68, 68, 0.06); }
+.autofill-row-unmatched { color: var(--foreground-secondary); }
+
 .tracked-job-title {
+  display: block;
   font-size: 13px;
   font-weight: 600;
   color: var(--foreground);
@@ -926,7 +1004,38 @@ button, .btn {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-decoration: none;
 }
+
+a.tracked-job-title:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* Step number badge prepended to the action buttons (#1 Score, #2 Tailor, #3 Apply) */
+.tracked-job-actions .btn .step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  margin-right: 5px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.08);
+  color: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.tracked-job-actions .btn-primary .step-num {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.tracked-job-actions .btn-primary .step-num::before { content: '#'; }
+.tracked-job-actions .btn-outline .step-num::before { content: '#'; }
 
 .tracked-job-meta {
   font-size: 11px;
@@ -1739,15 +1848,14 @@ body.premium-unlocked .btn-upgrade-header {
 }
 
 .profile-card-row {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  align-items: center;
+  gap: 10px;
 }
 
 .profile-card-info {
   min-width: 0;
-  flex: 1;
 }
 
 .profile-card-icons {
@@ -1757,21 +1865,26 @@ body.premium-unlocked .btn-upgrade-header {
   flex-shrink: 0;
 }
 
-/* AI token pill inside profile card */
+/* AI token pill — center column of the profile card's 3-column grid. */
 .token-pill {
   display: block;
-  margin-top: 8px;
-  padding: 6px 8px;
+  min-width: 0;
+  padding: 6px 10px;
   border: 1px solid var(--border);
   border-radius: 6px;
-  background: var(--background-secondary);
+  background: rgba(249, 250, 251, 0.5);
   text-decoration: none;
   color: var(--foreground);
   transition: background 0.15s, border-color 0.15s;
 }
 
+.token-pill.hidden {
+  display: none !important;
+}
+
 .token-pill:hover {
-  background: var(--border-light);
+  background: var(--background-secondary);
+  text-decoration: none;
 }
 
 .token-pill.token-pill-warning {
@@ -1779,14 +1892,17 @@ body.premium-unlocked .btn-upgrade-header {
   border-color: var(--warning);
 }
 
+.token-pill.token-pill-warning:hover {
+  background: #FDE8B0;
+}
+
 .token-pill.token-pill-exhausted {
   background: var(--error-light);
   border-color: var(--error);
 }
 
-.token-pill.token-pill-unlimited {
-  background: linear-gradient(135deg, var(--primary-light) 0%, var(--warning-light) 100%);
-  border-color: var(--primary);
+.token-pill.token-pill-exhausted:hover {
+  background: #FCCACA;
 }
 
 .token-pill-top {
@@ -1795,22 +1911,34 @@ body.premium-unlocked .btn-upgrade-header {
   justify-content: space-between;
   gap: 6px;
   margin-bottom: 4px;
+  min-width: 0;
+}
+
+.token-pill-top .token-pill-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .token-pill-label {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  font-size: 11px;
-  font-weight: 600;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.token-pill-label svg {
   color: var(--primary);
 }
 
-.token-pill-warning .token-pill-label { color: var(--warning); }
-.token-pill-exhausted .token-pill-label { color: var(--error); }
+.token-pill-warning .token-pill-label svg { color: var(--warning); }
+.token-pill-exhausted .token-pill-label svg { color: var(--error); }
 
 .token-pill-remaining {
-  font-size: 11px;
+  font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--foreground-secondary);
 }
@@ -1821,9 +1949,9 @@ body.premium-unlocked .btn-upgrade-header {
 }
 
 .token-pill-bar {
-  height: 4px;
+  height: 6px;
   background: var(--border-light);
-  border-radius: 2px;
+  border-radius: 9999px;
   overflow: hidden;
 }
 
@@ -1831,6 +1959,7 @@ body.premium-unlocked .btn-upgrade-header {
   height: 100%;
   width: 0%;
   background: var(--primary);
+  border-radius: 9999px;
   transition: width 0.3s ease, background 0.15s;
 }
 
@@ -1846,6 +1975,18 @@ body.premium-unlocked .btn-upgrade-header {
   font-size: 10px;
   font-variant-numeric: tabular-nums;
   color: var(--foreground-secondary);
+  min-width: 0;
+}
+
+.token-pill-bottom > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.token-pill-exhausted .token-pill-bottom #tokenPillReset {
+  color: var(--error);
+  font-weight: 600;
 }
 
 .icon-btn {

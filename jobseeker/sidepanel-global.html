@@ -35,6 +35,20 @@
         <div id="profileEmail" class="profile-email"></div>
         <span id="profileRole" class="role-badge hidden"></span>
       </div>
+      <a id="tokenPill" class="token-pill hidden" href="#" aria-label="AI token budget">
+        <div class="token-pill-top">
+          <span class="token-pill-label">
+            <svg id="tokenPillIcon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            <span>AI tokens</span>
+          </span>
+          <span id="tokenPillRemaining" class="token-pill-remaining">—</span>
+        </div>
+        <div class="token-pill-bar"><div id="tokenPillFill" class="token-pill-fill"></div></div>
+        <div class="token-pill-bottom">
+          <span id="tokenPillUsage">—</span>
+          <span id="tokenPillReset"></span>
+        </div>
+      </a>
       <div class="profile-card-icons">
         <a id="openProfileLink" href="#" class="icon-btn" title="Profile">
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
@@ -44,20 +58,6 @@
         </button>
       </div>
     </div>
-    <a id="tokenPill" class="token-pill hidden" href="#" title="AI token budget">
-      <div class="token-pill-top">
-        <span class="token-pill-label">
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-          AI tokens
-        </span>
-        <span id="tokenPillRemaining" class="token-pill-remaining">—</span>
-      </div>
-      <div class="token-pill-bar"><div id="tokenPillFill" class="token-pill-fill"></div></div>
-      <div class="token-pill-bottom">
-        <span id="tokenPillUsage">—</span>
-        <span id="tokenPillReset"></span>
-      </div>
-    </a>
   </div>
 
   <!-- Tab strip -->

@@ -56,8 +56,7 @@ const PATHS = {
   // Per-job actions append the id and verb
   jobBase: '/api/jobs',
 
-  // User profile + billing
-  userProfile: '/api/users/profile',
+  // Billing
   billingSubscription: '/api/billing/subscription',
 
   // Dashboard / Analytics
@@ -79,7 +78,6 @@ let resumeCreateFromTextUrl;
 let jobsBase;
 let jobsExtractUrl;
 let jobsSavedUrl;
-let userProfileUrl;
 let meUrl;
 let magicLinkUrl;
 let oauthStartUrl;
@@ -100,7 +98,6 @@ function updateConfiguration() {
     jobsBase = apiBase + PATHS.jobBase;
     jobsExtractUrl = apiBase + PATHS.jobsExtract;
     jobsSavedUrl = apiBase + PATHS.jobsSaved;
-    userProfileUrl = apiBase + PATHS.userProfile;
     meUrl = apiBase + PATHS.me;
     magicLinkUrl = apiBase + PATHS.magicLink;
     oauthStartUrl = apiBase + PATHS.oauthStart;

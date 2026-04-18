@@ -77,7 +77,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // (e.g. user returns from the pricing/upgrade page in another tab).
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      loadPremiumState();
+      loadTokenBudget();
     }
   });
 });
@@ -215,29 +215,14 @@ function applyWizardMode() {
 // Premium gating
 // =====================================================================
 
-async function loadPremiumState() {
-  const jwtToken = await getJwtToken();
-  if (!jwtToken) {
-    setPremium(false);
-    return;
-  }
-
-  try {
-    const response = await fetch(userProfileUrl, {
-      method: 'GET',
-      headers: { Authorization: `Bearer ${jwtToken}` },
-    });
-    if (!response.ok) {
-      setPremium(false);
-      return;
-    }
-    const data = await response.json();
-    const profile = unwrapResponse(data);
-    setPremium(!!profile?.isPremium);
-  } catch (err) {
-    console.warn('[hired.video] loadPremiumState failed', err);
-    setPremium(false);
-  }
+/**
+ * True when the user's role carries built-in premium entitlement.
+ * Backend treats SuperAdmin/Admin as `isPremium: true` regardless of plan.
+ */
+function isPremiumRole(role) {
+  if (!role) return false;
+  const r = role.toString().toLowerCase();
+  return r === 'superadmin' || r === 'admin' || r === 'pro' || r === 'premium';
 }
 
 function setPremium(value) {
@@ -257,6 +242,196 @@ function openUpgradePage(e) {
   if (e) e.preventDefault();
   chrome.tabs.create({ url: buildWebUrl('/pricing') });
 }
+
+// =====================================================================
+// AI token budget pill
+// =====================================================================
+
+const TOKEN_BUDGET_PATH = '/api/billing/token-budget';
+
+// URL fragments of AI-metered endpoints. Any successful fetch against
+// these triggers a debounced refresh of the token pill.
+const AI_METERED_URL_FRAGMENTS = [
+  '/api/jobs/extract',
+  '/api/match/analyze',
+  '/api/match/tailor',
+  '/api/resumes/parse',
+  '/api/resumes/createfromfile',
+  '/api/resumes/createfromtext',
+];
+
+let tokenBudgetRefreshTimer = null;
+let tokenBudgetFetchInFlight = false;
+
+function formatTokenCount(n) {
+  if (!Number.isFinite(n)) return '∞';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(n % 1_000_000 === 0 ? 0 : 1) + 'M';
+  if (n >= 1_000) return (n / 1_000).toFixed(n % 1_000 === 0 ? 0 : 1) + 'K';
+  return String(n);
+}
+
+function renderTokenBudget(summary) {
+  const pill = document.getElementById('tokenPill');
+  const remainingEl = document.getElementById('tokenPillRemaining');
+  const fillEl = document.getElementById('tokenPillFill');
+  const usageEl = document.getElementById('tokenPillUsage');
+  const resetEl = document.getElementById('tokenPillReset');
+  if (!pill || !remainingEl || !fillEl || !usageEl || !resetEl) return;
+
+  // Token-budget is authoritative for billing entitlement: Pro and
+  // SuperAdmin/Admin both hide the upgrade CTA. Role-based premium is
+  // set earlier by loadCurrentUser(); this reconciles for paid-plan users
+  // whose role is "user".
+  if (summary.isUnlimited || summary.isPro) {
+    setPremium(true);
+    hideElement('headerUpgradeButton');
+  }
+
+  pill.classList.remove('hidden', 'token-pill-warning', 'token-pill-exhausted', 'token-pill-unlimited');
+  const href = summary.isUnlimited || summary.isPro ? '/settings?tab=billing' : '/pricing';
+  pill.onclick = (e) => {
+    e.preventDefault();
+    chrome.tabs.create({ url: buildWebUrl(href) });
+  };
+
+  if (summary.isUnlimited) {
+    pill.classList.add('token-pill-unlimited');
+    remainingEl.textContent = 'Unlimited';
+    fillEl.style.width = '0%';
+    usageEl.textContent = `${formatTokenCount(summary.monthly?.used ?? 0)} / Max`;
+    resetEl.textContent = 'Unlimited';
+    pill.title = 'Unlimited AI tokens (Admin)';
+    return;
+  }
+
+  const monthlyLimit = summary.monthly?.limit ?? 0;
+  const monthlyUsed = summary.monthly?.used ?? 0;
+  const monthlyRemaining = summary.monthly?.remaining ?? Math.max(0, monthlyLimit - monthlyUsed);
+  const packBalance = summary.pack?.balance ?? 0;
+  const totalAvailable = summary.totalAvailable ?? (monthlyRemaining + packBalance);
+  const percentUsed = monthlyLimit > 0 ? Math.min(100, Math.round((monthlyUsed / monthlyLimit) * 100)) : 0;
+
+  const isExhausted = totalAvailable <= 0;
+  const isWarning = !isExhausted && monthlyLimit > 0 && monthlyRemaining <= monthlyLimit * 0.1;
+
+  if (isExhausted) pill.classList.add('token-pill-exhausted');
+  else if (isWarning) pill.classList.add('token-pill-warning');
+
+  remainingEl.textContent = `${formatTokenCount(totalAvailable)} left`;
+  fillEl.style.width = `${percentUsed}%`;
+  usageEl.textContent = `${formatTokenCount(monthlyUsed)} / ${formatTokenCount(monthlyLimit)}`;
+
+  if (isExhausted) {
+    resetEl.textContent = 'Buy more →';
+  } else if (packBalance > 0) {
+    resetEl.textContent = `+${formatTokenCount(packBalance)} packs`;
+  } else if (summary.monthly?.resetAt) {
+    try {
+      resetEl.textContent = 'Resets ' + new Date(summary.monthly.resetAt).toLocaleDateString(undefined, {
+        month: 'short', day: 'numeric',
+      });
+    } catch {
+      resetEl.textContent = '';
+    }
+  } else {
+    resetEl.textContent = '';
+  }
+  pill.title = '';
+}
+
+function clearTokenBudget() {
+  const pill = document.getElementById('tokenPill');
+  if (pill) {
+    pill.classList.add('hidden');
+    pill.classList.remove('token-pill-warning', 'token-pill-exhausted', 'token-pill-unlimited');
+  }
+}
+
+async function loadTokenBudget() {
+  if (tokenBudgetFetchInFlight) return;
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) {
+    clearTokenBudget();
+    return;
+  }
+  tokenBudgetFetchInFlight = true;
+  try {
+    const resp = await fetch(apiBase + TOKEN_BUDGET_PATH, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const summary = unwrapResponse(data);
+    if (summary) renderTokenBudget(summary);
+  } catch (err) {
+    console.warn('[hired.video] loadTokenBudget failed', err);
+  } finally {
+    tokenBudgetFetchInFlight = false;
+  }
+}
+
+/**
+ * Debounced refresh — coalesces a burst of AI calls (e.g. the tailor
+ * pipeline fires extract → analyze → tailor in quick succession) into
+ * a single `/token-budget` fetch shortly after the last one completes.
+ */
+function scheduleTokenBudgetRefresh() {
+  if (tokenBudgetRefreshTimer) clearTimeout(tokenBudgetRefreshTimer);
+  tokenBudgetRefreshTimer = setTimeout(() => {
+    tokenBudgetRefreshTimer = null;
+    loadTokenBudget();
+  }, 400);
+}
+
+/**
+ * Intercept fetch to keep the token pill in sync after any AI-metered
+ * endpoint completes. One-point install so every existing call site
+ * (extract, analyze, tailor, resume parse) benefits without editing.
+ *
+ * Preferred path: AI responses now piggy-back the live `tokenBudget` DTO
+ * on the envelope (see `attachTokenBudget` middleware on the API). When
+ * present, we render directly off the response — zero extra round-trips.
+ *
+ * Fallback: on older API deploys that haven't shipped the envelope yet,
+ * schedule a debounced /token-budget fetch to refresh the pill.
+ */
+(function installAIFetchInterceptor() {
+  if (typeof window === 'undefined' || !window.fetch || window.__aiFetchIntercepted) return;
+  window.__aiFetchIntercepted = true;
+  const origFetch = window.fetch.bind(window);
+  window.fetch = async (input, init) => {
+    const resp = await origFetch(input, init);
+    try {
+      const url = typeof input === 'string' ? input : (input && input.url) || '';
+      if (!url || !AI_METERED_URL_FRAGMENTS.some((f) => url.includes(f))) {
+        return resp;
+      }
+
+      // Peek at the envelope without consuming the caller's body stream.
+      // Only JSON responses carry the budget; bail quickly otherwise.
+      const ct = (resp.headers.get('content-type') || '').toLowerCase();
+      if (!resp.ok || !ct.includes('application/json')) {
+        scheduleTokenBudgetRefresh();
+        return resp;
+      }
+
+      let applied = false;
+      try {
+        const peek = await resp.clone().json();
+        if (peek && typeof peek === 'object' && peek.tokenBudget) {
+          renderTokenBudget(peek.tokenBudget);
+          applied = true;
+        }
+      } catch {
+        // Non-JSON or stream already locked — fall through to the fetch fallback.
+      }
+
+      if (!applied) scheduleTokenBudgetRefresh();
+    } catch {}
+    return resp;
+  };
+})();
 
 // =====================================================================
 // Active page banner & job detection
@@ -822,11 +997,14 @@ function handleApplyToTrackedJob() {
 
 /**
  * Autofill the application form on the current tab using the active
- * resume's JSON Resume `basics` block. Three-step flow:
+ * resume. Four-step flow:
  *   1. Ask the autofill content script to extract visible form fields.
- *   2. Pull the resume's basics (name/email/phone/location/links).
- *   3. Heuristically match label / name / placeholder text to a resume
- *      attribute and send a `fillFormFields` message with the mapping.
+ *   2. Pull the resume's full JSON (basics + work + education + skills).
+ *   3. Heuristically match each field's label / name / placeholder to a
+ *      resume attribute via AUTOFILL_PATTERNS.
+ *   4. Fill matched fields, then render a per-field review panel so the
+ *      user can see what was filled, skipped, or unmatched before
+ *      submitting.
  *
  * Heuristic-only (no AI backend call) so this ships without a new API.
  * The content script already normalises label resolution across ATSes.
@@ -863,24 +1041,37 @@ async function handleAutofillApplication() {
     return;
   }
 
-  // 3. Build answers map by matching field labels to profile keys
+  // 3. Build answers map + per-field review entries
   const answers = {};
-  let matched = 0;
+  const review = []; // { label, value, profileKey, status }
   for (const field of fields) {
-    const value = pickAutofillValue(field, profile);
-    if (value == null || value === '') continue;
-    // fillFormFields picks selectors in priority: name → id → automationId → CSS.
-    // Prefer the field's id since it's unique across our three extractors.
-    answers[field.id] = value;
-    matched += 1;
+    const picked = pickAutofillValue(field, profile);
+    if (picked && picked.value) {
+      answers[field.id] = picked.value;
+      review.push({
+        label: field.label || field.name || field.id,
+        value: picked.value,
+        profileKey: picked.key,
+        status: 'pending',
+      });
+    } else {
+      review.push({
+        label: field.label || field.name || field.id,
+        value: '',
+        profileKey: null,
+        status: 'unmatched',
+      });
+    }
   }
 
+  const matched = Object.keys(answers).length;
   if (!matched) {
-    showQuickStatus('No fields matched your resume basics.', 'warning');
+    showQuickStatus('No fields matched your resume. Fill the form manually or pick a different resume.', 'warning');
+    renderAutofillReview(review, extracted.atsProvider);
     return;
   }
 
-  // 4. Fill and report
+  // 4. Fill and render review
   showQuickStatus(`Filling ${matched} field${matched === 1 ? '' : 's'}…`, 'info');
   const filledResp = await new Promise((resolve) => {
     chrome.runtime.sendMessage({ action: 'fillFormFields', answers }, (response) => {
@@ -888,13 +1079,84 @@ async function handleAutofillApplication() {
     });
   });
   const results = filledResp.results || {};
-  const okCount = Object.values(results).filter((r) => r === 'filled').length;
-  const skipCount = Object.values(results).filter((r) => r === 'skipped').length;
+
+  // Map fill results back onto the review list
+  for (const row of review) {
+    if (row.status !== 'pending') continue;
+    // Find the matching answer key — review rows are in the same order
+    // as fields, so the nth pending row corresponds to the nth answer.
+    // Easier: look up by label against a reverse map.
+  }
+  let i = 0;
+  for (const field of fields) {
+    if (!(field.id in answers)) { i++; continue; }
+    const r = results[field.id];
+    review[i].status = r === 'filled' ? 'filled' : (r === 'skipped' ? 'skipped' : 'error');
+    i++;
+  }
+
+  const okCount = review.filter((r) => r.status === 'filled').length;
   const ats = extracted.atsProvider || 'generic';
   showQuickStatus(
-    `✅ Autofilled ${okCount} of ${fields.length} fields on ${ats}. Review and finish the rest before submitting.`,
+    `✅ Autofilled ${okCount} of ${fields.length} fields on ${ats}. Review below and finish the rest before submitting.`,
     'success',
   );
+  renderAutofillReview(review, ats);
+}
+
+/**
+ * Render a per-field breakdown of what was filled, skipped, or unmatched
+ * into the #autofillDetail panel. Gives the user a clear checklist of
+ * what still needs their attention before hitting Submit.
+ */
+function renderAutofillReview(review, ats) {
+  const panel = document.getElementById('autofillDetail');
+  if (!panel) return;
+
+  const icon = (s) => {
+    if (s === 'filled') return '✅';
+    if (s === 'skipped') return '⏭';
+    if (s === 'error') return '⚠️';
+    return '◻';
+  };
+
+  const groups = {
+    filled: review.filter((r) => r.status === 'filled'),
+    skipped: review.filter((r) => r.status === 'skipped' || r.status === 'error'),
+    unmatched: review.filter((r) => r.status === 'unmatched'),
+  };
+
+  const renderRows = (rows) => rows.map((r) => `
+    <li class="autofill-row autofill-row-${r.status}">
+      <span class="autofill-row-icon">${icon(r.status)}</span>
+      <span class="autofill-row-label">${escapeHtml(r.label)}</span>
+      ${r.value ? `<span class="autofill-row-value">${escapeHtml(String(r.value).slice(0, 80))}</span>` : ''}
+    </li>`).join('');
+
+  panel.innerHTML = `
+    <div class="autofill-review">
+      <div class="autofill-review-header">
+        <strong>Autofill review</strong>
+        <span class="autofill-review-ats">${escapeHtml(ats || 'generic')}</span>
+      </div>
+      ${groups.filled.length ? `
+        <div class="autofill-group">
+          <div class="autofill-group-title">Filled (${groups.filled.length})</div>
+          <ul class="autofill-list">${renderRows(groups.filled)}</ul>
+        </div>` : ''}
+      ${groups.skipped.length ? `
+        <div class="autofill-group">
+          <div class="autofill-group-title">Needs your attention (${groups.skipped.length})</div>
+          <ul class="autofill-list">${renderRows(groups.skipped)}</ul>
+        </div>` : ''}
+      ${groups.unmatched.length ? `
+        <div class="autofill-group">
+          <div class="autofill-group-title">Not in resume (${groups.unmatched.length})</div>
+          <ul class="autofill-list">${renderRows(groups.unmatched)}</ul>
+        </div>` : ''}
+    </div>
+  `;
+  panel.classList.remove('hidden');
 }
 
 /**
@@ -944,26 +1206,39 @@ async function loadAutofillProfile(resumeId) {
 }
 
 /**
- * Pull JSON Resume `basics` out of the various shapes the backend
- * returns. Some endpoints wrap content as { resumeData: {...} }, others
- * store a markdown string, and master resumes have it on `content`.
+ * Pull a flat autofill map from the JSON Resume document. The backend
+ * returns resume content in several shapes (object on `resumeData`,
+ * JSON string on `content`, sometimes at the top level) so we probe
+ * each candidate until we find one with a JSON-Resume-shaped block.
+ *
+ * Emits keys the AUTOFILL_PATTERNS table knows how to route:
+ *   • basics       → fullName, firstName, lastName, email, phone,
+ *                    website, linkedin, github, twitter, city, state,
+ *                    postalCode, country, address, headline, summary
+ *   • work[0]      → currentCompany, currentTitle, currentStartDate,
+ *                    currentEndDate
+ *   • work[*]      → yearsExperience
+ *   • education[0] → school, degree, fieldOfStudy, graduationYear, gpa
+ *   • skills[]     → skills (comma-joined)
+ *   • languages[]  → languages (comma-joined)
  */
 function extractResumeBasics(resume) {
   if (!resume) return {};
   const candidates = [resume.resumeData, resume.content, resume.data, resume];
-  let basics = null;
+  let doc = null;
   for (const c of candidates) {
-    if (c && typeof c === 'object' && c.basics) { basics = c.basics; break; }
+    if (c && typeof c === 'object' && (c.basics || c.work || c.education)) { doc = c; break; }
     if (typeof c === 'string') {
       try {
         const parsed = JSON.parse(c);
-        if (parsed && parsed.basics) { basics = parsed.basics; break; }
+        if (parsed && (parsed.basics || parsed.work || parsed.education)) { doc = parsed; break; }
       } catch (e) { /* not JSON */ }
     }
   }
-  if (!basics) return {};
+  if (!doc) return {};
 
   const out = {};
+  const basics = doc.basics || {};
   if (basics.name) {
     out.fullName = basics.name;
     const [first, ...rest] = basics.name.split(/\s+/);
@@ -981,11 +1256,10 @@ function extractResumeBasics(resume) {
     if (loc.city) out.city = loc.city;
     if (loc.region) out.state = loc.region;
     if (loc.postalCode) out.postalCode = loc.postalCode;
-    if (loc.countryCode) out.country = loc.countryCode;
+    if (loc.countryCode || loc.country) out.country = loc.countryCode || loc.country;
     if (loc.address) out.address = loc.address;
   }
 
-  // Linked social profiles (LinkedIn, GitHub, personal site)
   if (Array.isArray(basics.profiles)) {
     for (const p of basics.profiles) {
       const network = (p.network || '').toLowerCase();
@@ -997,7 +1271,82 @@ function extractResumeBasics(resume) {
       else if (network.includes('portfolio') || network.includes('website')) out.website ||= url;
     }
   }
+
+  // Most recent work entry — treated as "current" for form fields like
+  // "Current Company" / "Most Recent Title".
+  if (Array.isArray(doc.work) && doc.work.length) {
+    const current = doc.work[0] || {};
+    if (current.name || current.company) out.currentCompany = current.name || current.company;
+    if (current.position) out.currentTitle = current.position;
+    if (current.startDate) out.currentStartDate = current.startDate;
+    if (current.endDate) out.currentEndDate = current.endDate;
+    const yrs = totalYearsOfExperience(doc.work);
+    if (yrs != null) out.yearsExperience = String(yrs);
+  }
+
+  // Most recent education entry
+  if (Array.isArray(doc.education) && doc.education.length) {
+    const edu = doc.education[0] || {};
+    if (edu.institution) out.school = edu.institution;
+    if (edu.studyType || edu.area) {
+      out.degree = [edu.studyType, edu.area].filter(Boolean).join(' in ');
+    }
+    if (edu.area) out.fieldOfStudy = edu.area;
+    if (edu.endDate) {
+      const yr = String(edu.endDate).match(/\d{4}/);
+      if (yr) out.graduationYear = yr[0];
+    }
+    if (edu.score) out.gpa = String(edu.score);
+  }
+
+  // Flat comma-joined lists — many ATSes render Skills as a single text box.
+  if (Array.isArray(doc.skills) && doc.skills.length) {
+    out.skills = doc.skills
+      .map((s) => (typeof s === 'string' ? s : s?.name || ''))
+      .filter(Boolean)
+      .join(', ');
+  }
+  if (Array.isArray(doc.languages) && doc.languages.length) {
+    out.languages = doc.languages
+      .map((l) => (typeof l === 'string' ? l : l?.language || ''))
+      .filter(Boolean)
+      .join(', ');
+  }
+
   return out;
+}
+
+/**
+ * Sum whole-year durations across all work entries. Returns a rounded
+ * whole number or null when no dateable entry exists. Coarse on purpose
+ * — application forms ask "years of experience" as an integer.
+ */
+function totalYearsOfExperience(work) {
+  let months = 0;
+  let any = false;
+  for (const job of work) {
+    const start = parseDateToMonths(job.startDate);
+    if (start == null) continue;
+    const end = job.endDate ? parseDateToMonths(job.endDate) : nowMonths();
+    if (end == null) continue;
+    months += Math.max(0, end - start);
+    any = true;
+  }
+  return any ? Math.max(0, Math.round(months / 12)) : null;
+}
+
+function parseDateToMonths(raw) {
+  if (!raw) return null;
+  const m = String(raw).match(/(\d{4})(?:-(\d{1,2}))?/);
+  if (!m) return null;
+  const year = Number(m[1]);
+  const month = m[2] ? Number(m[2]) - 1 : 0;
+  return year * 12 + month;
+}
+
+function nowMonths() {
+  const d = new Date();
+  return d.getFullYear() * 12 + d.getMonth();
 }
 
 /**
@@ -1009,30 +1358,68 @@ function extractResumeBasics(resume) {
  * Kept as data so the matching function stays linear and easy to audit.
  */
 const AUTOFILL_PATTERNS = [
-  { key: 'firstName', matches: ['first name', 'firstname', 'given name', 'first_name'] },
-  { key: 'lastName',  matches: ['last name', 'lastname', 'family name', 'surname', 'last_name'] },
-  { key: 'fullName',  matches: ['full name', 'your name', 'legal name', 'name (as'] },
-  { key: 'email',     matches: ['email', 'e-mail'] },
-  { key: 'phone',     matches: ['phone', 'mobile', 'telephone', 'cell'] },
-  { key: 'linkedin',  matches: ['linkedin'] },
-  { key: 'github',    matches: ['github'] },
-  { key: 'website',   matches: ['portfolio', 'website', 'personal site', 'personal url'] },
-  { key: 'city',      matches: ['city', 'town'] },
-  { key: 'state',     matches: ['state', 'province', 'region'] },
-  { key: 'postalCode',matches: ['postal code', 'postcode', 'zip'] },
-  { key: 'country',   matches: ['country'] },
-  { key: 'address',   matches: ['street address', 'address line', 'mailing address'] },
+  // Name — specific forms first so they don't get eaten by "name"
+  { key: 'firstName',      matches: ['first name', 'firstname', 'given name', 'first_name', 'forename'] },
+  { key: 'lastName',       matches: ['last name', 'lastname', 'family name', 'surname', 'last_name'] },
+  { key: 'fullName',       matches: ['full name', 'your name', 'legal name', 'name (as', 'preferred name'] },
+
+  // Contact
+  { key: 'email',          matches: ['email', 'e-mail'] },
+  { key: 'phone',          matches: ['phone', 'mobile', 'telephone', 'cell'] },
+
+  // Social
+  { key: 'linkedin',       matches: ['linkedin', 'linked in'] },
+  { key: 'github',         matches: ['github', 'git hub'] },
+  { key: 'twitter',        matches: ['twitter', 'x.com profile', 'x profile'] },
+  { key: 'website',        matches: ['portfolio', 'website', 'personal site', 'personal url', 'personal web'] },
+
+  // Location
+  { key: 'address',        matches: ['street address', 'address line', 'mailing address', 'address 1'] },
+  { key: 'city',           matches: ['city', 'town'] },
+  { key: 'state',          matches: ['state', 'province', 'region'] },
+  { key: 'postalCode',     matches: ['postal code', 'postcode', 'zip code', 'zip/postal', 'zip'] },
+  { key: 'country',        matches: ['country'] },
+
+  // Experience — currentCompany before "company" / "employer" so generic
+  // "Current Employer" doesn't shadow a hypothetical "Company Name" field
+  { key: 'currentCompany', matches: ['current company', 'current employer', 'most recent company',
+                                     'most recent employer', 'present company', 'present employer',
+                                     'company name', 'employer'] },
+  { key: 'currentTitle',   matches: ['current title', 'current position', 'current role',
+                                     'most recent title', 'most recent position', 'job title',
+                                     'current job'] },
+  { key: 'currentStartDate', matches: ['start date at', 'start date in current', 'date started current'] },
+  { key: 'yearsExperience',matches: ['years of experience', 'years experience', 'total experience',
+                                     'years in', 'how many years'] },
+
+  // Education
+  { key: 'school',         matches: ['school', 'university', 'college', 'institution'] },
+  { key: 'degree',         matches: ['degree', 'highest level of education', 'education level'] },
+  { key: 'fieldOfStudy',   matches: ['field of study', 'major', 'area of study', 'discipline'] },
+  { key: 'graduationYear', matches: ['graduation year', 'grad year', 'year graduated', 'year of graduation'] },
+  { key: 'gpa',            matches: ['gpa', 'grade point'] },
+
+  // Free-text dump fields
+  { key: 'skills',         matches: ['skills', 'key skills', 'technical skills', 'core competencies'] },
+  { key: 'languages',      matches: ['languages spoken', 'languages you speak', 'spoken languages'] },
+  { key: 'summary',        matches: ['summary', 'about you', 'tell us about', 'bio', 'professional summary',
+                                     'cover letter', 'why are you interested', 'why do you want'] },
+  { key: 'headline',       matches: ['headline', 'professional headline', 'tagline'] },
+
   // Generic 'name' last — otherwise it'd eat "first name" matches above.
-  { key: 'fullName',  matches: ['name'] },
+  { key: 'fullName',       matches: ['name'] },
 ];
 
 /**
- * Decide what to fill into a given form field. Returns the string value
+ * Decide what to fill into a given form field. Returns `{ key, value }`
+ * when a pattern matches and the profile has the corresponding value,
  * or null when no pattern matches. Matching stages:
- *   1. Concatenate label + name + placeholder into a haystack.
- *   2. Walk AUTOFILL_PATTERNS in order; first hit wins.
- *   3. Honour select/radio types by passing the resolved value through
- *      — the content script's setFieldValue handles fuzzy matching.
+ *   1. Concatenate label + name + id + placeholder into a haystack.
+ *   2. Walk AUTOFILL_PATTERNS in order; first hit with a populated
+ *      profile value wins.
+ *
+ * Select/radio values pass through — the content script's setFieldValue
+ * handles fuzzy option matching (e.g. "United States" → "US").
  */
 function pickAutofillValue(field, profile) {
   const haystack = [
@@ -1046,7 +1433,7 @@ function pickAutofillValue(field, profile) {
   for (const pat of AUTOFILL_PATTERNS) {
     if (pat.matches.some((m) => haystack.includes(m))) {
       const v = profile[pat.key];
-      if (v) return v;
+      if (v) return { key: pat.key, value: v };
     }
   }
   return null;
@@ -1336,8 +1723,8 @@ function renderTrackedJobsTable() {
     const cachedScore = jobScores[id];
     const scoreResumeTip = cachedScore?.resumeName ? ` (${cachedScore.resumeName})` : '';
     const scoreButton = cachedScore
-      ? `<button class="btn btn-outline btn-scored ${scoreClass(cachedScore.score)}" data-action="toggle-score" data-job-id="${id}" title="Scored with${scoreResumeTip} — click to see recommendations">🎯 ${formatScore(cachedScore.score)}</button>`
-      : `<button class="btn btn-outline" data-action="score" data-job-id="${id}">🎯 Score</button>`;
+      ? `<button class="btn btn-outline btn-scored ${scoreClass(cachedScore.score)}" data-action="toggle-score" data-job-id="${id}" title="Scored with${scoreResumeTip} — click to see recommendations"><span class="step-num">1</span>🎯 ${formatScore(cachedScore.score)}</button>`
+      : `<button class="btn btn-outline" data-action="score" data-job-id="${id}"><span class="step-num">1</span>🎯 Score</button>`;
 
     // Status pill with pencil edit icon — clicking switches to a dropdown
     const statusPill = `<span class="status-pill-wrapper" id="statusPill-${id}"><button class="pipeline-status-pill status-${pipelineStatus}" data-action="edit-status" data-job-id="${id}" title="Change status">${pipelineStatus} ✎</button></span>`;
@@ -1345,8 +1732,8 @@ function renderTrackedJobsTable() {
     // Tailor button
     const cachedTailor = jobTailorings[id];
     const tailorButton = cachedTailor
-      ? `<button class="btn btn-outline btn-tailored" data-action="tailor" data-job-id="${id}" title="Re-tailor this resume">✨ Tailored</button>`
-      : `<button class="btn btn-primary" data-action="tailor" data-job-id="${id}">✨ Tailor</button>`;
+      ? `<button class="btn btn-outline btn-tailored" data-action="tailor" data-job-id="${id}" title="Re-tailor this resume"><span class="step-num">2</span>✨ Tailored</button>`
+      : `<button class="btn btn-primary" data-action="tailor" data-job-id="${id}"><span class="step-num">2</span>✨ Tailor</button>`;
 
     // Resume row — shown when a tailored variation exists
     const resumeDisplayName = escapeHtml(cachedTailor?.variationName || '');
@@ -1374,14 +1761,19 @@ function renderTrackedJobsTable() {
     const applyNorm = normalizeUrlForMatch(job.applyUrl);
     const hasDistinctApply = applyNorm && applyNorm !== sourceNorm;
     const applyButton = hasDistinctApply
-      ? `<button class="btn btn-primary" data-action="apply" data-job-id="${id}" title="Open the application page in this tab">↗ Apply</button>`
+      ? `<button class="btn btn-primary" data-action="apply" data-job-id="${id}" title="Open the application page in this tab"><span class="step-num">3</span>↗ Apply / Autofill</button>`
       : '';
+
+    const titleHref = job.sourceUrl || job.applyUrl || '';
+    const titleHtml = titleHref
+      ? `<a class="tracked-job-title" href="${escapeHtml(titleHref)}" target="_blank" rel="noopener noreferrer" title="Open job posting in new tab">${title}</a>`
+      : `<div class="tracked-job-title">${title}</div>`;
 
     return `
       <div class="tracked-job-row" data-job-id="${id}">
         <div class="tracked-job-row-header">
           <div class="tracked-job-info">
-            <div class="tracked-job-title">${title}</div>
+            ${titleHtml}
             <div class="tracked-job-meta">${meta}</div>
           </div>
           <div class="tracked-job-row-trailing">
@@ -1393,7 +1785,6 @@ function renderTrackedJobsTable() {
           ${scoreButton}
           ${tailorButton}
           ${applyButton}
-          <button class="btn btn-outline" data-action="open" data-job-id="${id}">↗ Open</button>
         </div>
         ${resumeRow}
         <div class="tracked-job-score-detail hidden" id="scoreDetail-${id}"></div>
@@ -1473,12 +1864,6 @@ async function onTrackedJobAction(event) {
       if (cached?.variationId) {
         chrome.tabs.create({ url: buildWebUrl(`/resumes/${cached.variationId}`) });
       }
-      return;
-    }
-    case 'open': {
-      const openJob = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
-      const openUrl = openJob?.sourceUrl || buildWebUrl(`/jobs/${jobId}`);
-      chrome.tabs.create({ url: openUrl });
       return;
     }
     case 'apply': {
@@ -1817,8 +2202,8 @@ function setupAuthSyncListener() {
   chrome.runtime.onMessage.addListener((message) => {
     if (message.action === 'authStateChanged') {
       // Re-bootstrap to pick up the new token (or absence of one).
-      // initializeApp will call loadPremiumState which refreshes the
-      // upgrade CTA / locked toggles / body class.
+      // initializeApp re-runs loadCurrentUser + loadTokenBudget, which
+      // together refresh the upgrade CTA, locked toggles, and body class.
       initializeApp();
     }
     return false;
@@ -1904,7 +2289,7 @@ function initializeApp() {
     loadMasterResumeGroups();
     loadTrackedJobsTable();
     loadCurrentUser();
-    loadPremiumState();
+    loadTokenBudget();
   });
 }
 
@@ -1914,6 +2299,7 @@ function showSignedOutState() {
   showElement('signedOutBanner');
   hideElement('profileCard');
   hideElement('headerUpgradeButton');
+  clearTokenBudget();
   showElement('resumeListEmptyHint');
   hideElement('resumeSelectionContainer');
   hideElement('selectedResumeDisplay');
@@ -2214,6 +2600,10 @@ async function loadCurrentUser() {
       else if (lower === 'superadmin') roleEl.classList.add('role-superadmin');
       else if (lower === 'admin') roleEl.classList.add('role-admin');
     }
+
+    // Derive premium entitlement from role. Billing tier is reconciled later
+    // by renderTokenBudget() using the authoritative /api/billing/token-budget.
+    if (isPremiumRole(user.role)) setPremium(true);
   } catch (err) {
     console.error('loadCurrentUser failed:', err);
   }

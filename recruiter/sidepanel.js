@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      loadPremiumState();
+      getJwtToken().then((token) => { if (token) loadUserProfile(token); });
     }
   });
 });
@@ -86,7 +86,6 @@ async function initializeApp() {
   try {
     await loadUserProfile(token);
     showSignedInState();
-    await loadPremiumState();
     await loadSettings();
     // Load data for the active tab
     loadTabData(currentTab);
@@ -124,16 +123,12 @@ async function loadUserProfile(token) {
   const emailEl = document.getElementById('profileEmail');
   if (nameEl) nameEl.textContent = user.name || user.email || 'Signed in';
   if (emailEl) emailEl.textContent = user.email || '';
-}
 
-async function loadPremiumState() {
-  try {
-    const res = await apiFetch(apiBase + PATHS.userProfile);
-    if (res.ok) {
-      const data = await res.json();
-      isPremium = !!(data.data?.isPremium || data.isPremium);
-    }
-  } catch { /* ignore */ }
+  // Backend treats SuperAdmin/Admin as premium regardless of plan. Paid-plan
+  // detection lives on /api/billing/token-budget; the recruiter extension
+  // doesn't use it today, so premium gating relies on role alone.
+  const role = (user.role || '').toString().toLowerCase();
+  isPremium = role === 'superadmin' || role === 'admin' || role === 'pro' || role === 'premium';
   applyPremiumGating();
 }
 
