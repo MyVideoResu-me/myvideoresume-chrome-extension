@@ -295,3 +295,31 @@ async function tailorAndSaveVariation(opts) {
 
   return { tailored, variationId, variationName };
 }
+
+// ---- Version footer -----------------------------------------------------
+// Populates the footer version pill with the manifest version. The Web
+// Store href is set in the HTML per extension (jobseeker / recruiter have
+// different listing slugs); we only fall back to a runtime-derived URL
+// when the HTML didn't supply one.
+function setupVersionFooter() {
+  const el = document.getElementById('versionFooter');
+  if (!el) return;
+  try {
+    const manifest = chrome.runtime.getManifest();
+    el.textContent = `v${manifest.version}`;
+    const current = el.getAttribute('href');
+    if (!current || current === '#') {
+      el.href = `https://chromewebstore.google.com/detail/${chrome.runtime.id}`;
+    }
+  } catch (e) {
+    el.textContent = '';
+  }
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', setupVersionFooter);
+  } else {
+    setupVersionFooter();
+  }
+}

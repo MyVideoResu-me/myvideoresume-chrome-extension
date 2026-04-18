@@ -61,6 +61,9 @@ const PATHS = {
 
   // Dashboard / Analytics
   extensionAnalytics: '/api/dashboard/extension-analytics',
+
+  // Extension preferences — shared with the web /settings page
+  extensionPreferences: '/api/settings/extension-preferences',
 };
 
 // Active endpoints — populated by updateConfiguration() at startup.
@@ -81,6 +84,7 @@ let jobsSavedUrl;
 let meUrl;
 let magicLinkUrl;
 let oauthStartUrl;
+let extensionPreferencesUrl;
 
 function updateConfiguration() {
     apiBase = isDevelopment ? apiBaseDev : apiBaseProd;
@@ -101,6 +105,7 @@ function updateConfiguration() {
     meUrl = apiBase + PATHS.me;
     magicLinkUrl = apiBase + PATHS.magicLink;
     oauthStartUrl = apiBase + PATHS.oauthStart;
+    extensionPreferencesUrl = apiBase + PATHS.extensionPreferences;
 }
 
 // Helper: build /api/resumes/{id}/{action}?{queryParams}

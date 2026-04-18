@@ -48,6 +48,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupTabNavigation();
   setupAuthSyncListener();
   setupDetectionListeners();
+  setupWebAppEventListener();
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
@@ -162,8 +163,43 @@ async function loadSettings() {
       }
       applySettingsToUI();
       resolve();
+      // Upgrade local state with the server's truth after the UI paints.
+      loadSettingsFromServer();
     });
   });
+}
+
+/**
+ * Pull the recruiter slice of extension_settings from the server and
+ * merge into local `settings`, so changes made in /settings?tab=extensions
+ * (or from another device) show up here.
+ */
+async function loadSettingsFromServer() {
+  try {
+    const jwtToken = await getJwtToken();
+    if (!jwtToken) return;
+    const resp = await fetch(extensionPreferencesUrl, {
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const server = data?.data?.recruiter;
+    if (!server || typeof server !== 'object') return;
+
+    let changed = false;
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (key in server && settings[key] !== server[key]) {
+        settings[key] = server[key];
+        changed = true;
+      }
+    }
+    if (changed) {
+      chrome.storage.local.set({ recruiterSettings: settings });
+      applySettingsToUI();
+    }
+  } catch (err) {
+    console.warn('[hired.video] loadSettingsFromServer failed:', err);
+  }
 }
 
 function applySettingsToUI() {
@@ -181,6 +217,54 @@ function applySettingsToUI() {
 
 function saveSettings() {
   chrome.storage.local.set({ recruiterSettings: settings });
+  saveSettingsToServer();
+}
+
+/**
+ * PUT the current recruiter settings slice to the server and notify any
+ * open /settings?tab=extensions tab to re-fetch.
+ */
+async function saveSettingsToServer() {
+  try {
+    const jwtToken = await getJwtToken();
+    if (!jwtToken) return;
+    const payload = {
+      recruiter: {
+        autoDetectJobs: !!settings.autoDetectJobs,
+        autoDetectProfiles: !!settings.autoDetectProfiles,
+        autoDetectCompanies: !!settings.autoDetectCompanies,
+        autoScore: !!settings.autoScore,
+      },
+    };
+    const resp = await fetch(extensionPreferencesUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwtToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) return;
+    chrome.runtime.sendMessage({
+      action: 'broadcastToWebApp',
+      type: 'settings-changed',
+    }).catch(() => {});
+  } catch (err) {
+    console.warn('[hired.video] saveSettingsToServer failed:', err);
+  }
+}
+
+/**
+ * Listen for settings-changed events pushed from the web app so the
+ * Recruiter panel doesn't hold stale state after the user edits prefs
+ * on /settings?tab=extensions. Mirrors the Job Seeker side.
+ */
+function setupWebAppEventListener() {
+  chrome.runtime.onMessage.addListener((message) => {
+    if (!message || message.action !== 'webAppEvent') return false;
+    if (message.type === 'settings-changed') loadSettingsFromServer();
+    return false;
+  });
 }
 
 // ---- Tab navigation -----------------------------------------------------
@@ -235,6 +319,16 @@ function setupTabNavigation() {
     profileLink.addEventListener('click', (e) => {
       e.preventDefault();
       chrome.tabs.create({ url: buildWebUrl('/dashboard') });
+    });
+  }
+
+  // "Manage on web" deep-link: jumps straight to the Chrome Extensions
+  // tab on /settings so the user doesn't have to hunt for it.
+  const webSettingsLink = document.getElementById('openWebSettingsLink');
+  if (webSettingsLink) {
+    webSettingsLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      chrome.tabs.create({ url: buildWebUrl('/settings?tab=extensions') });
     });
   }
 

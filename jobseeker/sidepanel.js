@@ -184,8 +184,48 @@ function loadSettings() {
       settings = { ...DEFAULT_SETTINGS, ...(data.settings || {}) };
       applySettingsToUI();
       resolve(settings);
+      // Fire-and-forget: after rendering local state, pull the server's
+      // copy and merge on top so the sidepanel reflects changes made in
+      // the web /settings?tab=extensions surface. Done AFTER resolve()
+      // so the UI isn't blocked on network round-trips.
+      loadSettingsFromServer();
     });
   });
+}
+
+/**
+ * Pull the jobseeker slice of extension_settings from the server and
+ * merge into local `settings`. Called after local load so the UI shows
+ * something immediately, then upgrades to server truth.
+ */
+async function loadSettingsFromServer() {
+  try {
+    const jwtToken = await getJwtToken();
+    if (!jwtToken) return;
+    const resp = await fetch(extensionPreferencesUrl, {
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    });
+    if (!resp.ok) return;
+    const data = await resp.json();
+    const server = data?.data?.jobseeker;
+    if (!server || typeof server !== 'object') return;
+
+    // Only update if something actually changed — avoids an unnecessary
+    // re-render on every panel open.
+    let changed = false;
+    for (const key of Object.keys(DEFAULT_SETTINGS)) {
+      if (key in server && settings[key] !== server[key]) {
+        settings[key] = server[key];
+        changed = true;
+      }
+    }
+    if (changed) {
+      chrome.storage.local.set({ settings });
+      applySettingsToUI();
+    }
+  } catch (err) {
+    console.warn('[hired.video] loadSettingsFromServer failed:', err);
+  }
 }
 
 function loadJobCaches() {
@@ -231,6 +271,46 @@ function clearJobCaches(jobId) {
 
 function saveSettings() {
   chrome.storage.local.set({ settings });
+  // Persist to server + broadcast so /settings?tab=extensions stays in
+  // sync. Fire-and-forget — the local write is already durable, and the
+  // server will reconcile on the next load if this fails (e.g. offline).
+  saveSettingsToServer();
+}
+
+/**
+ * PUT the current jobseeker settings slice to the server and broadcast
+ * a settings-changed event to any open web /settings tab so it re-renders.
+ */
+async function saveSettingsToServer() {
+  try {
+    const jwtToken = await getJwtToken();
+    if (!jwtToken) return;
+    const payload = {
+      jobseeker: {
+        autoDetect: !!settings.autoDetect,
+        autoScore: !!settings.autoScore,
+        autoTailor: !!settings.autoTailor,
+        wizardMode: !!settings.wizardMode,
+        downloadFormat: settings.downloadFormat || 'pdf',
+      },
+    };
+    const resp = await fetch(extensionPreferencesUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwtToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+    if (!resp.ok) return;
+    // Tell any open web /settings tab to re-fetch.
+    chrome.runtime.sendMessage({
+      action: 'broadcastToWebApp',
+      type: 'settings-changed',
+    }).catch(() => {});
+  } catch (err) {
+    console.warn('[hired.video] saveSettingsToServer failed:', err);
+  }
 }
 
 function applySettingsToUI() {
@@ -2580,6 +2660,11 @@ function setupWebAppEventListener() {
     if (message.type === 'resume-changed') {
       loadMasterResumeGroups();
     }
+    if (message.type === 'settings-changed') {
+      // Web /settings?tab=extensions just updated the server — pull
+      // the fresh values and re-render our Settings tab toggles.
+      loadSettingsFromServer();
+    }
     // Add more resource handlers here as the surface area grows
     // (tracked-job changes, applications, etc.).
     return false;
@@ -2894,7 +2979,7 @@ function setupEventListeners() {
   if (webSettingsLink) {
     webSettingsLink.onclick = (e) => {
       e.preventDefault();
-      chrome.tabs.create({ url: buildWebUrl('/settings') });
+      chrome.tabs.create({ url: buildWebUrl('/settings?tab=extensions') });
     };
   }
 

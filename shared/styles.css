@@ -675,6 +675,23 @@ button, .btn {
   right: 0;
   padding: 8px 16px;
   background: linear-gradient(to top, var(--background), transparent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.version-footer {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.version-footer:hover {
+  opacity: 1;
+  text-decoration: underline;
 }
 
 /* Scrollbar */
