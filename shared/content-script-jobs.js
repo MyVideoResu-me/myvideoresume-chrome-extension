@@ -68,6 +68,23 @@ function waitForContent(timeout = 3000) {
 }
 
 // =====================================================================
+// Skip-host guard
+// =====================================================================
+//
+// Never run job detection on hired.video's own pages. The extension
+// tracks jobs from OTHER job boards into hired.video — running it on
+// hired.video/tools, /home, /dashboard, etc. generates false positives
+// (the tools page surfaces cards like "Resume Optimizer" / "Job-Resume
+// Match" that the generic detector reads as a job title).
+const JOBSEEKER_SKIP_HOSTS = new Set([
+  'hired.video',
+  'www.hired.video',
+  'localhost',       // local hired.video frontend (:3000)
+  '127.0.0.1',
+]);
+const JOBSEEKER_SKIP_DETECTION = JOBSEEKER_SKIP_HOSTS.has(window.location.hostname);
+
+// =====================================================================
 // Job-page auto-detection
 // =====================================================================
 //
@@ -329,6 +346,9 @@ function getCanonicalJobUrl() {
 }
 
 function detectJobOnPage() {
+  // Skip hired.video's own pages — tools/dashboards/etc. aren't jobs.
+  if (JOBSEEKER_SKIP_DETECTION) return false;
+
   // 1. JSON-LD JobPosting (gold standard, host-agnostic)
   const ldScripts = document.querySelectorAll('script[type="application/ld+json"]');
   for (const script of ldScripts) {
@@ -723,18 +743,21 @@ function scheduleDetect() {
   setTimeout(detectJobOnPage, 1500);
   setTimeout(detectJobOnPage, 3000);
 }
-scheduleDetect();
 
-const detectObserver = new MutationObserver(() => {
-  // Cheap throttle — only re-detect at most once every 1.5s.
-  if (detectObserver._pending) return;
-  detectObserver._pending = true;
-  setTimeout(() => {
-    detectObserver._pending = false;
-    detectJobOnPage();
-  }, 1500);
-});
-detectObserver.observe(document.documentElement, { childList: true, subtree: true });
+if (!JOBSEEKER_SKIP_DETECTION) {
+  scheduleDetect();
+
+  const detectObserver = new MutationObserver(() => {
+    // Cheap throttle — only re-detect at most once every 1.5s.
+    if (detectObserver._pending) return;
+    detectObserver._pending = true;
+    setTimeout(() => {
+      detectObserver._pending = false;
+      detectJobOnPage();
+    }, 1500);
+  });
+  detectObserver.observe(document.documentElement, { childList: true, subtree: true });
+}
 
 // Track URL changes for SPA navigation detection
 let lastUrl = window.location.href;
@@ -816,6 +839,14 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "detectJob") {
+    // hired.video's own pages never contain trackable jobs — return null
+    // BEFORE hitting genericJobExtract(), which would otherwise surface
+    // page headings like "AI-Powered Career Tools" as false-positive titles.
+    if (JOBSEEKER_SKIP_DETECTION) {
+      sendResponse(null);
+      return true;
+    }
+
     // Re-run detection from scratch and return the payload directly.
     // Resets the dedupe key so the detection fires even if the same job
     // was already detected (e.g. before the side panel was open).
@@ -835,6 +866,10 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   }
 
   if (request.action === "getFocusedPaneHTML") {
+    if (JOBSEEKER_SKIP_DETECTION) {
+      sendResponse({ html: null, originUrl: getCanonicalJobUrl() });
+      return true;
+    }
     // Clear the stale cache and re-detect from scratch so we always
     // capture the CURRENTLY focused job, not a previously clicked one.
     try { delete window.__hiredVideoFocusedPaneHtml; } catch (e) {}

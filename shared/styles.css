@@ -845,26 +845,33 @@ button, .btn {
 }
 
 /* ==========================================================
-   Resume strip (compact selected-resume display in Now tab)
+   Active resume row inside the profile card
    ========================================================== */
-.resume-strip {
-  padding: 10px 12px;
+.profile-resume-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
 }
 
-.resume-strip-info {
+.profile-resume-info {
   flex: 1 1 auto;
   min-width: 0;
 }
 
-.resume-strip-label {
-  font-size: 11px;
+.profile-resume-label {
+  font-size: 10px;
   font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.05em;
   color: var(--foreground-secondary);
+  margin-bottom: 1px;
 }
 
-.resume-strip-name {
+.profile-resume-name {
   font-size: 13px;
   font-weight: 600;
   color: var(--foreground);

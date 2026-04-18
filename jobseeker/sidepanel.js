@@ -27,7 +27,12 @@ let currentJobOriginalHtml = null; // raw page HTML for the extract API
 let trackedJob = null;             // { id, title, company, sourceUrl, applyUrl, ... }
 
 // New for the two-tab redesign
-let currentTab = 'now';
+let currentTab = 'jobs';
+/** One-shot guard for applyDefaultTab() — we want the "open Resume tab
+ *  when no master resume exists" rule to fire only on initial load, not
+ *  on every subsequent resume list refresh (which would yank the user
+ *  back to Resume while they're working elsewhere). */
+let hasAppliedDefaultTab = false;
 let isPremium = false;
 let trackedJobsList = [];
 let detectedPageJob = null; // { title, company, location, sourceUrl, applyUrl } from content script
@@ -854,7 +859,7 @@ async function handleBannerScore() {
   if (!ok) return;
   if (!selectedResume) {
     showQuickStatus('Upload or select a resume first.', 'warning');
-    switchTab('settings');
+    switchTab('resume');
     showResumeSelection();
     return;
   }
@@ -1014,7 +1019,7 @@ async function handleAutofillApplication() {
   if (!ok) return;
   if (!selectedResume) {
     showQuickStatus('Upload or select a resume first.', 'warning');
-    switchTab('settings');
+    switchTab('resume');
     showResumeSelection();
     return;
   }
@@ -1458,7 +1463,7 @@ async function runTailorAndSavePipeline(options = {}) {
 
   if (!selectedResume) {
     showQuickStatus('Upload or select a resume first.', 'warning');
-    switchTab('settings');
+    switchTab('resume');
     showResumeSelection();
     return;
   }
@@ -2004,7 +2009,7 @@ async function rowScoreJob(jobId) {
   if (!ok) return;
   if (!selectedResume) {
     showQuickStatus('Upload or select a resume first.', 'warning');
-    switchTab('settings');
+    switchTab('resume');
     showResumeSelection();
     return;
   }
@@ -2042,7 +2047,7 @@ async function rowTailorJob(jobId) {
   if (!ok) return;
   if (!selectedResume) {
     showQuickStatus('Upload or select a resume first.', 'warning');
-    switchTab('settings');
+    switchTab('resume');
     showResumeSelection();
     return;
   }
@@ -2246,6 +2251,10 @@ function clearPreviousResults() {
 function initializeApp() {
   // Always wire listeners — they don't depend on auth state.
   setupEventListeners();
+
+  // Reset so the first resume-list load of this session re-applies the
+  // "open Resume tab if no master exists" rule.
+  hasAppliedDefaultTab = false;
 
   chrome.storage.local.get([jwtTokenKey, selectedResumeKey, trackedJobKey], async (data) => {
     if (!data.jwtToken) {
@@ -2509,13 +2518,13 @@ function setupEventListeners() {
       chrome.tabs.create({ url: buildWebUrl('/resumes/' + selectedResume.id) });
     } else {
       showQuickStatus('Upload or select a resume first.', 'warning');
-      switchTab('settings');
+      switchTab('resume');
       showResumeSelection();
     }
   });
   bind('changeResumeButton', () => {
     console.log('[hired.video] changeResumeButton clicked');
-    switchTab('settings');
+    switchTab('resume');
     showResumeSelection();
   });
   bind('uploadResumeButton', gate(() => {
@@ -2686,6 +2695,17 @@ async function loadMasterResumeGroups() {
       else ensureActiveResume();
     } else {
       ensureActiveResume();
+    }
+
+    // First load of the session: if the user has no master resume
+    // (new user onboarding), drop them on the Resume tab so uploading
+    // one is the obvious next step. Otherwise stay on the default Jobs
+    // tab. Skipped on subsequent refreshes via `hasAppliedDefaultTab`
+    // so we don't yank the user mid-flow.
+    if (!hasAppliedDefaultTab) {
+      hasAppliedDefaultTab = true;
+      const hasMaster = allResumes.some((r) => r && r.isMaster);
+      if (!hasMaster) switchTab('resume');
     }
   } catch (error) {
     console.error('Error loading resumes:', error);
@@ -3312,7 +3332,7 @@ async function handleScoreEvaluate() {
 
   if (!selectedResume) {
     showQuickStatus('Upload or select a resume first.', 'warning');
-    switchTab('settings');
+    switchTab('resume');
     showResumeSelection();
     return;
   }
@@ -3421,7 +3441,7 @@ async function handleTailorGenerate() {
 
   if (!selectedResume) {
     showQuickStatus('Upload or select a resume first.', 'warning');
-    switchTab('settings');
+    switchTab('resume');
     showResumeSelection();
     return;
   }
