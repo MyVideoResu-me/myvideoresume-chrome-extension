@@ -864,6 +864,24 @@ function showQuickStatus(message, kind) {
 }
 
 /**
+ * Show the sticky top-of-panel loading toast. Used for long-running
+ * operations where the per-row or per-banner feedback isn't visible
+ * (e.g. the active-page banner hides when a job is already tracked).
+ */
+function showGlobalLoadingToast(message) {
+  const el = document.getElementById('globalLoadingToast');
+  if (!el) return;
+  const msgEl = document.getElementById('globalLoadingToastMessage');
+  if (msgEl) msgEl.textContent = message || 'Working…';
+  el.classList.remove('hidden');
+}
+
+function hideGlobalLoadingToast() {
+  const el = document.getElementById('globalLoadingToast');
+  if (el) el.classList.add('hidden');
+}
+
+/**
  * Score the detected page job and show results inline in the
  * detection banner (bannerScoreDetail area).
  */
@@ -2072,9 +2090,8 @@ async function handleRefreshJob(jobId) {
     return;
   }
 
-  const rescanBtn = document.querySelector(
-    `.tracked-job-row[data-job-id="${jobId}"] .row-rescan`,
-  );
+  const row = document.querySelector(`.tracked-job-row[data-job-id="${jobId}"]`);
+  const rescanBtn = row?.querySelector('.row-rescan');
   // Guard against rapid double-clicks — the button will be disabled while
   // in-flight, but if the second click lands before the browser paints the
   // disabled state, bail early.
@@ -2089,7 +2106,27 @@ async function handleRefreshJob(jobId) {
     rescanBtn.title = 'Scanning…';
   }
 
+  // Add a visible "Scanning…" pill inline with the row's trailing actions
+  // so the user gets unmissable feedback even if the button-icon swap is
+  // hard to see at a glance. The quickStatus toast lives inside the
+  // active-page banner which is hidden for rows that are already tracked
+  // (and showing green-matched), so we can't rely on it alone.
+  let busyPill = null;
+  if (row) {
+    row.classList.add('is-refreshing');
+    const trailing = row.querySelector('.tracked-job-row-trailing');
+    if (trailing) {
+      busyPill = document.createElement('span');
+      busyPill.className = 'tracked-job-row-busy';
+      busyPill.setAttribute('role', 'status');
+      busyPill.setAttribute('aria-live', 'polite');
+      busyPill.innerHTML = '<span class="spinner-sm" aria-hidden="true"></span><span>Scanning…</span>';
+      trailing.insertBefore(busyPill, trailing.firstChild);
+    }
+  }
+
   showQuickStatus('Scanning page for missing job info…', 'info');
+  showGlobalLoadingToast('Scanning this page to backfill missing job info…');
 
   try {
     // Refresh needs the FULL page, not the focused pane that
@@ -2155,6 +2192,9 @@ async function handleRefreshJob(jobId) {
       if (originalHtml !== undefined) rescanBtn.innerHTML = originalHtml;
       if (originalTitle !== undefined) rescanBtn.title = originalTitle;
     }
+    if (row) row.classList.remove('is-refreshing');
+    if (busyPill && busyPill.parentNode) busyPill.parentNode.removeChild(busyPill);
+    hideGlobalLoadingToast();
   }
 }
 
@@ -3141,12 +3181,11 @@ function onResumeAction(event) {
 
   switch (action) {
     case 'open':
-    case 'edit':
-      // Both open and edit go to the resume detail page on hired.video —
-      // the detail page IS the editor. Keeping both actions so the UI
-      // can distinguish visually (eye icon vs pencil icon) while sharing
-      // the destination.
       return openResumeInTab(id);
+    case 'edit':
+      // Edit opens the editor URL on hired.video — separate from the
+      // read-only view page the eye/open icon uses.
+      return editResumeInTab(id);
     case 'set-active':
       return setActiveResume(id);
     case 'set-master':
@@ -3204,6 +3243,11 @@ async function deleteResume(id) {
 function openResumeInTab(id) {
   console.log('[hired.video] openResumeInTab:', id);
   chrome.tabs.create({ url: buildWebUrl('/resumes/' + id) });
+}
+
+function editResumeInTab(id) {
+  console.log('[hired.video] editResumeInTab:', id);
+  chrome.tabs.create({ url: buildWebUrl('/resumes/edit/' + id) });
 }
 
 /** Set a resume (any — master or variation) as the active resume used for scoring/tailoring. */

@@ -471,6 +471,68 @@ button, .btn {
 .icon-btn.is-loading {
   cursor: wait;
   opacity: 0.7;
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+/* Inline "Scanning…" pill shown next to a tracked-job row's action buttons
+   while a refresh is in flight. The per-button spinner alone is too
+   subtle (28px icon swap) — this pill gives the user an unmissable
+   confirmation that the click registered and the operation is running. */
+.tracked-job-row-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tracked-job-row-busy .spinner-sm {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+}
+
+.tracked-job-row.is-refreshing {
+  opacity: 0.85;
+}
+
+/* Global loading toast — sticky at the top of the side panel so any
+   async op (refresh, tailor, score, etc.) has unmissable feedback even
+   when the per-row busy pill is scrolled out of view or the active-page
+   banner is hidden. Uses the same primary-light palette as the row pill
+   for visual consistency. */
+.global-loading-toast {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px 0;
+  padding: 10px 14px;
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.global-loading-toast.hidden {
+  display: none;
+}
+
+.global-loading-toast .spinner-sm {
+  border-color: var(--primary);
+  border-right-color: transparent;
 }
 
 /* Tabs */

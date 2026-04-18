@@ -306,10 +306,29 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       try {
         chrome.tabs.sendMessage(tab.id, { action: 'getHTML', timeout: 3000 }, (response) => {
           if (chrome.runtime.lastError || !response) {
+            // Fallback path: no content script — run the same cleanse
+            // logic via executeScript so the service worker never sends
+            // raw document.outerHTML (it's 10x larger without script/style
+            // stripping and blows out our payload budget).
             chrome.scripting.executeScript(
               {
                 target: { tabId: tab.id },
-                func: () => document.documentElement.outerHTML,
+                func: () => {
+                  const raw = document.documentElement.outerHTML;
+                  let out = raw;
+                  out = out.replace(
+                    /<script\b([^>]*)>([\s\S]*?)<\/script>/gi,
+                    (m, attrs) => (/type\s*=\s*["']application\/ld\+json["']/i.test(attrs) ? m : ''),
+                  );
+                  out = out.replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '');
+                  out = out.replace(/<noscript\b[^>]*>[\s\S]*?<\/noscript>/gi, '');
+                  out = out.replace(/<link\b[^>]*rel\s*=\s*["'](?:stylesheet|preload|prefetch|dns-prefetch|preconnect)["'][^>]*>/gi, '');
+                  out = out.replace(/<!--[\s\S]*?-->/g, '');
+                  out = out.replace(/<svg\b[^>]*>[\s\S]*?<\/svg>/gi, '');
+                  out = out.replace(/\s(?:on[a-z]+|data-(?:analytics|tracking|gtm|adobe)[a-z-]*)\s*=\s*("[^"]*"|'[^']*'|[^\s>]+)/gi, '');
+                  out = out.replace(/[ \t]{2,}/g, ' ').replace(/\n{3,}/g, '\n\n');
+                  return out;
+                },
               },
               (result) => {
                 if (chrome.runtime.lastError) {

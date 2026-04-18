@@ -16,6 +16,14 @@
     <button id="headerUpgradeButton" class="btn-upgrade-header hidden">⭐ Upgrade</button>
   </div>
 
+  <!-- Global loading toast. Fixed at the top of the panel above all cards so
+       long-running operations (refresh, tailor, etc.) get unmissable feedback
+       even when the per-row feedback isn't visible on screen. -->
+  <div id="globalLoadingToast" class="global-loading-toast hidden" role="status" aria-live="polite">
+    <span class="spinner-sm" aria-hidden="true"></span>
+    <span id="globalLoadingToastMessage">Working…</span>
+  </div>
+
   <!-- Signed-out banner -->
   <div id="signedOutBanner" class="card signed-out-banner hidden">
     <div class="d-flex align-items-center justify-between gap-2">
