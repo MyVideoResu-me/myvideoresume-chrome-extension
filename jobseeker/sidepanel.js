@@ -554,7 +554,15 @@ function findMatchingTrackedJob(url) {
  * After this call, `selectedResume` is either set or null (state 1).
  */
 function ensureActiveResume() {
-  if (selectedResume) return 'ok';
+  // Validate the cached selection against the current list — a
+  // truthy-but-stale selectedResume (e.g. after a web-side delete)
+  // would otherwise short-circuit here and leave the UI showing a
+  // ghost active resume that no longer exists.
+  if (selectedResume && findResumeById(selectedResume.id)) return 'ok';
+  if (selectedResume) {
+    selectedResume = null;
+    chrome.storage.local.remove(selectedResumeKey);
+  }
 
   // No resumes loaded at all
   if (!resumeGroups || resumeGroups.length === 0) return 'none';
@@ -3128,12 +3136,25 @@ async function loadMasterResumeGroups() {
         selectResume(serverActive);
       } else if (selectedResume) {
         const found = findResumeById(selectedResume.id);
-        if (found) selectResume(found);
-        else ensureActiveResume();
+        if (found) {
+          selectResume(found);
+        } else {
+          // Cached selectedResume points at a deleted resume. Null it
+          // out before handing off to ensureActiveResume so the
+          // auto-activate branch actually picks a fresh one instead of
+          // short-circuiting on the stale truthy value.
+          selectedResume = null;
+          chrome.storage.local.remove(selectedResumeKey);
+          ensureActiveResume();
+        }
       } else {
         ensureActiveResume();
       }
     }
+    // Belt-and-suspenders: regardless of which branch above ran,
+    // re-derive the strip from current state so it can never go stale
+    // (e.g. if ensureActiveResume decided 'none' partway through).
+    syncActiveResumeStrip();
 
     // First load of the session: if the user has no master resume
     // (new user onboarding), drop them on the Resume tab so uploading
@@ -3372,18 +3393,40 @@ async function promoteToMaster(id) {
  * Pass a resume object to show its name and enable the View/Edit icons;
  * pass null when there's no active resume — hides both icons so the
  * user can't click a View button that would open a 404.
+ *
+ * Always validates against the current `resumeGroups` when both are
+ * populated: a `selectedResume` that no longer exists in the server's
+ * list is treated as the null state, so a stale cache (e.g. after a
+ * delete happened on /resumes in another tab before the extension had
+ * a chance to re-fetch) never renders a ghost resume name.
  */
 function updateActiveResumeStrip(resume) {
   const strip = document.getElementById('resumeStripName');
   const openBtn = document.getElementById('openResumeButton');
   const editBtn = document.getElementById('changeResumeButton');
 
+  // Derive the effective resume from current state: only honor the
+  // caller's resume when the server's resumeGroups list confirms it
+  // still exists. Without this, a stale selectedResume survives a
+  // delete on the web and the strip shows the old name alongside the
+  // "No resumes found yet" empty state.
+  let effective = null;
   if (resume && resume.id) {
-    const displayName = resume.name || resume.title || 'Untitled Resume';
-    const badgeText = resume.isMaster ? ' (Master)' : '';
+    if (Array.isArray(resumeGroups) && resumeGroups.length > 0) {
+      if (findResumeById(resume.id)) effective = resume;
+    } else if (!Array.isArray(resumeGroups)) {
+      // resumeGroups hasn't loaded yet — trust the caller.
+      effective = resume;
+    }
+    // else: resumeGroups is [] → server says no resumes → effective stays null
+  }
+
+  if (effective) {
+    const displayName = effective.name || effective.title || 'Untitled Resume';
+    const badgeText = effective.isMaster ? ' (Master)' : '';
     if (strip) {
       strip.textContent = displayName + badgeText;
-      strip.href = buildWebUrl('/resumes/' + resume.id);
+      strip.href = buildWebUrl('/resumes/' + effective.id);
     }
     if (openBtn) openBtn.classList.remove('hidden');
     if (editBtn) editBtn.classList.remove('hidden');
@@ -3395,6 +3438,15 @@ function updateActiveResumeStrip(resume) {
     if (openBtn) openBtn.classList.add('hidden');
     if (editBtn) editBtn.classList.add('hidden');
   }
+}
+
+/**
+ * Re-sync the active-resume strip from current in-memory state. Safe
+ * to call any time resumeGroups or selectedResume might have changed —
+ * the strip stays consistent with whatever the server's list says.
+ */
+function syncActiveResumeStrip() {
+  updateActiveResumeStrip(selectedResume);
 }
 
 function selectResume(resume) {
