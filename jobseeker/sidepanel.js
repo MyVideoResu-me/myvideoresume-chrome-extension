@@ -2004,39 +2004,36 @@ function toggleInlineScore(jobId) {
 
 /**
  * Which fields on a tracked job we consider "missing" when they're null
- * or empty. Only the active/matched row's rescan can backfill, since
- * the client already confirmed the current page matches this job.
+ * or empty.
+ *
+ * The DTO returned by /api/jobs/saved uses different names than the DB
+ * columns it's flattened from (e.g. DB `job_type` → DTO `employmentType`,
+ * DB `skills_required` → DTO `skills`, DB `details.responsibilities` →
+ * DTO top-level `responsibilities`). The detector reads from the DTO
+ * shape; the /refresh endpoint expects DB-column names — so each entry
+ * maps one to the other.
  */
-const REFRESHABLE_FIELDS = [
-  'description',
-  'location',
-  'jobType',
-  'experienceLevel',
-  'salaryMin',
-  'salaryMax',
-  'salaryCurrency',
-  'sourceUrl',
-  'skillsRequired',
-  'details.responsibilities',
-  'details.requirements',
-  'details.qualifications',
-  'details.benefits',
+const REFRESHABLE_FIELD_MAP = [
+  { dtoGetter: (j) => j.description,       columnName: 'description' },
+  { dtoGetter: (j) => j.location,          columnName: 'location' },
+  { dtoGetter: (j) => j.employmentType,    columnName: 'jobType' },
+  { dtoGetter: (j) => j.experienceLevel,   columnName: 'experienceLevel' },
+  { dtoGetter: (j) => j.salaryMin,         columnName: 'salaryMin' },
+  { dtoGetter: (j) => j.salaryMax,         columnName: 'salaryMax' },
+  { dtoGetter: (j) => j.sourceUrl,         columnName: 'sourceUrl' },
+  { dtoGetter: (j) => j.skills,            columnName: 'skillsRequired' },
+  { dtoGetter: (j) => j.responsibilities,  columnName: 'details.responsibilities' },
+  { dtoGetter: (j) => j.requirements,      columnName: 'details.requirements' },
+  { dtoGetter: (j) => j.qualifications,    columnName: 'details.qualifications' },
+  { dtoGetter: (j) => j.benefits,          columnName: 'details.benefits' },
 ];
 
 function detectMissingFields(job) {
   if (!job) return [];
-  const missing = [];
   const isEmpty = (v) => v == null || v === '' || (Array.isArray(v) && v.length === 0);
-  for (const field of REFRESHABLE_FIELDS) {
-    if (field.startsWith('details.')) {
-      const key = field.slice('details.'.length);
-      const details = job.details || {};
-      if (isEmpty(details[key])) missing.push(field);
-    } else if (isEmpty(job[field])) {
-      missing.push(field);
-    }
-  }
-  return missing;
+  return REFRESHABLE_FIELD_MAP
+    .filter(({ dtoGetter }) => isEmpty(dtoGetter(job)))
+    .map(({ columnName }) => columnName);
 }
 
 /**
@@ -2070,8 +2067,19 @@ async function handleRefreshJob(jobId) {
   showQuickStatus('Scanning page for missing job info…', 'info');
 
   try {
-    const ctx = await captureJobContext();
-    if (!ctx || !ctx.html) throw new Error('Could not read the current page.');
+    // Refresh needs the FULL page, not the focused pane that
+    // captureJobContext() prefers — when a page has a JSON-LD
+    // JobPosting, the focused pane is just the <script> block with
+    // only the fields embedded in that JSON-LD (no salary, no jobType,
+    // no structured responsibilities/requirements). The full document
+    // gives the backend's AI extractor the entire posting body to
+    // parse sections out of.
+    const page = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'getHTML' }, (response) => {
+        resolve(response?.html ? response : null);
+      });
+    });
+    if (!page?.html) throw new Error('Could not read the current page.');
 
     const jwtToken = await getJwtToken();
     const resp = await fetch(buildJobUrl(jobId, 'refresh'), {
@@ -2081,8 +2089,8 @@ async function handleRefreshJob(jobId) {
         Authorization: `Bearer ${jwtToken}`,
       },
       body: JSON.stringify({
-        html: ctx.html,
-        url: ctx.originUrl || currentJobUrl || '',
+        html: page.html,
+        url: page.originUrl || currentJobUrl || '',
         missingFields,
       }),
     });
