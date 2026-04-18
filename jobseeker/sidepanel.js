@@ -58,6 +58,10 @@ const ICON = {
   // (two arrows, used for reloading data lists) so the tailored-resume
   // row's "re-tailor" button reads as a different affordance.
   retailor: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
+  // Scan / inspect (Feather `search`). Used for the row-level "scan the
+  // current page to backfill missing info" action — visually distinct
+  // from the double-arrow `refresh` used to reload data lists.
+  scan: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
   trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
 };
 
@@ -1788,7 +1792,7 @@ function renderTrackedJobsTable() {
           </div>
           <div class="tracked-job-row-trailing">
             ${statusPill}
-            <button class="row-rescan icon-btn" data-action="rescan" data-job-id="${id}" title="Re-scan this page">${ICON.refresh}</button>
+            <button class="row-rescan icon-btn" data-action="rescan" data-job-id="${id}" title="Scan this page to fill in missing job info">${ICON.scan}</button>
             <button class="row-delete icon-btn" data-action="delete" data-job-id="${id}" title="Remove from your tracker">${ICON.trash}</button>
           </div>
         </div>
@@ -1984,6 +1988,127 @@ function toggleInlineScore(jobId) {
   panel.querySelectorAll('[data-action="download-tailored"], [data-action="view-tailored"]').forEach((btn) => {
     btn.addEventListener('click', onTrackedJobAction);
   });
+}
+
+/**
+ * Which fields on a tracked job we consider "missing" when they're null
+ * or empty. Only the active/matched row's rescan can backfill, since
+ * the client already confirmed the current page matches this job.
+ */
+const REFRESHABLE_FIELDS = [
+  'description',
+  'location',
+  'jobType',
+  'experienceLevel',
+  'salaryMin',
+  'salaryMax',
+  'salaryCurrency',
+  'sourceUrl',
+  'skillsRequired',
+  'details.responsibilities',
+  'details.requirements',
+  'details.qualifications',
+  'details.benefits',
+];
+
+function detectMissingFields(job) {
+  if (!job) return [];
+  const missing = [];
+  const isEmpty = (v) => v == null || v === '' || (Array.isArray(v) && v.length === 0);
+  for (const field of REFRESHABLE_FIELDS) {
+    if (field.startsWith('details.')) {
+      const key = field.slice('details.'.length);
+      const details = job.details || {};
+      if (isEmpty(details[key])) missing.push(field);
+    } else if (isEmpty(job[field])) {
+      missing.push(field);
+    }
+  }
+  return missing;
+}
+
+/**
+ * Refresh a tracked job by feeding the current page HTML back through the
+ * AI extractor to backfill null/empty fields. Driven by the row's rescan
+ * icon — only shown on the active/matched row, so the current page is
+ * guaranteed to correspond to this job.
+ */
+async function handleRefreshJob(jobId) {
+  const ok = await requireAuth();
+  if (!ok) return;
+
+  const job = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
+  if (!job) return;
+
+  const missingFields = detectMissingFields(job);
+  if (missingFields.length === 0) {
+    showQuickStatus('This job already has all its info — nothing to refresh.', 'info');
+    return;
+  }
+
+  const rescanBtn = document.querySelector(
+    `.tracked-job-row[data-job-id="${jobId}"] .row-rescan`,
+  );
+  const originalHtml = rescanBtn?.innerHTML;
+  if (rescanBtn) {
+    rescanBtn.disabled = true;
+    rescanBtn.classList.add('is-loading');
+  }
+
+  showQuickStatus('Scanning page for missing job info…', 'info');
+
+  try {
+    const ctx = await captureJobContext();
+    if (!ctx || !ctx.html) throw new Error('Could not read the current page.');
+
+    const jwtToken = await getJwtToken();
+    const resp = await fetch(buildJobUrl(jobId, 'refresh'), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${jwtToken}`,
+      },
+      body: JSON.stringify({
+        html: ctx.html,
+        url: ctx.originUrl || currentJobUrl || '',
+        missingFields,
+      }),
+    });
+    if (resp.status === 401) return handleTokenExpired();
+    if (await check429(resp, 'quickStatus')) return;
+    if (!resp.ok) {
+      const err = await resp.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Refresh failed.');
+    }
+
+    const data = unwrapResponse(await resp.json());
+    if (!data?.updated) {
+      showQuickStatus('Page scanned — nothing new to save.', 'info');
+      return;
+    }
+
+    // Merge the updated row back into trackedJobsList and re-render.
+    const idx = trackedJobsList.findIndex((j) => (j.id || j.Id) === jobId);
+    if (idx >= 0) {
+      trackedJobsList[idx] = { ...trackedJobsList[idx], ...data };
+      renderTrackedJobsTable();
+    }
+
+    const count = Array.isArray(data.updatedFields) ? data.updatedFields.length : 0;
+    showQuickStatus(
+      count > 0 ? `Updated ${count} field${count === 1 ? '' : 's'}.` : 'Job refreshed.',
+      'success',
+    );
+  } catch (err) {
+    console.error('[hired.video] handleRefreshJob failed:', err);
+    showQuickStatus(err?.message || 'Could not refresh this job.', 'error');
+  } finally {
+    if (rescanBtn) {
+      rescanBtn.disabled = false;
+      rescanBtn.classList.remove('is-loading');
+      if (originalHtml !== undefined) rescanBtn.innerHTML = originalHtml;
+    }
+  }
 }
 
 // ---- Untrack a row (deletes only the savedJobs association) ---------
