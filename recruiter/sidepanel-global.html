@@ -73,7 +73,10 @@
         <div id="jobDetectedTitle" class="detection-title">Job detected</div>
         <div id="jobDetectedCompany" class="detection-sub"></div>
       </div>
-      <button id="extractJobButton" class="btn btn-primary btn-sm">Extract Job</button>
+      <div class="detection-actions">
+        <button id="extractJobButton" class="btn btn-primary btn-sm">Extract Job</button>
+        <button id="shareJobButton" class="btn btn-outline btn-sm">📤 Share</button>
+      </div>
     </div>
 
     <!-- Profile detected banner -->
@@ -331,6 +334,22 @@
 
   </div>
 
+  <!-- ======================== CANDIDATE PICKER (for Share Job) ======================== -->
+  <div id="candidatePickerPanel" class="slide-panel hidden">
+    <div class="slide-panel-header">
+      <button id="closeCandidatePicker" class="btn btn-outline btn-sm">← Back</button>
+      <h4 class="card-title">Share Job with Candidate</h4>
+    </div>
+    <div class="slide-panel-content">
+      <div id="shareJobPreview" class="card share-job-preview"></div>
+      <input id="candidatePickerSearch" type="text" class="form-control form-control-sm" placeholder="Search candidates...">
+      <div id="candidatePickerList" class="candidate-picker-list"></div>
+      <div id="candidatePickerEmpty" class="text-muted text-sm text-center p-2 hidden">
+        No candidates in your talent pool yet. Extract a profile first.
+      </div>
+    </div>
+  </div>
+
   <!-- ======================== MESSAGE SLIDE-OUT ======================== -->
   <div id="messagePanel" class="slide-panel hidden">
     <div class="slide-panel-header">
@@ -338,10 +357,18 @@
       <h4 id="messagePanelTitle" class="card-title">Message</h4>
     </div>
     <div id="messagePanelContent" class="slide-panel-content">
+      <div id="messageThreadLoading" class="d-flex align-items-center justify-center gap-2 p-2 hidden">
+        <div class="spinner"></div>
+        <span class="text-sm text-muted">Loading messages...</span>
+      </div>
       <div id="messageThread" class="message-thread"></div>
-      <div class="message-compose">
+      <div id="messageCompose" class="message-compose">
+        <div id="messageAttachment" class="message-attachment hidden"></div>
         <textarea id="messageInput" class="form-control" rows="3" placeholder="Type a message..."></textarea>
-        <button id="sendMessageButton" class="btn btn-primary btn-sm">Send</button>
+        <div class="message-compose-actions">
+          <button id="personalizeMessageButton" class="btn btn-outline btn-xs" title="AI-personalize this message">✨ Personalize</button>
+          <button id="sendMessageButton" class="btn btn-primary btn-sm">Send</button>
+        </div>
       </div>
     </div>
   </div>

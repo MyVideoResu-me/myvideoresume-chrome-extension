@@ -24,6 +24,12 @@ let pipelineData = {};
 let companiesList = [];
 let matchScores = {};
 
+// Messaging state
+let currentUserId = null;
+let activeConversationId = null;
+let activeRecipientId = null;
+let pendingJobAttachment = null; // job card to attach when composing
+
 // Settings
 const DEFAULT_SETTINGS = {
   autoDetectJobs: true,
@@ -111,6 +117,8 @@ async function loadUserProfile(token) {
   if (!res.ok) throw new Error('Failed to load profile');
   const data = await res.json();
   const user = data.data || data;
+
+  currentUserId = user.id || user.sub || null;
 
   const nameEl = document.getElementById('profileName');
   const emailEl = document.getElementById('profileEmail');
@@ -286,7 +294,29 @@ function setupTabNavigation() {
   // Message panel close
   const closeMsg = document.getElementById('closeMessagePanel');
   if (closeMsg) {
-    closeMsg.addEventListener('click', () => hideElement('messagePanel'));
+    closeMsg.addEventListener('click', closeMessagePanel);
+  }
+
+  // Share job button
+  const shareJob = document.getElementById('shareJobButton');
+  if (shareJob) {
+    shareJob.addEventListener('click', handleShareJob);
+  }
+
+  // Candidate picker
+  const closePicker = document.getElementById('closeCandidatePicker');
+  if (closePicker) {
+    closePicker.addEventListener('click', () => hideElement('candidatePickerPanel'));
+  }
+  const pickerSearch = document.getElementById('candidatePickerSearch');
+  if (pickerSearch) {
+    pickerSearch.addEventListener('input', () => renderCandidatePickerList(pickerSearch.value.trim()));
+  }
+
+  // Personalize button
+  const personalizeBtn = document.getElementById('personalizeMessageButton');
+  if (personalizeBtn) {
+    personalizeBtn.addEventListener('click', handlePersonalizeMessage);
   }
 }
 
@@ -876,46 +906,390 @@ function renderCompanyList(filter = '') {
 
 // ---- Messaging ----------------------------------------------------------
 
-function openMessagePanel(candidateId, candidateName) {
+/**
+ * Open the message panel for a candidate. Finds or creates a direct
+ * conversation, loads the message history, and wires the send button.
+ *
+ * @param {string} candidateId   - talent pool candidate row ID (== user ID)
+ * @param {string} candidateName - display name
+ * @param {object} [jobAttachment] - optional job to pre-attach
+ */
+async function openMessagePanel(candidateId, candidateName, jobAttachment) {
   const titleEl = document.getElementById('messagePanelTitle');
-  if (titleEl) titleEl.textContent = 'Message ' + candidateName;
+  if (titleEl) titleEl.textContent = candidateName;
+
+  activeRecipientId = candidateId;
+  activeConversationId = null;
+  pendingJobAttachment = jobAttachment || null;
+
+  // Clear previous thread
+  const thread = document.getElementById('messageThread');
+  if (thread) thread.innerHTML = '';
+
+  // Show attachment preview if sharing a job
+  renderMessageAttachment();
+
   showElement('messagePanel');
+  showElement('messageThreadLoading');
 
   // Wire send button
   const sendBtn = document.getElementById('sendMessageButton');
   if (sendBtn) {
-    sendBtn.onclick = () => sendMessage(candidateId);
+    sendBtn.onclick = () => sendConversationMessage();
+  }
+
+  try {
+    // Find existing conversation with this candidate, or create one
+    activeConversationId = await findOrCreateConversation(candidateId, candidateName);
+    await loadConversationMessages(activeConversationId);
+  } catch (err) {
+    console.error('[hired.video] openMessagePanel error:', err);
+    if (thread) thread.innerHTML = '<div class="text-muted text-sm text-center p-2">Could not load messages.</div>';
+  } finally {
+    hideElement('messageThreadLoading');
   }
 }
 
-async function sendMessage(candidateId) {
-  const input = document.getElementById('messageInput');
-  if (!input || !input.value.trim()) return;
+function closeMessagePanel() {
+  hideElement('messagePanel');
+  activeConversationId = null;
+  activeRecipientId = null;
+  pendingJobAttachment = null;
+  const attachment = document.getElementById('messageAttachment');
+  if (attachment) { attachment.innerHTML = ''; attachment.classList.add('hidden'); }
+}
 
-  const message = input.value.trim();
+/**
+ * Search inbox for an existing direct conversation with this user.
+ * If none exists, create one.
+ */
+async function findOrCreateConversation(candidateId, candidateName) {
+  // Fetch inbox
+  const inboxRes = await apiFetch(messagesInboxUrl);
+  if (!inboxRes.ok) throw new Error('Failed to load inbox');
+  const inboxData = await inboxRes.json();
+  const convos = inboxData.data || [];
+
+  // Check each conversation for this participant
+  for (const convo of convos) {
+    if (convo.type !== 'direct') continue;
+    try {
+      const detailRes = await apiFetch(messagesConversationsUrl + '/' + convo.id);
+      if (!detailRes.ok) continue;
+      const detail = await detailRes.json();
+      const participants = detail.data?.participants || [];
+      const hasCandidate = participants.some(p => p.userId === candidateId);
+      if (hasCandidate) return convo.id;
+    } catch { /* skip */ }
+  }
+
+  // No existing conversation — create one
+  const createRes = await apiFetch(messagesConversationsUrl, {
+    method: 'POST',
+    body: JSON.stringify({
+      subject: 'Chat with ' + (candidateName || 'Candidate'),
+      participantIds: [candidateId],
+    }),
+  });
+  if (!createRes.ok) throw new Error('Failed to create conversation');
+  const created = await createRes.json();
+  return created.data?.id || created.id;
+}
+
+/**
+ * Load and render the full message history for a conversation.
+ */
+async function loadConversationMessages(convoId) {
+  const thread = document.getElementById('messageThread');
+  if (!thread) return;
+
+  const res = await apiFetch(messagesConversationsUrl + '/' + convoId);
+  if (!res.ok) throw new Error('Failed to load messages');
+  const data = await res.json();
+  const msgs = data.data?.messages || [];
+
+  // Mark as read
+  apiFetch(messagesConversationsUrl + '/' + convoId + '/read', { method: 'PUT' }).catch(() => {});
+
+  if (msgs.length === 0) {
+    thread.innerHTML = '<div class="text-muted text-sm text-center p-2">No messages yet. Start the conversation!</div>';
+    return;
+  }
+
+  // Messages come newest-first from the API — reverse for chronological
+  const sorted = [...msgs].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt));
+
+  thread.innerHTML = sorted.map(m => {
+    const isMine = m.senderId === currentUserId;
+    const time = formatMessageTime(m.createdAt);
+    const content = renderMessageContent(m.content, m.contentType);
+    return `
+      <div class="message-row ${isMine ? 'message-sent' : 'message-received'}">
+        <div class="message-bubble ${isMine ? 'message-out' : 'message-in'}">${content}</div>
+        <div class="message-time text-xs text-muted">${time}</div>
+      </div>
+    `;
+  }).join('');
+
+  thread.scrollTop = thread.scrollHeight;
+}
+
+function renderMessageContent(content, contentType) {
+  if (contentType === 'job_share') {
+    try {
+      const job = JSON.parse(content);
+      return `
+        <div class="shared-job-card">
+          <div class="shared-job-icon">📌</div>
+          <div class="shared-job-info">
+            <div class="shared-job-title">${escapeHtml(job.title || 'Job Opportunity')}</div>
+            <div class="shared-job-company">${escapeHtml([job.company, job.location].filter(Boolean).join(' · '))}</div>
+            ${job.sourceUrl ? `<a href="${escapeHtml(job.sourceUrl)}" target="_blank" class="shared-job-link">View Job →</a>` : ''}
+          </div>
+        </div>
+        ${job.message ? `<div class="mt-1">${escapeHtml(job.message)}</div>` : ''}
+      `;
+    } catch {
+      return escapeHtml(content);
+    }
+  }
+  return escapeHtml(content).replace(/\n/g, '<br>');
+}
+
+function formatMessageTime(dateStr) {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  const now = new Date();
+  const diff = now - d;
+  if (diff < 60000) return 'Just now';
+  if (diff < 3600000) return Math.floor(diff / 60000) + 'm ago';
+  if (diff < 86400000) return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+/**
+ * Send a message in the active conversation.
+ */
+async function sendConversationMessage() {
+  if (!activeConversationId) return;
+
+  const input = document.getElementById('messageInput');
+  if (!input) return;
+
+  let content = input.value.trim();
+  let contentType = 'text';
+
+  // If there's a job attachment, send it as a job_share message
+  if (pendingJobAttachment) {
+    const jobPayload = {
+      ...pendingJobAttachment,
+      message: content, // recruiter's personal note
+    };
+    content = JSON.stringify(jobPayload);
+    contentType = 'job_share';
+    pendingJobAttachment = null;
+    const attachment = document.getElementById('messageAttachment');
+    if (attachment) { attachment.innerHTML = ''; attachment.classList.add('hidden'); }
+  }
+
+  if (!content) return;
   input.value = '';
 
-  try {
-    await apiFetch(apiBase + '/api/messages', {
-      method: 'POST',
-      body: JSON.stringify({
-        recipientId: candidateId,
-        content: message,
-      }),
-    });
+  // Optimistically append to thread
+  const thread = document.getElementById('messageThread');
+  // Clear the "no messages" placeholder
+  const placeholder = thread?.querySelector('.text-muted.text-center');
+  if (placeholder) placeholder.remove();
 
-    // Show sent message in thread
-    const thread = document.getElementById('messageThread');
-    if (thread) {
-      thread.innerHTML += `
-        <div class="message-sent">
-          <div class="message-bubble message-out">${escapeHtml(message)}</div>
-          <div class="message-time text-xs text-muted">Just now</div>
-        </div>
-      `;
-      thread.scrollTop = thread.scrollHeight;
-    }
+  if (thread) {
+    const rendered = contentType === 'job_share' ? renderMessageContent(content, contentType) : escapeHtml(content).replace(/\n/g, '<br>');
+    thread.innerHTML += `
+      <div class="message-row message-sent">
+        <div class="message-bubble message-out">${rendered}</div>
+        <div class="message-time text-xs text-muted">Just now</div>
+      </div>
+    `;
+    thread.scrollTop = thread.scrollHeight;
+  }
+
+  try {
+    await apiFetch(messagesConversationsUrl + '/' + activeConversationId + '/send', {
+      method: 'POST',
+      body: JSON.stringify({ content, contentType }),
+    });
   } catch (err) {
+    console.error('[hired.video] sendMessage error:', err);
     showExtractionError('Failed to send message: ' + err.message);
   }
+}
+
+// ---- Message attachment preview -----------------------------------------
+
+function renderMessageAttachment() {
+  const el = document.getElementById('messageAttachment');
+  if (!el) return;
+
+  if (!pendingJobAttachment) {
+    el.innerHTML = '';
+    el.classList.add('hidden');
+    return;
+  }
+
+  const job = pendingJobAttachment;
+  el.innerHTML = `
+    <div class="attachment-preview">
+      <div class="attachment-label">📌 Sharing job</div>
+      <div class="attachment-title">${escapeHtml(job.title || 'Job')}</div>
+      <div class="attachment-sub">${escapeHtml([job.company, job.location].filter(Boolean).join(' · '))}</div>
+      <button class="attachment-remove" title="Remove attachment">✕</button>
+    </div>
+  `;
+  el.classList.remove('hidden');
+
+  el.querySelector('.attachment-remove')?.addEventListener('click', () => {
+    pendingJobAttachment = null;
+    el.innerHTML = '';
+    el.classList.add('hidden');
+  });
+}
+
+// ---- AI Personalize message ---------------------------------------------
+
+async function handlePersonalizeMessage() {
+  const input = document.getElementById('messageInput');
+  if (!input) return;
+
+  // Find the candidate info
+  const candidate = talentPoolList.find(c => c.candidateId === activeRecipientId || c.id === activeRecipientId);
+  if (!candidate) {
+    input.placeholder = 'Could not find candidate details for personalization.';
+    return;
+  }
+
+  const btn = document.getElementById('personalizeMessageButton');
+  if (btn) { btn.disabled = true; btn.textContent = '✨ Generating...'; }
+
+  try {
+    // Get recruiter's name from profile chip
+    const senderName = document.getElementById('profileName')?.textContent || 'Recruiter';
+
+    const body = {
+      recipientName: candidate.candidateName || 'Candidate',
+      recipientTitle: candidate.candidateTitle || candidate.currentTitle || '',
+      recipientCompany: candidate.currentCompany || '',
+      jobTitle: pendingJobAttachment?.title || '',
+      senderName,
+      context: input.value.trim() || undefined,
+      tone: 'professional',
+    };
+
+    const res = await apiFetch(messagesPersonalizeUrl, {
+      method: 'POST',
+      body: JSON.stringify(body),
+    });
+
+    if (!res.ok) throw new Error('Personalization failed');
+    const data = await res.json();
+    const result = data.data || data;
+
+    input.value = result.body || result.message || '';
+    input.focus();
+  } catch (err) {
+    console.error('[hired.video] personalize error:', err);
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '✨ Personalize'; }
+  }
+}
+
+// ---- Share Job with Candidate -------------------------------------------
+
+async function handleShareJob() {
+  if (!detectedPageJob) {
+    showExtractionError('No job detected on this page. Try clicking "Scan this page" first.');
+    return;
+  }
+
+  // Ensure candidates are loaded
+  if (talentPoolList.length === 0) {
+    try {
+      const res = await apiFetch(recruiterTalentPoolUrl);
+      if (res.ok) {
+        const data = await res.json();
+        talentPoolList = data.data || [];
+      }
+    } catch { /* ignore */ }
+  }
+
+  // Show job preview in picker
+  const preview = document.getElementById('shareJobPreview');
+  if (preview) {
+    preview.innerHTML = `
+      <div class="d-flex align-items-center gap-2">
+        <span class="extraction-icon">📌</span>
+        <div>
+          <div class="font-medium">${escapeHtml(detectedPageJob.title || 'Job')}</div>
+          <div class="text-sm text-muted">${escapeHtml([detectedPageJob.company, detectedPageJob.location].filter(Boolean).join(' · '))}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  renderCandidatePickerList();
+  showElement('candidatePickerPanel');
+}
+
+function renderCandidatePickerList(filter = '') {
+  const container = document.getElementById('candidatePickerList');
+  const empty = document.getElementById('candidatePickerEmpty');
+  if (!container) return;
+
+  let items = talentPoolList;
+  if (filter) {
+    const lc = filter.toLowerCase();
+    items = items.filter(c =>
+      (c.candidateName || '').toLowerCase().includes(lc) ||
+      (c.candidateTitle || '').toLowerCase().includes(lc) ||
+      (c.currentCompany || '').toLowerCase().includes(lc)
+    );
+  }
+
+  if (items.length === 0) {
+    container.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+
+  if (empty) empty.classList.add('hidden');
+
+  container.innerHTML = items.map(c => `
+    <div class="candidate-picker-item" data-candidate-id="${escapeHtml(c.candidateId || c.id)}" data-candidate-name="${escapeHtml(c.candidateName || '')}">
+      <div>
+        <div class="font-medium">${escapeHtml(c.candidateName || 'Unknown')}</div>
+        <div class="text-sm text-muted">${escapeHtml(c.candidateTitle || c.currentTitle || '')}</div>
+      </div>
+      <button class="btn btn-primary btn-xs">📤 Share</button>
+    </div>
+  `).join('');
+
+  // Wire click handlers
+  container.querySelectorAll('.candidate-picker-item').forEach(el => {
+    el.addEventListener('click', () => {
+      const candidateId = el.dataset.candidateId;
+      const candidateName = el.dataset.candidateName;
+      selectCandidateForShare(candidateId, candidateName);
+    });
+  });
+}
+
+function selectCandidateForShare(candidateId, candidateName) {
+  hideElement('candidatePickerPanel');
+
+  const jobAttachment = {
+    title: detectedPageJob?.title || '',
+    company: detectedPageJob?.company || '',
+    location: detectedPageJob?.location || '',
+    sourceUrl: detectedPageJob?.sourceUrl || detectedPageJob?.applyUrl || '',
+  };
+
+  openMessagePanel(candidateId, candidateName, jobAttachment);
 }

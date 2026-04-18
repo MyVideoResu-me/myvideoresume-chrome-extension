@@ -254,6 +254,45 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true; // async response
   }
 
+  // ---- Autofill form extraction/fill relay -------------------------
+  // Forward from sidepanel to active tab's content script, with
+  // on-demand injection fallback.
+  if (request.action === 'extractFormFields' || request.action === 'fillFormFields' || request.action === 'getFormHtml') {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (!tab || !tab.id || (tab.url && tab.url.startsWith('chrome://'))) {
+        sendResponse({ fields: [], error: 'No active tab' });
+        return;
+      }
+      chrome.tabs.sendMessage(tab.id, request, (response) => {
+        if (chrome.runtime.lastError || !response) {
+          // Content script not loaded — inject on demand
+          chrome.scripting.executeScript(
+            { target: { tabId: tab.id }, files: ['content-script-autofill.js'] },
+            () => {
+              if (chrome.runtime.lastError) {
+                sendResponse({ fields: [], error: 'Injection failed: ' + chrome.runtime.lastError.message });
+                return;
+              }
+              setTimeout(() => {
+                chrome.tabs.sendMessage(tab.id, request, (retryResponse) => {
+                  if (chrome.runtime.lastError || !retryResponse) {
+                    sendResponse({ fields: [], error: 'Content script not responding' });
+                  } else {
+                    sendResponse(retryResponse);
+                  }
+                });
+              }, 500);
+            }
+          );
+        } else {
+          sendResponse(response);
+        }
+      });
+    });
+    return true; // async response
+  }
+
   // ---- Page HTML retrieval -----------------------------------------
   if (request.action === 'getHTML') {
     chrome.tabs.query({ active: true, currentWindow: true }, async (tabs) => {

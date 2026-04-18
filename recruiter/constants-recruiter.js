@@ -24,6 +24,11 @@ if (typeof PATHS !== 'undefined') {
   PATHS.recruiterMatchScoreJobs = '/api/recruiter/match/score-jobs';
   PATHS.recruiterMatchScores = '/api/recruiter/match/scores';
   PATHS.companiesExtract = '/api/companies/extract';
+
+  // Messaging (direct conversations)
+  PATHS.messagesInbox = '/api/messages/inbox';
+  PATHS.messagesConversations = '/api/messages/conversations';
+  PATHS.messagesPersonalize = '/api/messages/personalize';
 }
 
 // ---- Computed URLs (populated after updateConfiguration runs) -----------
@@ -35,6 +40,9 @@ var recruiterMatchScoreCandidatesUrl;
 var recruiterMatchScoreJobsUrl;
 var recruiterMatchScoresUrl;
 var companiesExtractUrl;
+var messagesInboxUrl;
+var messagesConversationsUrl;
+var messagesPersonalizeUrl;
 
 // Patch updateConfiguration to also set recruiter URLs.
 // Only runs in sidepanel context where updateConfiguration exists.
@@ -49,6 +57,9 @@ if (typeof updateConfiguration === 'function') {
     recruiterMatchScoreJobsUrl = apiBase + PATHS.recruiterMatchScoreJobs;
     recruiterMatchScoresUrl = apiBase + PATHS.recruiterMatchScores;
     companiesExtractUrl = apiBase + PATHS.companiesExtract;
+    messagesInboxUrl = apiBase + PATHS.messagesInbox;
+    messagesConversationsUrl = apiBase + PATHS.messagesConversations;
+    messagesPersonalizeUrl = apiBase + PATHS.messagesPersonalize;
   };
 }
 
