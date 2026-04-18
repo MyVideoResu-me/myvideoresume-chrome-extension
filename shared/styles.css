@@ -912,6 +912,12 @@ button, .btn {
   box-shadow: 0 2px 8px rgba(124, 58, 237, 0.12);
 }
 
+/* Hide the Open button on the active row — the user is already on the
+   job's page (or its apply page), so re-opening it is redundant. */
+.tracked-job-row-active .tracked-job-actions [data-action="open"] {
+  display: none;
+}
+
 .tracked-job-title {
   font-size: 13px;
   font-weight: 600;
@@ -1749,6 +1755,97 @@ body.premium-unlocked .btn-upgrade-header {
   flex-direction: column;
   gap: 4px;
   flex-shrink: 0;
+}
+
+/* AI token pill inside profile card */
+.token-pill {
+  display: block;
+  margin-top: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--background-secondary);
+  text-decoration: none;
+  color: var(--foreground);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.token-pill:hover {
+  background: var(--border-light);
+}
+
+.token-pill.token-pill-warning {
+  background: var(--warning-light);
+  border-color: var(--warning);
+}
+
+.token-pill.token-pill-exhausted {
+  background: var(--error-light);
+  border-color: var(--error);
+}
+
+.token-pill.token-pill-unlimited {
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--warning-light) 100%);
+  border-color: var(--primary);
+}
+
+.token-pill-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+}
+
+.token-pill-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--primary);
+}
+
+.token-pill-warning .token-pill-label { color: var(--warning); }
+.token-pill-exhausted .token-pill-label { color: var(--error); }
+
+.token-pill-remaining {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground-secondary);
+}
+
+.token-pill-exhausted .token-pill-remaining {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.token-pill-bar {
+  height: 4px;
+  background: var(--border-light);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.token-pill-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--primary);
+  transition: width 0.3s ease, background 0.15s;
+}
+
+.token-pill-warning .token-pill-fill { background: var(--warning); }
+.token-pill-exhausted .token-pill-fill { background: var(--error); }
+
+.token-pill-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground-secondary);
 }
 
 .icon-btn {

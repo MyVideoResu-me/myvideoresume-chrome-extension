@@ -289,17 +289,39 @@ function normalizeUrlForMatch(raw) {
 }
 
 /**
- * Find a tracked job whose sourceUrl matches the given URL.
- * Returns the matched job object or null.
+ * Find a tracked job whose sourceUrl OR applyUrl matches the given URL.
+ * Returns { job, matchedBy: 'sourceUrl'|'applyUrl' } or null.
+ *
+ * Apply pages (e.g. a Workday form opened from a LinkedIn listing) have
+ * a different URL than the source job listing. Matching both ensures the
+ * same tracked job surfaces on either page instead of being treated as a
+ * new job when the user clicks "Apply".
  */
 function findMatchingTrackedJob(url) {
   if (!url || !trackedJobsList.length) return null;
   const norm = normalizeUrlForMatch(url);
   if (!norm) return null;
-  return trackedJobsList.find((j) => {
+
+  // First pass: sourceUrl (the listing). This is the canonical match.
+  const bySource = trackedJobsList.find((j) => {
     const jUrl = normalizeUrlForMatch(j.sourceUrl);
     return jUrl && jUrl === norm;
-  }) || null;
+  });
+  if (bySource) return { job: bySource, matchedBy: 'sourceUrl' };
+
+  // Second pass: applyUrl. Only match when applyUrl is genuinely different
+  // from sourceUrl — otherwise we'd re-match the same job and mis-flag the
+  // listing page as an application page.
+  const byApply = trackedJobsList.find((j) => {
+    if (!j.applyUrl) return false;
+    const aUrl = normalizeUrlForMatch(j.applyUrl);
+    const sUrl = normalizeUrlForMatch(j.sourceUrl);
+    if (!aUrl || aUrl === sUrl) return false;
+    return aUrl === norm;
+  });
+  if (byApply) return { job: byApply, matchedBy: 'applyUrl' };
+
+  return null;
 }
 
 /**
@@ -355,10 +377,12 @@ function handleJobDetected(payload) {
   }
   detectedPageJob = payload;
 
-  // Check if this job is already tracked — if so, wire up state and
-  // swap the banner to "Already tracked" mode so the user doesn't
-  // re-extract.
-  const matched = findMatchingTrackedJob(payload.sourceUrl);
+  // Check if this job is already tracked — matches against both sourceUrl
+  // and applyUrl so the application-form page reconciles back to the same
+  // tracked job instead of looking like a brand-new listing.
+  const match = findMatchingTrackedJob(payload.sourceUrl);
+  const matched = match?.job || null;
+  const onApplyPage = match?.matchedBy === 'applyUrl';
 
   document.getElementById('activePageTitle').textContent =
     matched?.title || payload.title;
@@ -369,14 +393,23 @@ function handleJobDetected(payload) {
 
   const eyebrow = document.querySelector('#activePageBanner .active-page-eyebrow');
 
+  hideAllBannerActions();
+
   if (matched) {
     trackedJob = buildTrackedJobObj(matched);
-    currentJobUrl = matched.sourceUrl;
-    if (eyebrow) eyebrow.textContent = '✅ Already tracked';
-    hideElement('quickTailorButton');
-    hideElement('quickTailorOnlyButton');
-    hideElement('quickTrackButton');
-    hideElement('quickScoreButton');
+    currentJobUrl = onApplyPage ? matched.applyUrl : matched.sourceUrl;
+    if (onApplyPage) {
+      if (eyebrow) eyebrow.textContent = '📝 Application page — tracked';
+      // On the apply page, offer to autofill the form.
+      showElement('quickAutofillButton');
+    } else {
+      if (eyebrow) eyebrow.textContent = '✅ Already tracked';
+      // On the listing page of a tracked job, offer to jump to Apply
+      // when we have a distinct applyUrl.
+      if (matched.applyUrl && normalizeUrlForMatch(matched.applyUrl) !== normalizeUrlForMatch(matched.sourceUrl)) {
+        showElement('quickApplyButton');
+      }
+    }
     hideElement('quickStatus');
   } else {
     if (eyebrow) eyebrow.textContent = '📌 Job detected on this page';
@@ -386,9 +419,6 @@ function handleJobDetected(payload) {
 
     if (resumeState === 'none') {
       // No resumes — hide tailor/score, show upload prompt
-      hideElement('quickTailorButton');
-      hideElement('quickTailorOnlyButton');
-      hideElement('quickScoreButton');
       showElement('quickTrackButton');
       showQuickStatus('Upload a resume in the Settings tab to enable Tailor & Score.', 'warning');
     } else {
@@ -414,6 +444,51 @@ function handleJobDetected(payload) {
       runScoreOnlyPipeline().catch((err) => console.warn('[hired.video] auto-score failed', err));
     }
   }
+}
+
+/**
+ * Reset every action button in the activePageBanner to hidden. Callers
+ * then showElement() exactly the buttons that apply to the current state
+ * (listing / tracked / apply-page). Cheaper to centralise than to list
+ * five hideElement() calls at every branch.
+ */
+function hideAllBannerActions() {
+  hideElement('quickTailorButton');
+  hideElement('quickTailorOnlyButton');
+  hideElement('quickTrackButton');
+  hideElement('quickScoreButton');
+  hideElement('quickApplyButton');
+  hideElement('quickAutofillButton');
+}
+
+/**
+ * Render the activePageBanner in "application page" mode for the given
+ * tracked job. Factored out so the URL-change listener can call it even
+ * when no payload exists.
+ */
+function showApplyPageBanner(job) {
+  detectedPageJob = {
+    title: job.title,
+    company: job.company,
+    location: job.location,
+    sourceUrl: job.applyUrl || job.sourceUrl,
+    applyUrl: job.applyUrl || job.sourceUrl,
+  };
+  trackedJob = buildTrackedJobObj(job);
+  currentJobUrl = job.applyUrl || job.sourceUrl;
+
+  document.getElementById('activePageTitle').textContent = job.title || 'Application';
+  const meta = [job.company, job.location].filter(Boolean).join(' • ');
+  document.getElementById('activePageMeta').textContent = meta;
+  const eyebrow = document.querySelector('#activePageBanner .active-page-eyebrow');
+  if (eyebrow) eyebrow.textContent = '📝 Application page — tracked';
+
+  hideAllBannerActions();
+  showElement('quickAutofillButton');
+  hideElement('quickStatus');
+  hideElement('noJobBanner');
+  showElement('activePageBanner');
+  highlightActiveTrackedJob(job);
 }
 
 /**
@@ -465,7 +540,7 @@ async function handleManualScan() {
   handleJobDetected(payload);
 
   // Only show the "click Tailor & Save" hint for new/untracked jobs
-  if (!findMatchingTrackedJob(payload.sourceUrl)) {
+  if (!findMatchingTrackedJob(payload.sourceUrl)?.job) {
     showQuickStatus('Page scanned — click Tailor & Save to continue.', 'info');
   }
 }
@@ -570,7 +645,20 @@ function requestActiveTabDetection(opts) {
     if (chrome.runtime.lastError) return;
     if (response?.payload) {
       handleJobDetected(response.payload);
+      return;
     }
+    // No JobPosting on the page. Before giving up, check the tab URL
+    // against tracked jobs' applyUrls — this is how we surface the
+    // autofill banner on Workday/Greenhouse apply forms that don't
+    // emit JSON-LD.
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const url = tabs[0]?.url;
+      if (!url) return;
+      const match = findMatchingTrackedJob(url);
+      if (match?.matchedBy === 'applyUrl') {
+        showApplyPageBanner(match.job);
+      }
+    });
   });
 }
 
@@ -702,6 +790,266 @@ function renderBannerScoreResult(score, recommendations, jobId) {
       rowTailorJob(jobId);
     });
   }
+}
+
+// =====================================================================
+// Apply-to-job + autofill
+// =====================================================================
+
+/**
+ * Open the tracked job's applyUrl in the CURRENT tab. Navigating in
+ * place (instead of chrome.tabs.create) keeps the user in the same
+ * browsing context so the sidepanel can reconcile the new URL against
+ * the tracked job and swap to Autofill mode automatically.
+ */
+function handleApplyToTrackedJob() {
+  const target = trackedJob?.applyUrl
+    || detectedPageJob?.applyUrl
+    || trackedJob?.sourceUrl;
+  if (!target) {
+    showQuickStatus('No apply URL on this job.', 'warning');
+    return;
+  }
+  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const tab = tabs[0];
+    if (tab?.id !== undefined) {
+      chrome.tabs.update(tab.id, { url: target });
+    } else {
+      chrome.tabs.create({ url: target });
+    }
+  });
+}
+
+/**
+ * Autofill the application form on the current tab using the active
+ * resume's JSON Resume `basics` block. Three-step flow:
+ *   1. Ask the autofill content script to extract visible form fields.
+ *   2. Pull the resume's basics (name/email/phone/location/links).
+ *   3. Heuristically match label / name / placeholder text to a resume
+ *      attribute and send a `fillFormFields` message with the mapping.
+ *
+ * Heuristic-only (no AI backend call) so this ships without a new API.
+ * The content script already normalises label resolution across ATSes.
+ */
+async function handleAutofillApplication() {
+  const ok = await requireAuth();
+  if (!ok) return;
+  if (!selectedResume) {
+    showQuickStatus('Upload or select a resume first.', 'warning');
+    switchTab('settings');
+    showResumeSelection();
+    return;
+  }
+
+  showQuickStatus('Reading application form…', 'info');
+  hideElement('autofillDetail');
+
+  // 1. Extract form fields
+  const extracted = await new Promise((resolve) => {
+    chrome.runtime.sendMessage({ action: 'extractFormFields' }, (response) => {
+      resolve(response || null);
+    });
+  });
+  const fields = extracted?.fields || [];
+  if (!fields.length) {
+    showQuickStatus('No fillable form found on this page.', 'warning');
+    return;
+  }
+
+  // 2. Load resume basics + user profile
+  const profile = await loadAutofillProfile(selectedResume.id);
+  if (!profile) {
+    showQuickStatus('Could not read your resume contact details.', 'error');
+    return;
+  }
+
+  // 3. Build answers map by matching field labels to profile keys
+  const answers = {};
+  let matched = 0;
+  for (const field of fields) {
+    const value = pickAutofillValue(field, profile);
+    if (value == null || value === '') continue;
+    // fillFormFields picks selectors in priority: name → id → automationId → CSS.
+    // Prefer the field's id since it's unique across our three extractors.
+    answers[field.id] = value;
+    matched += 1;
+  }
+
+  if (!matched) {
+    showQuickStatus('No fields matched your resume basics.', 'warning');
+    return;
+  }
+
+  // 4. Fill and report
+  showQuickStatus(`Filling ${matched} field${matched === 1 ? '' : 's'}…`, 'info');
+  const filledResp = await new Promise((resolve) => {
+    chrome.runtime.sendMessage({ action: 'fillFormFields', answers }, (response) => {
+      resolve(response || { results: {} });
+    });
+  });
+  const results = filledResp.results || {};
+  const okCount = Object.values(results).filter((r) => r === 'filled').length;
+  const skipCount = Object.values(results).filter((r) => r === 'skipped').length;
+  const ats = extracted.atsProvider || 'generic';
+  showQuickStatus(
+    `✅ Autofilled ${okCount} of ${fields.length} fields on ${ats}. Review and finish the rest before submitting.`,
+    'success',
+  );
+}
+
+/**
+ * Fetch the selected resume + user profile and return a flat map of
+ * autofill-friendly attributes. Falls back gracefully when either
+ * request fails — we always include at least the authed user's email
+ * and name from /api/auth/me.
+ */
+async function loadAutofillProfile(resumeId) {
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) return null;
+
+  const profile = {};
+
+  // User profile via /api/auth/me — always available when signed in
+  try {
+    const meResp = await fetch(meUrl, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    });
+    if (meResp.ok) {
+      const user = unwrapResponse(await meResp.json()) || {};
+      if (user.name) {
+        profile.fullName = user.name;
+        const [first, ...rest] = user.name.split(/\s+/);
+        profile.firstName = first || '';
+        profile.lastName = rest.join(' ') || '';
+      }
+      if (user.email) profile.email = user.email;
+    }
+  } catch (err) { /* non-fatal */ }
+
+  // Resume basics via /api/resumes/{id}
+  try {
+    const resp = await fetch(`${resumeBase}/${resumeId}`, {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    });
+    if (resp.ok) {
+      const resume = unwrapResponse(await resp.json()) || {};
+      const basics = extractResumeBasics(resume);
+      Object.assign(profile, basics);
+    }
+  } catch (err) { /* non-fatal */ }
+
+  return Object.keys(profile).length ? profile : null;
+}
+
+/**
+ * Pull JSON Resume `basics` out of the various shapes the backend
+ * returns. Some endpoints wrap content as { resumeData: {...} }, others
+ * store a markdown string, and master resumes have it on `content`.
+ */
+function extractResumeBasics(resume) {
+  if (!resume) return {};
+  const candidates = [resume.resumeData, resume.content, resume.data, resume];
+  let basics = null;
+  for (const c of candidates) {
+    if (c && typeof c === 'object' && c.basics) { basics = c.basics; break; }
+    if (typeof c === 'string') {
+      try {
+        const parsed = JSON.parse(c);
+        if (parsed && parsed.basics) { basics = parsed.basics; break; }
+      } catch (e) { /* not JSON */ }
+    }
+  }
+  if (!basics) return {};
+
+  const out = {};
+  if (basics.name) {
+    out.fullName = basics.name;
+    const [first, ...rest] = basics.name.split(/\s+/);
+    out.firstName = first || '';
+    out.lastName = rest.join(' ') || '';
+  }
+  if (basics.email) out.email = basics.email;
+  if (basics.phone) out.phone = basics.phone;
+  if (basics.url) out.website = basics.url;
+  if (basics.label) out.headline = basics.label;
+  if (basics.summary) out.summary = basics.summary;
+
+  const loc = basics.location;
+  if (loc) {
+    if (loc.city) out.city = loc.city;
+    if (loc.region) out.state = loc.region;
+    if (loc.postalCode) out.postalCode = loc.postalCode;
+    if (loc.countryCode) out.country = loc.countryCode;
+    if (loc.address) out.address = loc.address;
+  }
+
+  // Linked social profiles (LinkedIn, GitHub, personal site)
+  if (Array.isArray(basics.profiles)) {
+    for (const p of basics.profiles) {
+      const network = (p.network || '').toLowerCase();
+      const url = p.url || '';
+      if (!url) continue;
+      if (network.includes('linkedin')) out.linkedin = url;
+      else if (network.includes('github')) out.github = url;
+      else if (network.includes('twitter') || network.includes('x.com')) out.twitter = url;
+      else if (network.includes('portfolio') || network.includes('website')) out.website ||= url;
+    }
+  }
+  return out;
+}
+
+/**
+ * Pattern→key routing table for form-field autofill. Each entry maps a
+ * case-insensitive substring of the field's label/name/placeholder to
+ * the corresponding profile key. Earlier entries win, so list specific
+ * ones (first name) before generic ones (name).
+ *
+ * Kept as data so the matching function stays linear and easy to audit.
+ */
+const AUTOFILL_PATTERNS = [
+  { key: 'firstName', matches: ['first name', 'firstname', 'given name', 'first_name'] },
+  { key: 'lastName',  matches: ['last name', 'lastname', 'family name', 'surname', 'last_name'] },
+  { key: 'fullName',  matches: ['full name', 'your name', 'legal name', 'name (as'] },
+  { key: 'email',     matches: ['email', 'e-mail'] },
+  { key: 'phone',     matches: ['phone', 'mobile', 'telephone', 'cell'] },
+  { key: 'linkedin',  matches: ['linkedin'] },
+  { key: 'github',    matches: ['github'] },
+  { key: 'website',   matches: ['portfolio', 'website', 'personal site', 'personal url'] },
+  { key: 'city',      matches: ['city', 'town'] },
+  { key: 'state',     matches: ['state', 'province', 'region'] },
+  { key: 'postalCode',matches: ['postal code', 'postcode', 'zip'] },
+  { key: 'country',   matches: ['country'] },
+  { key: 'address',   matches: ['street address', 'address line', 'mailing address'] },
+  // Generic 'name' last — otherwise it'd eat "first name" matches above.
+  { key: 'fullName',  matches: ['name'] },
+];
+
+/**
+ * Decide what to fill into a given form field. Returns the string value
+ * or null when no pattern matches. Matching stages:
+ *   1. Concatenate label + name + placeholder into a haystack.
+ *   2. Walk AUTOFILL_PATTERNS in order; first hit wins.
+ *   3. Honour select/radio types by passing the resolved value through
+ *      — the content script's setFieldValue handles fuzzy matching.
+ */
+function pickAutofillValue(field, profile) {
+  const haystack = [
+    field.label || '',
+    field.name || '',
+    field.id || '',
+    field.placeholder || '',
+  ].join(' ').toLowerCase();
+  if (!haystack.trim()) return null;
+
+  for (const pat of AUTOFILL_PATTERNS) {
+    if (pat.matches.some((m) => haystack.includes(m))) {
+      const v = profile[pat.key];
+      if (v) return v;
+    }
+  }
+  return null;
 }
 
 // =====================================================================
@@ -946,7 +1294,7 @@ async function loadTrackedJobsTable() {
     // "Already tracked" instead of the default detection banner.
     if (detectedPageJob?.sourceUrl) {
       const matched = findMatchingTrackedJob(detectedPageJob.sourceUrl);
-      if (matched) handleJobDetected(detectedPageJob);
+      if (matched?.job) handleJobDetected(detectedPageJob);
     } else {
       // First-open: the panel just opened on an already-loaded page.
       // Re-run detection now that trackedJobsList is populated so the
@@ -1018,6 +1366,17 @@ function renderTrackedJobsTable() {
           </div>
         </div>` : '';
 
+    // Apply button — shown when we have a distinct apply URL (the link
+    // a user clicks from the job listing to reach the actual application
+    // form). Falls back silently when applyUrl is missing or matches the
+    // source listing page.
+    const sourceNorm = normalizeUrlForMatch(job.sourceUrl);
+    const applyNorm = normalizeUrlForMatch(job.applyUrl);
+    const hasDistinctApply = applyNorm && applyNorm !== sourceNorm;
+    const applyButton = hasDistinctApply
+      ? `<button class="btn btn-primary" data-action="apply" data-job-id="${id}" title="Open the application page in this tab">↗ Apply</button>`
+      : '';
+
     return `
       <div class="tracked-job-row" data-job-id="${id}">
         <div class="tracked-job-row-header">
@@ -1033,6 +1392,7 @@ function renderTrackedJobsTable() {
         <div class="tracked-job-actions">
           ${scoreButton}
           ${tailorButton}
+          ${applyButton}
           <button class="btn btn-outline" data-action="open" data-job-id="${id}">↗ Open</button>
         </div>
         ${resumeRow}
@@ -1050,7 +1410,7 @@ function renderTrackedJobsTable() {
   // Re-apply the active-row highlight for the current page's URL
   if (detectedPageJob?.sourceUrl) {
     const matched = findMatchingTrackedJob(detectedPageJob.sourceUrl);
-    highlightActiveTrackedJob(matched);
+    highlightActiveTrackedJob(matched?.job || null);
   }
 }
 
@@ -1119,6 +1479,23 @@ async function onTrackedJobAction(event) {
       const openJob = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
       const openUrl = openJob?.sourceUrl || buildWebUrl(`/jobs/${jobId}`);
       chrome.tabs.create({ url: openUrl });
+      return;
+    }
+    case 'apply': {
+      // Navigate the current tab to the apply URL so the user stays in
+      // the same browsing context. findMatchingTrackedJob will reconcile
+      // the new URL back to this tracked job, and the sidepanel swaps to
+      // Autofill mode without treating the apply page as a new job.
+      const applyJob = trackedJobsList.find((j) => (j.id || j.Id) === jobId);
+      if (!applyJob?.applyUrl) return;
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tab = tabs[0];
+        if (tab?.id !== undefined) {
+          chrome.tabs.update(tab.id, { url: applyJob.applyUrl });
+        } else {
+          chrome.tabs.create({ url: applyJob.applyUrl });
+        }
+      });
       return;
     }
   }
@@ -1407,6 +1784,14 @@ function setupUrlChangeListener() {
     if (message.action === 'urlChanged') {
       consoleAlerts('URL changed to: ' + message.url);
       resetPageState();
+      // Check immediately whether the new URL matches a tracked job's
+      // applyUrl. Application pages (Workday, Greenhouse forms) rarely
+      // carry a JobPosting schema, so the content script's detectJob
+      // won't fire — but we already know what job this is.
+      const applyMatch = findMatchingTrackedJob(message.url);
+      if (applyMatch?.matchedBy === 'applyUrl') {
+        showApplyPageBanner(applyMatch.job);
+      }
     }
     if (message.action === 'tabActivated') {
       resetPageState();
@@ -1663,6 +2048,8 @@ function setupEventListeners() {
   bind('quickTailorOnlyButton', gate(() => runTailorAndSavePipeline({ track: false })));
   bind('quickTrackButton', gate(handleTrackJob));
   bind('quickScoreButton', gate(handleBannerScore));
+  bind('quickApplyButton', gate(handleApplyToTrackedJob));
+  bind('quickAutofillButton', gate(handleAutofillApplication));
   bind('manualScanButton', gate(handleManualScan));
   bind('rescanButton', gate(handleManualScan));
   bind('refreshJobsButton', gate(loadTrackedJobsTable));

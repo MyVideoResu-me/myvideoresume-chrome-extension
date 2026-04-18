@@ -44,6 +44,20 @@
         </button>
       </div>
     </div>
+    <a id="tokenPill" class="token-pill hidden" href="#" title="AI token budget">
+      <div class="token-pill-top">
+        <span class="token-pill-label">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+          AI tokens
+        </span>
+        <span id="tokenPillRemaining" class="token-pill-remaining">—</span>
+      </div>
+      <div class="token-pill-bar"><div id="tokenPillFill" class="token-pill-fill"></div></div>
+      <div class="token-pill-bottom">
+        <span id="tokenPillUsage">—</span>
+        <span id="tokenPillReset"></span>
+      </div>
+    </a>
   </div>
 
   <!-- Tab strip -->
@@ -79,8 +93,11 @@
         <button id="quickTailorOnlyButton" class="btn btn-outline btn-compact">✨ Tailor Only</button>
         <button id="quickTrackButton" class="btn btn-outline btn-compact">📌 Track only</button>
         <button id="quickScoreButton" class="btn btn-outline btn-compact">🎯 Score</button>
+        <button id="quickApplyButton" class="btn btn-primary btn-compact hidden">↗ Apply to Job</button>
+        <button id="quickAutofillButton" class="btn btn-primary btn-compact hidden">✨ Autofill Application</button>
       </div>
       <div id="quickStatus" class="alert hidden mt-2"></div>
+      <div id="autofillDetail" class="hidden mt-2"></div>
       <div id="bannerScoreDetail" class="hidden mt-2"></div>
     </div>
 
