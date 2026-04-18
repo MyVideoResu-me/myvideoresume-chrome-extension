@@ -795,6 +795,17 @@ button, .btn {
   background: var(--success-light);
 }
 
+/* Track button in the banner header shares vertical metrics with the
+   adjacent 28px rescan icon-btn so the two sit flush on the baseline. */
+.active-page-banner #quickTrackButton.btn-compact {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
 .active-page-eyebrow {
   font-size: 11px;
   font-weight: 700;
@@ -872,12 +883,19 @@ button, .btn {
 }
 
 .profile-resume-name {
+  display: block;
   font-size: 13px;
   font-weight: 600;
   color: var(--foreground);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  text-decoration: none;
+}
+
+a.profile-resume-name:hover {
+  color: var(--primary);
+  text-decoration: underline;
 }
 
 /* ==========================================================
@@ -914,9 +932,9 @@ button, .btn {
 
 /* Active row — the tracked job that matches the current page URL */
 .tracked-job-row-active {
-  border-color: var(--primary);
-  background: var(--primary-light);
-  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.12);
+  border-left: 4px solid var(--success);
+  background: var(--success-light);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.15);
 }
 
 /* Hide the Open button on the active row — the user is already on the
@@ -1181,6 +1199,38 @@ a.tracked-job-title:hover .tracked-job-title-icon {
   color: var(--foreground-secondary);
 }
 
+/* Chevron toggle on the tailored-resume row — rotates based on whether
+   the score/tailor summary panel below is expanded. */
+.tailor-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--foreground-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tailor-toggle:hover {
+  background: var(--border-light);
+  color: var(--primary);
+}
+
+.tailor-toggle-chevron {
+  transition: transform 0.2s ease;
+}
+
+.tailor-toggle[aria-expanded="true"] .tailor-toggle-chevron {
+  transform: rotate(90deg);
+}
+
 .resume-row-info {
   display: flex;
   align-items: center;
@@ -1219,6 +1269,16 @@ a.tracked-job-title:hover .tracked-job-title-icon {
 .row-delete.icon-btn:hover {
   color: var(--error);
   background: var(--error-light);
+}
+
+/* Rescan icon is only meaningful on the row that matches the user's
+   current page — hide it everywhere else so other rows stay clean. */
+.row-rescan.icon-btn {
+  display: none;
+}
+
+.tracked-job-row-active .row-rescan.icon-btn {
+  display: inline-flex;
 }
 
 /* Why-this-score inline panel inside the quickStatus alert */

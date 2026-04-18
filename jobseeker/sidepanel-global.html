@@ -63,13 +63,15 @@
     <div class="profile-resume-row">
       <div class="profile-resume-info">
         <div class="profile-resume-label">Active resume</div>
-        <div id="resumeStripName" class="profile-resume-name">—</div>
+        <a id="resumeStripName" class="profile-resume-name" href="#" target="_blank" rel="noopener noreferrer" title="Open resume in new tab">—</a>
       </div>
       <div class="d-flex align-items-center gap-2">
         <button id="openResumeButton" class="icon-btn" title="View resume">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </button>
-        <button id="changeResumeButton" class="btn btn-outline btn-compact">Change</button>
+        <button id="changeResumeButton" class="icon-btn" title="Change active resume">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="16 3 21 8 8 21 3 21 3 16 16 3"/></svg>
+        </button>
       </div>
     </div>
   </div>
@@ -99,17 +101,16 @@
     <div id="activePageBanner" class="card active-page-banner hidden">
       <div class="d-flex align-items-center justify-between">
         <div class="active-page-eyebrow">📌 Job detected on this page</div>
-        <button id="rescanButton" class="icon-btn" title="Re-scan this page">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-        </button>
+        <div class="d-flex align-items-center gap-2">
+          <button id="quickTrackButton" class="btn btn-primary btn-compact" title="Extract and save this job to your tracker">📌 Track</button>
+          <button id="rescanButton" class="icon-btn" title="Re-scan this page">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          </button>
+        </div>
       </div>
       <div id="activePageTitle" class="active-page-title">—</div>
       <div id="activePageMeta" class="active-page-meta"></div>
       <div class="banner-actions-grid mt-2">
-        <button id="quickTailorButton" class="btn btn-primary btn-compact">✨ Tailor & Save</button>
-        <button id="quickTailorOnlyButton" class="btn btn-outline btn-compact">✨ Tailor Only</button>
-        <button id="quickTrackButton" class="btn btn-outline btn-compact">📌 Track only</button>
-        <button id="quickScoreButton" class="btn btn-outline btn-compact">🎯 Score</button>
         <button id="quickApplyButton" class="btn btn-primary btn-compact hidden">↗ Apply to Job</button>
         <button id="quickAutofillButton" class="btn btn-primary btn-compact hidden">✨ Autofill Application</button>
       </div>

@@ -53,6 +53,11 @@ const ICON = {
   document: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>',
   download: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
   externalLink: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>',
+  refresh: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>',
+  // Re-run an AI action (rotate-ccw, Feather). Distinct from `refresh`
+  // (two arrows, used for reloading data lists) so the tailored-resume
+  // row's "re-tailor" button reads as a different affordance.
+  retailor: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>',
   trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
 };
 
@@ -575,6 +580,12 @@ function handleJobDetected(payload) {
 
   hideAllBannerActions();
 
+  // "Already tracked" banner on the listing page is redundant — the
+  // matched row already highlights green in the Tracked Jobs list below.
+  // Hide the whole banner in that case; still show it for the apply-page
+  // flow (autofill CTA) and for untracked jobs (Track CTA).
+  const hideBannerBecauseTracked = matched && !onApplyPage;
+
   if (matched) {
     trackedJob = buildTrackedJobObj(matched);
     currentJobUrl = onApplyPage ? matched.applyUrl : matched.sourceUrl;
@@ -582,37 +593,30 @@ function handleJobDetected(payload) {
       if (eyebrow) eyebrow.textContent = '📝 Application page — tracked';
       // On the apply page, offer to autofill the form.
       showElement('quickAutofillButton');
-    } else {
-      if (eyebrow) eyebrow.textContent = '✅ Already tracked';
-      // On the listing page of a tracked job, offer to jump to Apply
-      // when we have a distinct applyUrl.
-      if (matched.applyUrl && normalizeUrlForMatch(matched.applyUrl) !== normalizeUrlForMatch(matched.sourceUrl)) {
-        showElement('quickApplyButton');
-      }
+      hideElement('quickStatus');
     }
-    hideElement('quickStatus');
+    // For matched && !onApplyPage we fall through: banner is hidden
+    // entirely below, so there's nothing to populate.
   } else {
     if (eyebrow) eyebrow.textContent = '📌 Job detected on this page';
 
-    // Check resume state before showing Tailor/Score buttons
+    // Track is the only primary action on the banner now — Tailor / Score
+    // are reached from the tracked-jobs list below once the job is saved.
+    showElement('quickTrackButton');
     const resumeState = ensureActiveResume();
-
     if (resumeState === 'none') {
-      // No resumes — hide tailor/score, show upload prompt
-      showElement('quickTrackButton');
-      showQuickStatus('Upload a resume in the Settings tab to enable Tailor & Score.', 'warning');
+      showQuickStatus('Upload a resume on the Resume tab to enable tailoring.', 'warning');
     } else {
-      // Resume is active (either already was or just auto-activated)
-      showElement('quickTailorButton');
-      showElement('quickTailorOnlyButton');
-      showElement('quickTrackButton');
-      showElement('quickScoreButton');
       hideElement('quickStatus');
     }
   }
 
   hideElement('noJobBanner');
-  showElement('activePageBanner');
+  if (hideBannerBecauseTracked) {
+    hideElement('activePageBanner');
+  } else {
+    showElement('activePageBanner');
+  }
   highlightActiveTrackedJob(matched);
 
   if (!matched && selectedResume) {
@@ -633,10 +637,7 @@ function handleJobDetected(payload) {
  * five hideElement() calls at every branch.
  */
 function hideAllBannerActions() {
-  hideElement('quickTailorButton');
-  hideElement('quickTailorOnlyButton');
   hideElement('quickTrackButton');
-  hideElement('quickScoreButton');
   hideElement('quickApplyButton');
   hideElement('quickAutofillButton');
 }
@@ -1748,6 +1749,9 @@ function renderTrackedJobsTable() {
       : resumeDisplayName || 'Tailored resume';
     const resumeRow = cachedTailor ? `
         <div class="tracked-job-resume-row">
+          <button class="tailor-toggle" data-action="toggle-tailor-summary" data-job-id="${id}" aria-expanded="false" title="Show tailoring summary">
+            <svg class="tailor-toggle-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+          </button>
           <div class="resume-row-info">
             ${ICON.document}
             <span class="resume-row-name" title="${escapeHtml(resumeFullTip)}">${resumeDisplayName || 'Tailored resume'}${masterDisplayName ? `<span class="resume-row-source"> from ${masterDisplayName}</span>` : ''}</span>
@@ -1755,6 +1759,7 @@ function renderTrackedJobsTable() {
           <div class="resume-row-actions">
             <button class="icon-btn" data-action="download-tailored" data-job-id="${id}" title="Download resume">${ICON.download}</button>
             <button class="icon-btn" data-action="view-tailored" data-job-id="${id}" title="View resume">${ICON.externalLink}</button>
+            <button class="icon-btn" data-action="tailor" data-job-id="${id}" title="Re-tailor this resume">${ICON.retailor}</button>
           </div>
         </div>` : '';
 
@@ -1783,6 +1788,7 @@ function renderTrackedJobsTable() {
           </div>
           <div class="tracked-job-row-trailing">
             ${statusPill}
+            <button class="row-rescan icon-btn" data-action="rescan" data-job-id="${id}" title="Re-scan this page">${ICON.refresh}</button>
             <button class="row-delete icon-btn" data-action="delete" data-job-id="${id}" title="Remove from your tracker">${ICON.trash}</button>
           </div>
         </div>
@@ -1853,8 +1859,16 @@ async function onTrackedJobAction(event) {
   switch (action) {
     case 'score':
       return rowScoreJob(jobId);
+    case 'rescan':
+      return handleRefreshJob(jobId);
     case 'toggle-score':
-      return toggleInlineScore(jobId);
+      toggleInlineScore(jobId);
+      syncTailorToggleState(jobId);
+      return;
+    case 'toggle-tailor-summary':
+      toggleInlineScore(jobId);
+      syncTailorToggleState(jobId);
+      return;
     case 'edit-status':
       return showStatusDropdown(jobId);
     case 'tailor':
@@ -1892,6 +1906,34 @@ async function onTrackedJobAction(event) {
 }
 
 /**
+ * Keep the chevron on a row's tailor-summary toggle in sync with whether
+ * its score-detail panel is currently open. Called after every toggle so
+ * the chevron rotates from > (collapsed) to v (expanded).
+ */
+function syncTailorToggleState(jobId) {
+  const panel = document.getElementById('scoreDetail-' + jobId);
+  const row = document.querySelector(`.tracked-job-row[data-job-id="${jobId}"]`);
+  if (!row) return;
+  const expanded = panel && !panel.classList.contains('hidden');
+  row.querySelectorAll('.tailor-toggle').forEach((btn) => {
+    btn.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    btn.title = expanded ? 'Hide tailoring summary' : 'Show tailoring summary';
+  });
+  // Collapsing this row means any OTHER row's chevron should also revert —
+  // toggleInlineScore closes all other score panels, so sync them too.
+  document.querySelectorAll('.tracked-job-row').forEach((r) => {
+    const otherId = r.dataset.jobId;
+    if (otherId === jobId) return;
+    const otherPanel = document.getElementById('scoreDetail-' + otherId);
+    if (!otherPanel) return;
+    const otherExpanded = !otherPanel.classList.contains('hidden');
+    r.querySelectorAll('.tailor-toggle').forEach((btn) => {
+      btn.setAttribute('aria-expanded', otherExpanded ? 'true' : 'false');
+    });
+  });
+}
+
+/**
  * Toggle inline score recommendations within a tracked job card.
  * Clicking the score pill expands/collapses the detail panel below
  * the action buttons inside that specific job row.
@@ -1919,49 +1961,26 @@ function toggleInlineScore(jobId) {
     ? converter.makeHtml(cached.recommendations)
     : '<em>No recommendations available.</em>';
 
-  // Show "Tailor to Fix Gaps" if not yet tailored, or the tailored
-  // resume row if a variation exists.
-  const cachedTailorDetail = jobTailorings[jobId];
-  const resumeNameDetail = escapeHtml(cachedTailorDetail?.variationName || '');
-  const actionHtml = cachedTailorDetail
-    ? `<div class="tracked-job-resume-row mt-2">
-        <div class="resume-row-info">
-          ${ICON.document}
-          <span class="resume-row-name" title="${resumeNameDetail}">${resumeNameDetail || 'Tailored resume'}</span>
-        </div>
-        <div class="resume-row-actions">
-          <button class="icon-btn" data-action="download-tailored" data-job-id="${jobId}" title="Download resume">${ICON.download}</button>
-          <button class="icon-btn" data-action="view-tailored" data-job-id="${jobId}" title="View resume">${ICON.externalLink}</button>
-        </div>
-      </div>`
-    : `<button class="btn btn-primary btn-compact" data-action="tailor" data-job-id="${jobId}">✨ Tailor to Fix Gaps</button>`;
-
   const scoredWithName = escapeHtml(cached.resumeName || '');
   const scoredWithLabel = scoredWithName
     ? `<div class="score-detail-resume-label">Scored with: <strong>${scoredWithName}</strong></div>`
     : '';
 
+  // Info-only panel: no action buttons. The tailored-resume row with
+  // download/view icons lives directly above this panel in the main job
+  // row, and Tailor / Re-score are reachable from the #1/#2 action buttons
+  // — duplicating them here created clutter.
   panel.innerHTML = `
     <div class="score-detail-content">
       ${scoredWithLabel}
       <div class="score-detail-recommendations">${recHtml}</div>
-      <div class="score-detail-actions">
-        ${actionHtml}
-        <button class="btn btn-outline btn-compact" data-action="rescore" data-job-id="${jobId}">🔄 Re-score</button>
-      </div>
     </div>
   `;
   panel.classList.remove('hidden');
 
-  // Wire buttons inside the detail panel
-  panel.querySelector('[data-action="tailor"]')?.addEventListener('click', () => {
-    panel.classList.add('hidden');
-    rowTailorJob(jobId);
-  });
-  panel.querySelector('[data-action="rescore"]')?.addEventListener('click', () => {
-    panel.classList.add('hidden');
-    rowScoreJob(jobId);
-  });
+  // Re-wire any data-action buttons that may appear inside the rendered
+  // recommendations markdown (none in practice today, but keeps the
+  // handler contract consistent).
   panel.querySelectorAll('[data-action="download-tailored"], [data-action="view-tailored"]').forEach((btn) => {
     btn.addEventListener('click', onTrackedJobAction);
   });
@@ -2320,7 +2339,10 @@ function showSignedOutState() {
   setPremium(false);
 
   const stripName = document.getElementById('resumeStripName');
-  if (stripName) stripName.textContent = '—';
+  if (stripName) {
+    stripName.textContent = '—';
+    stripName.setAttribute('href', '#');
+  }
 
   const badge = document.getElementById('trackedJobsCountBadge');
   if (badge) badge.textContent = '—';
@@ -2438,11 +2460,8 @@ function setupEventListeners() {
     btn.onclick = () => switchTab(btn.dataset.tab);
   });
 
-  // ---- Now tab: active page banner & no-job state ----
-  bind('quickTailorButton', gate(() => runTailorAndSavePipeline({ track: true })));
-  bind('quickTailorOnlyButton', gate(() => runTailorAndSavePipeline({ track: false })));
+  // ---- Jobs tab: active page banner & no-job state ----
   bind('quickTrackButton', gate(handleTrackJob));
-  bind('quickScoreButton', gate(handleBannerScore));
   bind('quickApplyButton', gate(handleApplyToTrackedJob));
   bind('quickAutofillButton', gate(handleAutofillApplication));
   bind('manualScanButton', gate(handleManualScan));
@@ -2512,8 +2531,8 @@ function setupEventListeners() {
     console.log('[hired.video] refreshResumesButton clicked');
     return loadMasterResumeGroups();
   }));
-  bind('openResumeButton', () => {
-    console.log('[hired.video] openResumeButton clicked, selectedResume:', selectedResume?.id);
+  const openActiveResume = (e) => {
+    if (e) e.preventDefault();
     if (selectedResume?.id) {
       chrome.tabs.create({ url: buildWebUrl('/resumes/' + selectedResume.id) });
     } else {
@@ -2521,7 +2540,12 @@ function setupEventListeners() {
       switchTab('resume');
       showResumeSelection();
     }
-  });
+  };
+  bind('openResumeButton', openActiveResume);
+  // Resume name in the profile card is a hyperlink — route its click
+  // through chrome.tabs.create() so it opens in a real browser tab
+  // instead of trying to replace the side panel.
+  bind('resumeStripName', openActiveResume);
   bind('changeResumeButton', () => {
     console.log('[hired.video] changeResumeButton clicked');
     switchTab('resume');
@@ -2927,11 +2951,14 @@ function selectResume(resume) {
   const displayName = resume.name || resume.title || 'Untitled Resume';
   document.getElementById('selectedResumeName').textContent = displayName;
 
-  // Mirror the selection into the compact "Now" tab strip.
+  // Mirror the selection into the compact strip inside the profile card.
+  // The name is now a hyperlink that opens the resume on hired.video in a
+  // new tab — same target as the adjacent View icon.
   const strip = document.getElementById('resumeStripName');
   if (strip) {
     const badgeText = resume.isMaster ? ' (Master)' : '';
     strip.textContent = displayName + badgeText;
+    if (resume.id) strip.href = buildWebUrl('/resumes/' + resume.id);
   }
 
   const badge = document.getElementById('selectedResumeBadge');
