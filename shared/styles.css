@@ -550,6 +550,25 @@ button, .btn {
   margin-bottom: 12px;
 }
 
+/* Edit-mode toggles (both the Resume Manager header pencil AND the
+   profile card's Active Resume pencil) light up purple while edit mode
+   is on — they're bound to the same handler, so the state always
+   matches between them. */
+.icon-btn[aria-pressed="true"] {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* In read-only (default) mode, hide destructive / promotion actions on
+   each resume row. They reappear as soon as edit-mode is toggled on. */
+.resume-manager-card:not(.resume-manager-edit-mode) .resume-selection-container [data-resume-action="set-active"],
+.resume-manager-card:not(.resume-manager-edit-mode) .resume-selection-container [data-resume-action="set-master"],
+.resume-manager-card:not(.resume-manager-edit-mode) .resume-selection-container [data-resume-action="delete"],
+.resume-manager-card:not(.resume-manager-edit-mode) .resume-selection-container [data-resume-action="edit"] {
+  display: none;
+}
+
 .resume-group {
   margin-bottom: 12px;
 }
@@ -763,6 +782,63 @@ button, .btn {
   border-bottom-color: var(--primary);
 }
 
+/* Small pill for the tracked-job count that lives inside the Jobs tab
+   button. Hidden when zero so the tab reads just "💼 Jobs" by default. */
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  margin-left: 2px;
+  border-radius: 9999px;
+  background: var(--border-light);
+  color: var(--foreground-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.tab-button.tab-active .tab-count {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+/* Inline action icon embedded inside a tab button (e.g. the refresh
+   icon on the Jobs tab). Hidden on inactive tabs so the strip stays
+   uncluttered — appears only when the tab is selected. */
+.tab-inline-icon {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 4px;
+  padding: 0;
+  border-radius: 4px;
+  color: var(--foreground-secondary);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tab-button.tab-active .tab-inline-icon {
+  display: inline-flex;
+  color: var(--primary);
+}
+
+.tab-inline-icon:hover {
+  background: var(--primary-light);
+}
+
+.tab-inline-icon:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
 .tab-pane {
   display: none;
 }
@@ -793,6 +869,15 @@ button, .btn {
 .active-page-banner {
   border-left: 4px solid var(--success);
   background: var(--success-light);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+/* When the banner is hidden (no job detected) collapse its bottom margin
+   so the tracked-jobs-header-actions row sits flush with the card top. */
+.active-page-banner.hidden {
+  margin-bottom: 0;
 }
 
 /* Track button in the banner header shares vertical metrics with the
@@ -901,12 +986,6 @@ a.profile-resume-name:hover {
 /* ==========================================================
    Tracked jobs table
    ========================================================== */
-.tracked-jobs-card .badge-muted {
-  background: var(--background-secondary);
-  color: var(--foreground-secondary);
-  border: 1px solid var(--border);
-  font-weight: 600;
-}
 
 .tracked-jobs-list {
   display: flex;

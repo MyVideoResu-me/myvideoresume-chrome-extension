@@ -62,6 +62,10 @@ const ICON = {
   // current page to backfill missing info" action — visually distinct
   // from the double-arrow `refresh` used to reload data lists.
   scan: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
+  // Edit pencil (Feather `edit-2`). Matches the pencil on the profile
+  // card's active-resume row so the "edit" affordance reads the same
+  // across the UI.
+  edit: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="16 3 21 8 8 21 3 21 3 16 16 3"/></svg>',
   trash: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>',
 };
 
@@ -1710,7 +1714,12 @@ function renderTrackedJobsTable() {
   const badge = document.getElementById('trackedJobsCountBadge');
   if (!list) return;
 
-  badge.textContent = String(trackedJobsList.length);
+  // Tab-button badge: only show when count > 0 so the Jobs tab stays
+  // uncluttered for new users or when the tracker is empty.
+  if (badge) {
+    badge.textContent = String(trackedJobsList.length);
+    badge.classList.toggle('hidden', trackedJobsList.length === 0);
+  }
 
   if (trackedJobsList.length === 0) {
     list.innerHTML = '';
@@ -1761,7 +1770,8 @@ function renderTrackedJobsTable() {
           <div class="resume-row-actions">
             <button class="icon-btn" data-action="download-tailored" data-job-id="${id}" title="Download resume">${ICON.download}</button>
             <button class="icon-btn" data-action="view-tailored" data-job-id="${id}" title="View resume">${ICON.externalLink}</button>
-            <button class="icon-btn" data-action="tailor" data-job-id="${id}" title="Re-tailor this resume">${ICON.retailor}</button>
+            <button class="icon-btn" data-action="retailor" data-job-id="${id}" title="Re-tailor this resume">${ICON.retailor}</button>
+            <button class="icon-btn row-delete" data-action="delete-variation" data-job-id="${id}" title="Delete this tailored variation">${ICON.trash}</button>
           </div>
         </div>` : '';
 
@@ -1875,11 +1885,15 @@ async function onTrackedJobAction(event) {
       return showStatusDropdown(jobId);
     case 'tailor':
       return rowTailorJob(jobId);
+    case 'retailor':
+      return rowRetailorJob(jobId);
     case 'download':
     case 'download-tailored':
       return rowDownloadTailoredVariation(jobId);
     case 'delete':
       return rowDeleteTrackedJob(jobId);
+    case 'delete-variation':
+      return rowDeleteTailoredVariation(jobId);
     case 'view-tailored': {
       const cached = jobTailorings[jobId];
       if (cached?.variationId) {
@@ -2136,6 +2150,57 @@ async function rowDeleteTrackedJob(jobId) {
   }
 }
 
+/**
+ * Delete just the tailored variation for a tracked job — the job itself
+ * stays in the tracker, the cached score stays, but the generated resume
+ * variation is removed. Next tailor run will produce a fresh variation.
+ */
+async function rowDeleteTailoredVariation(jobId) {
+  const ok = await requireAuth();
+  if (!ok) return;
+  const cached = jobTailorings[jobId];
+  if (!cached?.variationId) {
+    showQuickStatus('No tailored resume found for this job.', 'info');
+    return;
+  }
+
+  const name = cached.variationName || 'this tailored variation';
+  if (!confirm(`Delete "${name}"?\n\nThe job stays tracked — only the AI-generated variation is removed. You can tailor again anytime.`)) {
+    return;
+  }
+
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) return;
+
+  try {
+    const response = await fetch(`${resumeBase}/${cached.variationId}`, {
+      method: 'DELETE',
+      headers: { Authorization: `Bearer ${jwtToken}` },
+    });
+    if (response.status === 401) return handleTokenExpired();
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err?.error?.message || 'Failed to delete variation');
+    }
+
+    // Drop ONLY the tailoring cache — keep the score so "#1 82%" still
+    // reads from the last analyze. Re-render the row so the "Tailored"
+    // button reverts to "Tailor" and the tailored-resume sub-row is gone.
+    delete jobTailorings[jobId];
+    chrome.storage.local.set({ [JOB_TAILORINGS_KEY]: jobTailorings });
+    renderTrackedJobsTable();
+
+    // Also sync the master resume list in case this variation was
+    // currently selected or surfaced elsewhere.
+    loadMasterResumeGroups();
+
+    showQuickStatus(`Deleted "${name}".`, 'success');
+  } catch (err) {
+    console.error('[hired.video] rowDeleteTailoredVariation failed:', err);
+    showQuickStatus(err.message || 'Could not delete this variation.', 'error');
+  }
+}
+
 // ---- Download the variation that was tailored for this job ---------
 async function rowDownloadTailoredVariation(jobId) {
   const ok = await requireAuth();
@@ -2233,6 +2298,26 @@ async function rowTailorJob(jobId) {
     pipelineBusy = false;
     restoreRow();
   }
+}
+
+/**
+ * Re-tailor action (triggered by the rotate-ccw icon on the tailored
+ * resume sub-row). Unlike `rowTailorJob`, which short-circuits when a
+ * cached variation already exists and surfaces an "already tailored"
+ * banner toast, this path ALWAYS runs the full pipeline — the user
+ * explicitly asked for a fresh tailor. Inline loading spinner appears
+ * on the row itself via `showRowLoading`, so status stays in context.
+ */
+async function rowRetailorJob(jobId) {
+  // Drop the cached tailoring so rowTailorJob's short-circuit doesn't
+  // trigger. Keep jobScores intact so the #1 score pill survives — only
+  // the variation is being regenerated.
+  if (jobTailorings[jobId]) {
+    delete jobTailorings[jobId];
+    chrome.storage.local.set({ [JOB_TAILORINGS_KEY]: jobTailorings });
+    renderTrackedJobsTable();
+  }
+  return rowTailorJob(jobId);
 }
 
 async function rowDownloadResume(jobId) {
@@ -2467,7 +2552,10 @@ function showSignedOutState() {
   }
 
   const badge = document.getElementById('trackedJobsCountBadge');
-  if (badge) badge.textContent = '—';
+  if (badge) {
+    badge.textContent = '0';
+    badge.classList.add('hidden');
+  }
 
   // Clear any leftover signed-in UI state. Without this the previously-
   // tracked job, eval scores, generated resume preview, and profile name
@@ -2588,7 +2676,23 @@ function setupEventListeners() {
   bind('quickAutofillButton', gate(handleAutofillApplication));
   bind('manualScanButton', gate(handleManualScan));
   bind('rescanButton', gate(handleManualScan));
-  bind('refreshJobsButton', gate(loadTrackedJobsTable));
+  // The refresh button lives INSIDE the Jobs tab button — stop event
+  // propagation so clicking it doesn't also trigger the tab switch
+  // handler (we're almost always already on the Jobs tab). Also wire
+  // keyboard activation since the element uses role="button", not an
+  // actual <button> (nested <button>s are invalid HTML).
+  const refreshJobsEl = document.getElementById('refreshJobsButton');
+  if (refreshJobsEl) {
+    const triggerRefresh = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      gate(loadTrackedJobsTable)();
+    };
+    refreshJobsEl.addEventListener('click', triggerRefresh);
+    refreshJobsEl.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter' || e.key === ' ') triggerRefresh(e);
+    });
+  }
   bind('openWizardButton', () => {
     settings.wizardMode = true;
     saveSettings();
@@ -2648,11 +2752,56 @@ function setupEventListeners() {
     };
   }
 
-  // ---- Resume manager (Settings tab) ----
+  // ---- Resume manager (Resume tab) ----
   bind('refreshResumesButton', gate(() => {
     console.log('[hired.video] refreshResumesButton clicked');
     return loadMasterResumeGroups();
   }));
+  // Shared handler: both edit pencils — the one in the profile card's
+  // Active Resume row AND the one in the Resume tab's Resume Manager
+  // header — toggle the resume manager into edit mode (revealing Set
+  // Active / Set Master / Delete / per-row edit-pencil actions). When
+  // triggered from the profile card we also switch to the Resume tab so
+  // the user sees the state change.
+  const toggleResumeManagerEditMode = () => {
+    switchTab('resume');
+    const card = document.getElementById('resumeManagerCard');
+    const toggleBtn = document.getElementById('resumeManagerEditToggle');
+    if (!card) return;
+    const enabled = card.classList.toggle('resume-manager-edit-mode');
+
+    // Expand the full resume list when entering edit mode so the user
+    // can see the rows they're about to Set Active / Set Master /
+    // Delete. Collapse back to the compact "Selected: X" display when
+    // exiting — hiding the destructive-actions list keeps the default
+    // read-only view tidy.
+    if (enabled) {
+      showResumeSelection();
+    } else {
+      hideElement('resumeSelectionContainer');
+      showElement('selectedResumeDisplay');
+    }
+
+    if (toggleBtn) {
+      toggleBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+      toggleBtn.setAttribute(
+        'title',
+        enabled
+          ? 'Done editing — hide Set Active, Set Master, and Delete actions'
+          : 'Edit — show Set Active, Set Master, Delete and other destructive actions',
+      );
+    }
+    // Mirror the pressed state onto the profile-card pencil too so
+    // both buttons read the same state regardless of which tab the
+    // user is on when they click.
+    const profileBtn = document.getElementById('changeResumeButton');
+    if (profileBtn) {
+      profileBtn.setAttribute('aria-pressed', enabled ? 'true' : 'false');
+    }
+  };
+  bind('resumeManagerEditToggle', toggleResumeManagerEditMode);
+  bind('changeResumeButton', toggleResumeManagerEditMode);
+
   const openActiveResume = (e) => {
     if (e) e.preventDefault();
     if (selectedResume?.id) {
@@ -2668,11 +2817,6 @@ function setupEventListeners() {
   // through chrome.tabs.create() so it opens in a real browser tab
   // instead of trying to replace the side panel.
   bind('resumeStripName', openActiveResume);
-  bind('changeResumeButton', () => {
-    console.log('[hired.video] changeResumeButton clicked');
-    switchTab('resume');
-    showResumeSelection();
-  });
   bind('uploadResumeButton', gate(() => {
     console.log('[hired.video] uploadResumeButton clicked');
     document.getElementById('uploadResumeInput').click();
@@ -2910,6 +3054,7 @@ function renderResumeSelection() {
     // (MV3 CSP blocks inline event handlers)
     const actions = [];
     actions.push(`<button class="icon-btn" data-resume-action="open" data-resume-id="${r.id}" title="View resume">${ICON.externalLink}</button>`);
+    actions.push(`<button class="icon-btn" data-resume-action="edit" data-resume-id="${r.id}" title="Edit resume">${ICON.edit}</button>`);
     if (!isActive) {
       actions.push(`<button class="btn-link" data-resume-action="set-active" data-resume-id="${r.id}">Set Active</button>`);
     }
@@ -2961,6 +3106,11 @@ function onResumeAction(event) {
 
   switch (action) {
     case 'open':
+    case 'edit':
+      // Both open and edit go to the resume detail page on hired.video —
+      // the detail page IS the editor. Keeping both actions so the UI
+      // can distinguish visually (eye icon vs pencil icon) while sharing
+      // the destination.
       return openResumeInTab(id);
     case 'set-active':
       return setActiveResume(id);
