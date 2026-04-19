@@ -3276,7 +3276,7 @@ function renderResumeSelection() {
   if (resumeGroups.length === 0) {
     container.innerHTML = `
       <div class="alert alert-info">
-        <p>No resumes found yet. Click <strong>Upload PDF/Word</strong> below to add your first one — it will automatically become your master resume.</p>
+        <p>No resumes found yet. Click <strong>Upload PDF/Word/JSON</strong> below to add your first one — it will automatically become your master resume.</p>
       </div>
     `;
     showElement('resumeSelectionContainer');
@@ -3734,15 +3734,28 @@ async function extractTextFromUpload(file) {
     );
   }
 
-  // JSON resume
-  if (name.endsWith('.json')) {
+  // JSON Resume — ship the raw JSON through untouched. The server's
+  // /createfromtext handler calls tryParseJsonResume on the payload and
+  // stores it as structured content, preserving highlights, dates, and
+  // skill keywords exactly as authored. Flattening to prose here would
+  // lose that structure for no reason.
+  if (name.endsWith('.json') || file.type === 'application/json') {
+    const raw = await file.text();
+    let parsed;
     try {
-      const raw = await file.text();
-      const parsed = JSON.parse(raw);
-      return jsonResumeToText(parsed);
-    } catch (e) {
-      return file.text();
+      parsed = JSON.parse(raw);
+    } catch {
+      throw new Error("This .json file isn't valid JSON. Export your resume again or paste it on hired.video.");
     }
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      throw new Error("This JSON doesn't look like a resume. Expected a JSON Resume document (jsonresume.org schema).");
+    }
+    const RESUME_KEYS = ['basics', 'Basics', 'work', 'Work', 'education', 'Education',
+      'skills', 'Skills', 'volunteer', 'Volunteer', 'projects', 'Projects'];
+    if (!RESUME_KEYS.some((k) => k in parsed)) {
+      throw new Error("This JSON doesn't look like a resume. Expected a JSON Resume document with basics/work/education keys.");
+    }
+    return raw;
   }
 
   // Last resort: read as text IF the content really looks like text.
@@ -3885,48 +3898,6 @@ async function inflateBytes(bytes) {
     }
   }
   return null;
-}
-
-/**
- * Convert a JSON Resume object to readable plain text.
- */
-function jsonResumeToText(obj) {
-  if (typeof obj !== 'object' || !obj) return String(obj);
-  const lines = [];
-  const basics = obj.basics;
-  if (basics) {
-    if (basics.name) lines.push(basics.name);
-    if (basics.label) lines.push(basics.label);
-    if (basics.email) lines.push('Email: ' + basics.email);
-    if (basics.summary) lines.push('\nSummary\n' + basics.summary);
-  }
-  const work = obj.work;
-  if (Array.isArray(work) && work.length) {
-    lines.push('\nExperience');
-    for (const job of work) {
-      const title = [job.position, job.name || job.company].filter(Boolean).join(' at ');
-      const dates = [job.startDate, job.endDate || 'Present'].filter(Boolean).join(' – ');
-      lines.push(title + '  (' + dates + ')');
-      if (job.summary) lines.push(job.summary);
-    }
-  }
-  const education = obj.education;
-  if (Array.isArray(education) && education.length) {
-    lines.push('\nEducation');
-    for (const edu of education) {
-      const deg = [edu.studyType, edu.area].filter(Boolean).join(' in ');
-      lines.push(deg + ' — ' + (edu.institution || '') + ' (' + (edu.startDate || '') + ' – ' + (edu.endDate || '') + ')');
-    }
-  }
-  const skills = obj.skills;
-  if (Array.isArray(skills) && skills.length) {
-    lines.push('\nSkills');
-    for (const s of skills) {
-      const kw = Array.isArray(s.keywords) ? s.keywords.join(', ') : '';
-      lines.push((s.name || '') + (kw ? ': ' + kw : ''));
-    }
-  }
-  return lines.join('\n');
 }
 
 // =====================================================================
