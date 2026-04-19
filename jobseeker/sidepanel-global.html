@@ -519,6 +519,9 @@
 
   <script src="libs/showdown.min.js"></script>
   <script src="libs/jwt-decode.min.js"></script>
+  <!-- pdfjs-dist (v4+) is an ES module; load via bridge that exposes
+       window.hiredVideoExtractPdfText for the classic sidepanel.js. -->
+  <script type="module" src="libs/pdfjs-bridge.js"></script>
   <script src="constants.js"></script>
   <script src="utils.js"></script>
   <script src="sidepanel.js"></script>

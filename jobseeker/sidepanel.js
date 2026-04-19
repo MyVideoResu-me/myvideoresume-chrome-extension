@@ -3595,12 +3595,23 @@ function resetResults() {
 }
 
 /**
- * Upload a resume file (PDF/Word/text) → POST /api/resumes/createfromtext.
+ * Upload a resume file (PDF/Word/text) → POST /api/resumes/ (the same
+ * endpoint hired.video's /resumes page uses). Keeps web and extension
+ * flows identical so behavior, validation, and first-upload auto-
+ * master/active logic all live in one server handler.
  *
- * The extension extracts text client-side (handling binary PDF/DOCX
- * formats) and sends clean UTF-8 text via JSON to the dedicated
- * createfromtext endpoint. This avoids the binary-parsing issues that
- * break the older createfromfile endpoint with PDFs.
+ * Client-side extraction (regex/FlateDecode for PDF, zip-aware text
+ * pull for DOCX) runs before the POST so the server receives clean
+ * UTF-8 in `rawText`. The web UI does the same thing with pdfjs-dist —
+ * same contract, same endpoint, same downstream AI parse.
+ *
+ * Server-side fallback (uploadFileToServer → /createfromfile multipart)
+ * is implemented below but DELIBERATELY NOT CALLED. It's staged as a
+ * safety net for a future change — e.g. when the API runs pdfjs and
+ * can reliably parse PDFs the client-side extractor can't. Until then
+ * the code must not auto-invoke it, because /createfromfile today uses
+ * the same regex extractor as the extension and would produce the same
+ * failure for the same file (misleading UX).
  */
 async function handleResumeUpload(event) {
   const file = event.target.files && event.target.files[0];
@@ -3615,6 +3626,8 @@ async function handleResumeUpload(event) {
   status.textContent = `Reading ${file.name}…`;
   status.classList.remove('hidden');
 
+  const fileName = file.name;
+
   try {
     // Extract clean text client-side — binary formats (PDF, DOCX) need
     // special handling; raw file.text() on a PDF produces garbage.
@@ -3623,16 +3636,29 @@ async function handleResumeUpload(event) {
       throw new Error('Could not extract text from this file. Try a .txt or .md file, or paste your resume on hired.video.');
     }
 
-    const title = file.name.replace(/\.[^.]+$/, '');
-    status.textContent = `Uploading ${file.name}…`;
+    const title = fileName.replace(/\.[^.]+$/, '');
+    status.textContent = `Uploading ${fileName}…`;
 
-    let response = await fetch(resumeCreateFromTextUrl, {
+    // Unified endpoint: /api/resumes/ — identical to the web app's
+    // resumeService.createResume call. The server handles tryParseJsonResume
+    // + AI parse + first-upload auto master/active, so behavior matches
+    // the web UI surface-for-surface.
+    const requestUrl = `${resumesBase}/`;
+    const requestBody = JSON.stringify({
+      title,
+      status: 'draft',
+      privacy: 'private',
+      rawText: text,
+    });
+    const requestHeaders = (token) => ({
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${token}`,
+    });
+
+    let response = await fetch(requestUrl, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({ title, text }),
+      headers: requestHeaders(jwtToken),
+      body: requestBody,
     });
 
     // If 401, try a silent token refresh and retry once
@@ -3642,13 +3668,10 @@ async function handleResumeUpload(event) {
       if (!refreshed) return handleTokenExpired();
       jwtToken = await getJwtToken();
       if (!jwtToken) return handleTokenExpired();
-      response = await fetch(resumeCreateFromTextUrl, {
+      response = await fetch(requestUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${jwtToken}`,
-        },
-        body: JSON.stringify({ title, text }),
+        headers: requestHeaders(jwtToken),
+        body: requestBody,
       });
       if (response.status === 401) return handleTokenExpired();
     }
@@ -3658,27 +3681,82 @@ async function handleResumeUpload(event) {
       throw new Error(errorData.error?.message || 'Upload failed');
     }
 
-    status.className = 'alert alert-success';
-    status.textContent = `✅ ${file.name} uploaded`;
-
-    // Reset the file input so re-uploading the same file works.
-    event.target.value = '';
-
-    // Refresh the resume list to surface the new resume.
-    await loadMasterResumeGroups();
-
-    // Tell any open hired.video tab to re-fetch its resume list — the
-    // web app has no way to know about extension-side uploads, so
-    // without this the user has to hit F5 on /resumes to see the new row.
-    chrome.runtime.sendMessage({
-      action: 'broadcastToWebApp',
-      type: 'resume-changed',
-    }).catch(() => {});
+    finishUploadSuccess(status, fileName, event);
   } catch (err) {
     console.error('[hired.video] resume upload failed:', err);
     status.className = 'alert alert-error';
     status.textContent = err.message || 'Upload failed. Please try again.';
   }
+}
+
+/**
+ * POST a file as multipart/form-data to /api/resumes/createfromfile.
+ *
+ * ⚠️ STAGED-BUT-DORMANT FALLBACK. Not invoked by handleResumeUpload
+ * today. Reserved for a future change where the server-side PDF
+ * extractor is upgraded (e.g. pdfjs on the worker) and can succeed
+ * on files the client-side extractor fails on. Keeping the plumbing
+ * in place avoids the next contributor having to re-derive it.
+ *
+ * When wiring this in later, the call site in handleResumeUpload
+ * should fall here only on PDF-specific extraction failure — other
+ * formats that fail client-side will not fare better server-side.
+ *
+ * @returns {Promise<{ ok: boolean, tokenExpired?: boolean, errorMessage?: string }>}
+ */
+async function uploadFileToServer(file, jwtToken) {
+  const formData = new FormData();
+  formData.append('file', file, file.name);
+
+  const doFetch = (token) => fetch(resumeCreateFromFileUrl, {
+    method: 'POST',
+    headers: { 'Authorization': `Bearer ${token}` },
+    body: formData,
+  });
+
+  let response = await doFetch(jwtToken);
+  if (response.status === 401) {
+    const refreshed = await requestSilentRefresh();
+    if (!refreshed) return { ok: false, tokenExpired: true };
+    const newToken = await getJwtToken();
+    if (!newToken) return { ok: false, tokenExpired: true };
+    response = await doFetch(newToken);
+    if (response.status === 401) return { ok: false, tokenExpired: true };
+  }
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    return {
+      ok: false,
+      errorMessage: errorData.error?.message || `Server rejected upload (${response.status}).`,
+    };
+  }
+
+  return { ok: true };
+}
+
+/**
+ * Shared success path for both text-based and file-based upload flows:
+ * update status, clear the file input, refresh the resume list, and
+ * notify any open hired.video tab to re-fetch its own resume list.
+ */
+function finishUploadSuccess(status, fileName, event) {
+  status.className = 'alert alert-success';
+  status.textContent = `✅ ${fileName} uploaded`;
+
+  // Reset the file input so re-uploading the same file works.
+  if (event?.target) event.target.value = '';
+
+  // Refresh the resume list to surface the new resume.
+  loadMasterResumeGroups();
+
+  // Tell any open hired.video tab to re-fetch its resume list — the
+  // web app has no way to know about extension-side uploads, so
+  // without this the user has to hit F5 on /resumes to see the new row.
+  chrome.runtime.sendMessage({
+    action: 'broadcastToWebApp',
+    type: 'resume-changed',
+  }).catch(() => {});
 }
 
 /**
@@ -3721,11 +3799,30 @@ async function extractTextFromUpload(file) {
   if (name.endsWith('.pdf') || file.type === 'application/pdf') {
     const buffer = await file.arrayBuffer();
     const bytes = new Uint8Array(buffer);
+
+    // Primary: pdfjs-dist (the same library the web UI uses at /resumes).
+    // Loaded as an ES module via libs/pdfjs-bridge.js, which exposes
+    // window.hiredVideoExtractPdfText. Same library, same options, so
+    // extension + web produce identical text for any given PDF.
+    if (typeof window.hiredVideoExtractPdfText === 'function') {
+      try {
+        const viaPdfjs = await window.hiredVideoExtractPdfText(bytes);
+        if (viaPdfjs && viaPdfjs.trim().length > 20) return viaPdfjs;
+        console.warn('[hired.video] pdfjs returned ' + (viaPdfjs?.length ?? 0) + ' chars — falling back to regex extractor');
+      } catch (e) {
+        console.warn('[hired.video] pdfjs extraction threw, falling back:', e);
+      }
+    } else {
+      console.warn('[hired.video] pdfjs bridge not loaded — using regex extractor');
+    }
+
+    // Fallback: the older regex/FlateDecode extractor. Kept so a broken
+    // pdfjs load doesn't take the whole upload flow down with it.
     let extracted = '';
     try {
       extracted = await extractTextFromPdfBytes(bytes);
     } catch (e) {
-      console.warn('[hired.video] PDF text extraction threw:', e);
+      console.warn('[hired.video] regex PDF extraction threw:', e);
     }
     if (extracted && extracted.trim().length > 20) return extracted;
     throw new Error(
