@@ -3964,6 +3964,12 @@ async function handleTrackJob() {
   hideElement('trackJobError');
   showElement('trackJobLoading');
   document.getElementById('trackJobButton').disabled = true;
+  const quickTrackBtn = document.getElementById('quickTrackButton');
+  if (quickTrackBtn) quickTrackBtn.disabled = true;
+  // Surface progress in the visible banner too — the wizard's
+  // trackJobLoading/trackJobError elements are hidden when the user
+  // triggers this from the compact banner Track button.
+  showQuickStatus('Tracking job…', 'info');
 
   try {
     const jobCtx = await captureJobContext();
@@ -3999,6 +4005,7 @@ async function handleTrackJob() {
       errEl.className = 'alert alert-warning mt-2';
       errEl.textContent = '⚠️ ' + reason;
       showElement('trackJobError');
+      showQuickStatus('⚠️ ' + reason, 'warning');
       return;
     }
 
@@ -4019,15 +4026,19 @@ async function handleTrackJob() {
 
     renderTrackedJob();
     loadTrackedJobsTable();
+    showQuickStatus('✓ Job tracked.', 'success');
   } catch (err) {
     console.error('Track job failed:', err);
+    const message = err.message || 'Could not track this job. Please try again.';
     const errEl = document.getElementById('trackJobError');
     errEl.className = 'alert alert-error mt-2';
-    errEl.textContent = err.message || 'Could not track this job. Please try again.';
+    errEl.textContent = message;
     showElement('trackJobError');
+    showQuickStatus(message, 'error');
   } finally {
     hideElement('trackJobLoading');
     document.getElementById('trackJobButton').disabled = false;
+    if (quickTrackBtn) quickTrackBtn.disabled = false;
   }
 }
 
