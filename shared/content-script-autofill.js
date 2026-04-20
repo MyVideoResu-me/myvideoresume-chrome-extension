@@ -2,6 +2,17 @@
 // Message-driven: does NOT auto-execute on page load. Only activates when the
 // sidepanel sends an 'extractFormFields' or 'fillFormFields' message.
 
+// Idempotency guard: this script is injected programmatically by
+// service-worker-base.js whenever the sidepanel asks for form fields on a
+// tab that didn't have the listener yet. Repeated asks (e.g. user clicks
+// "Autofill" twice) can race and re-evaluate this file, which would
+// SyntaxError on the `const ATS_URL_PATTERNS` below and double-register
+// the message listener at the bottom. Wrapping in an IIFE with a
+// window sentinel makes the second evaluation a cheap no-op.
+(function hiredVideoAutofillContentScript() {
+  if (window.__HIRED_VIDEO_AUTOFILL_CS_LOADED__) return;
+  window.__HIRED_VIDEO_AUTOFILL_CS_LOADED__ = true;
+
 // ============================================================================
 // ATS DETECTION
 // ============================================================================
@@ -564,3 +575,5 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     return true;
   }
 });
+
+})(); // end hiredVideoAutofillContentScript IIFE
