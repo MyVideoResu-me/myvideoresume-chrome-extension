@@ -203,6 +203,29 @@ function loadContentScript(globals) {
   // observers / timers. Strip those so we control execution.
   let modifiedSrc = src;
 
+  // Strip the production-only IIFE wrapper. The content script is wrapped
+  // in `(function hiredVideoJobsContentScript() { if (window.__X__) return;
+  // window.__X__ = true; … })();` to prevent double-injection crashes
+  // (manifest auto-inject + service-worker fallback race). The test
+  // harness evaluates the file body at module scope, so strip both the
+  // opening wrapper and the closing `})();` to restore the original layout.
+  const iifeOpen = modifiedSrc.indexOf("(function hiredVideoJobsContentScript()");
+  if (iifeOpen >= 0) {
+    const guardEnd = modifiedSrc.indexOf(
+      "window.__HIRED_VIDEO_JOBS_CS_LOADED__ = true;",
+      iifeOpen,
+    );
+    if (guardEnd >= 0) {
+      // Cut everything from the IIFE opening through the guard-set line;
+      // what remains is the function bodies we want to test.
+      const afterGuard = modifiedSrc.indexOf("\n", guardEnd) + 1;
+      modifiedSrc =
+        modifiedSrc.slice(0, iifeOpen) + modifiedSrc.slice(afterGuard);
+    }
+    // Remove the trailing `})();` IIFE close.
+    modifiedSrc = modifiedSrc.replace(/\n\}\)\(\);[^\n]*\n?\s*$/, "\n");
+  }
+
   // Remove the auto-executing tail: scheduleDetect(), MutationObserver,
   // history monkey-patches, setInterval, and the onMessage listener.
   // These start after the `genericJobExtract` function definition.

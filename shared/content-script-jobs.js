@@ -1,3 +1,19 @@
+// Idempotency guard: this script is registered as a declarative content
+// script in manifest.json (injected automatically on <all_urls>) AND
+// re-injected programmatically by the service worker's detectJob
+// fallback (service-worker-base.js when sendMessage to the tab fails —
+// e.g. when a tab predates the extension install). On a tab where both
+// paths race, the manifest injection wins first, then the programmatic
+// injection re-evaluates this file and the `const JOBSEEKER_SKIP_HOSTS`
+// below throws a SyntaxError that aborts the second evaluation entirely.
+//
+// Wrapping the whole file in an IIFE with a window sentinel means the
+// second evaluation is a cheap no-op — no duplicate message listeners,
+// no duplicate popstate/click listeners, no duplicate setTimeout schedules.
+(function hiredVideoJobsContentScript() {
+  if (window.__HIRED_VIDEO_JOBS_CS_LOADED__) return;
+  window.__HIRED_VIDEO_JOBS_CS_LOADED__ = true;
+
 // Function to get the HTML of the current page
 //
 // We strip everything the downstream extractor can't use: all scripts
@@ -929,3 +945,5 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
   return true;
 });
+
+})(); // end hiredVideoJobsContentScript IIFE
