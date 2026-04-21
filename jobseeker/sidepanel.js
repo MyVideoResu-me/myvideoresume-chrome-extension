@@ -3382,7 +3382,9 @@ async function deleteResume(id) {
     return;
   }
 
-  const name = resume.name || resume.title || 'this resume';
+  // Prefer canonical `title`; fall back to legacy `name` for any cached row
+  // still in the extension's local state from a pre-2026-04-20 build.
+  const name = resume.title || resume.name || 'this resume';
   const variationCount = resume.isMaster
     ? (resumeGroups.find(g => g.masterResume?.id === id)?.variations?.length || 0)
     : 0;
@@ -3401,7 +3403,9 @@ async function deleteResume(id) {
       headers: { Authorization: `Bearer ${jwtToken}` },
     });
     if (response.status === 401) return handleTokenExpired();
-    if (!response.ok) {
+    // 404 means the server already doesn't have it — treat as success so the
+    // local list reconciles instead of showing a ghost row.
+    if (!response.ok && response.status !== 404) {
       const err = await response.json().catch(() => ({}));
       throw new Error(err?.error?.message || 'Failed to delete resume');
     }
@@ -3540,11 +3544,11 @@ function syncActiveResumeStrip() {
 }
 
 function selectResume(resume) {
-  console.log('[hired.video] selectResume:', resume?.id, resume?.name || resume?.title);
+  console.log('[hired.video] selectResume:', resume?.id, resume?.title || resume?.name);
   selectedResume = resume;
   chrome.storage.local.set({ [selectedResumeKey]: resume });
 
-  const displayName = resume.name || resume.title || 'Untitled Resume';
+  const displayName = resume.title || resume.name || 'Untitled Resume';
   document.getElementById('selectedResumeName').textContent = displayName;
 
   // Mirror the selection into the compact strip inside the profile card.
