@@ -18,10 +18,20 @@
 
 const fs = require('fs');
 const path = require('path');
+const esbuild = require('esbuild');
 
 const ROOT = path.resolve(__dirname, '..');
 const SHARED_DIR = path.join(ROOT, 'shared');
 const DIST_DIR = path.join(ROOT, 'dist');
+
+// TypeScript content scripts under shared/ are bundled by esbuild so they
+// can import from the cross-project shared TS modules at
+// ../hired.video/shared/*. The bundled output is plain IIFE JS — no
+// module system needed, which matches Chrome MV3 content_script loading.
+const TS_ENTRYPOINTS = {
+  'content-script-jobs.js': path.join(SHARED_DIR, 'content-script-jobs.ts'),
+  'content-script-autofill.js': path.join(SHARED_DIR, 'content-script-autofill.ts'),
+};
 
 const EXTENSIONS = {
   jobseeker: {
@@ -41,6 +51,15 @@ const EXTENSIONS = {
 const SKIP_IN_SHARED = new Set([
   'service-worker-base.js', // concatenated into service-worker.js
   'web-ext-config.cjs',     // dev-only, not part of the extension
+  // TS content scripts — bundled by esbuild, not copied raw.
+  'content-script-jobs.ts',
+  'content-script-autofill.ts',
+  // Legacy JS versions that are superseded by the TS bundle. The build
+  // emits the bundled output AT the same filename so the manifest keeps
+  // working; the raw JS originals stay in git as the migration backstop
+  // but do NOT ship.
+  'content-script-jobs.js',
+  'content-script-autofill.js',
 ]);
 
 function cleanDir(dir) {
@@ -89,6 +108,30 @@ function buildExtension(name) {
     const src = path.join(config.src, entry);
     const dest = path.join(config.dist, entry);
     copyRecursive(src, dest);
+  }
+
+  // 3b. Bundle TypeScript content scripts via esbuild. Each entry is
+  //     bundled to a single IIFE-wrapped JS file so Chrome can load it
+  //     directly from manifest.json (no module resolution at runtime).
+  console.log('  Bundling TS content scripts (esbuild) ...');
+  for (const [outName, entryPath] of Object.entries(TS_ENTRYPOINTS)) {
+    if (!fs.existsSync(entryPath)) {
+      console.warn(`    WARNING: TS entry not found: ${entryPath} — skipping`);
+      continue;
+    }
+    esbuild.buildSync({
+      entryPoints: [entryPath],
+      bundle: true,
+      format: 'iife',
+      target: ['chrome116'],
+      platform: 'browser',
+      outfile: path.join(config.dist, outName),
+      sourcemap: false,
+      logLevel: 'warning',
+      // Chrome content scripts ship as a single file — no loader, no
+      // runtime module resolution. Everything must inline.
+      legalComments: 'none',
+    });
   }
 
   // 4. Concatenate service worker files
