@@ -4292,9 +4292,20 @@ async function handleTailorGenerate() {
     const result = unwrapResponse(data);
     generatedResumeData = result;
 
-    if (result.markdownResume) {
+    // The tailor endpoint now persists the variation server-side and
+    // returns `variationId` in the response. Capture it immediately so
+    // the "Mark Applied" button works without a second round-trip.
+    if (result.variationId) {
+      generatedVariationId = result.variationId;
+    }
+
+    // Preview: render the structured tailoredResume JSON to markdown
+    // locally (shared/utils.js:renderResumeAsMarkdown), then through
+    // showdown for the HTML preview. Server no longer ships markdown.
+    if (result.tailoredResume) {
+      const md = renderResumeAsMarkdown(result.tailoredResume);
       const converter = new showdown.Converter();
-      document.getElementById('custom').innerHTML = converter.makeHtml(result.markdownResume);
+      document.getElementById('custom').innerHTML = converter.makeHtml(md);
       document.getElementById('custom').classList.add('success');
     }
 
@@ -4312,10 +4323,12 @@ async function handleTailorGenerate() {
     showElement('resumeActions');
     showElement('disclaimer');
 
-    document.getElementById('variationName').value = generateVariationName();
+    document.getElementById('variationName').value = result.variationTitle || generateVariationName();
     hideElement('saveVariationSuccess');
     hideElement('saveVariationError');
-    document.getElementById('markAppliedButton').disabled = true;
+    // Variation is already saved — the Apply button gates on a linked
+    // resume, which we now have from the tailor response itself.
+    document.getElementById('markAppliedButton').disabled = !result.variationId;
   } catch (error) {
     console.error('Error generating resume:', error);
     showError('custom', 'Failed to generate tailored resume. Please try again.');
@@ -4371,15 +4384,25 @@ async function handleSaveVariation() {
   hideElement('saveVariationSuccess');
 
   try {
-    generatedVariationId = await saveAsVariation(masterId, {
-      name: variationName,
-      description: trackedJob
-        ? `Generated for: ${trackedJob.title} at ${trackedJob.company || 'unknown company'}`
-        : `Generated for: ${currentJobUrl || 'Job Application'}`,
-      markdownResume: generatedResumeData.markdownResume,
-      jobId: trackedJob?.id,
-      sourceUrl: currentJobUrl,
-    });
+    // The tailor endpoint already persisted a variation with a
+    // server-chosen title. When the user hasn't edited the name, we
+    // have nothing to do — adopt the existing variationId. When the
+    // user HAS renamed it, save a new copy with the custom name using
+    // the tailoredResume JSON (no re-parse round-trip).
+    const autoTitle = generatedResumeData?.variationTitle;
+    if (generatedResumeData?.variationId && variationName === autoTitle) {
+      generatedVariationId = generatedResumeData.variationId;
+    } else {
+      generatedVariationId = await saveAsVariation(masterId, {
+        name: variationName,
+        description: trackedJob
+          ? `Generated for: ${trackedJob.title} at ${trackedJob.company || 'unknown company'}`
+          : `Generated for: ${currentJobUrl || 'Job Application'}`,
+        content: generatedResumeData.tailoredResume,
+        jobId: trackedJob?.id,
+        sourceUrl: currentJobUrl,
+      });
+    }
 
     showElement('saveVariationSuccess');
     if (trackedJob && generatedVariationId) {

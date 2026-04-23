@@ -181,25 +181,135 @@ async function captureJobContext() {
   return { html: paneHtml, originUrl: page.originUrl || '' };
 }
 
-// ---- Save variation (DRY — used by pipeline, rowTailor, wizard) ----
+// ---- Resume markdown renderer (ported from hired.video/shared/resume-markdown.ts) ----
+//
+// Plain-JS port so the extension can render a ResumeContent JSON blob
+// (as returned by the tailor endpoint) without pulling in the TS shared
+// module. Kept byte-compatible with the server-side renderer so the
+// preview the user sees here is identical to what gets persisted.
+
+function _joinTruthy(parts, sep) {
+  return parts.filter((p) => p && String(p).trim().length > 0).join(sep || ' — ');
+}
+function _formatDateRange(startDate, endDate) {
+  const start = (startDate || '').trim();
+  const end = (endDate || '').trim() || 'Present';
+  if (!start) return '';
+  return `${start} – ${end}`;
+}
+function renderResumeAsMarkdown(resume) {
+  if (!resume || typeof resume !== 'object') return '';
+  const lines = [];
+  const b = resume.basics;
+  if (b) {
+    if (b.name && b.name.trim()) lines.push(`# ${b.name.trim()}`);
+    if (b.label && b.label.trim()) lines.push(`*${b.label.trim()}*`);
+    const contact = [];
+    if (b.email) contact.push(String(b.email));
+    if (b.phone) contact.push(String(b.phone));
+    if (b.url) contact.push(String(b.url));
+    if (b.location) {
+      const loc = [b.location.city, b.location.region, b.location.countryCode]
+        .map((s) => (s || '').trim()).filter(Boolean);
+      if (loc.length) contact.push(loc.join(', '));
+    }
+    if (contact.length) lines.push(contact.join(' · '));
+    if (b.summary && b.summary.trim()) {
+      lines.push('', '## Summary', b.summary.trim());
+    }
+  }
+  for (const job of (resume.work || [])) {
+    if (lines.length && lines[lines.length - 1] !== '## Experience') {
+      if (!lines.includes('## Experience')) lines.push('', '## Experience');
+    }
+    const heading = _joinTruthy([job.position, job.name]);
+    if (heading) lines.push(`### ${heading}`);
+    const meta = _formatDateRange(job.startDate, job.endDate);
+    if (meta) lines.push(`*${meta}*`);
+    if (job.summary && job.summary.trim()) lines.push(job.summary.trim());
+    for (const h of (job.highlights || [])) {
+      if (h && h.trim()) lines.push(`- ${h}`);
+    }
+    lines.push('');
+  }
+  if ((resume.skills || []).length) {
+    lines.push('## Skills');
+    for (const s of resume.skills) {
+      const name = (s.name || '').trim();
+      const kw = (s.keywords || []).filter((k) => k && k.trim());
+      if (name && kw.length) lines.push(`- **${name}**: ${kw.join(', ')}`);
+      else if (name) lines.push(`- ${name}`);
+      else if (kw.length) lines.push(`- ${kw.join(', ')}`);
+    }
+    lines.push('');
+  }
+  if ((resume.education || []).length) {
+    lines.push('## Education');
+    for (const e of resume.education) {
+      const heading = _joinTruthy([e.institution, e.studyType, e.area]);
+      if (heading) lines.push(`### ${heading}`);
+      const meta = _formatDateRange(e.startDate, e.endDate);
+      if (meta) lines.push(`*${meta}*`);
+      if (e.score) lines.push(`Score: ${e.score}`);
+      for (const c of (e.courses || [])) {
+        if (c && c.trim()) lines.push(`- ${c}`);
+      }
+      lines.push('');
+    }
+  }
+  if ((resume.projects || []).length) {
+    lines.push('## Projects');
+    for (const p of resume.projects) {
+      if (p.name && p.name.trim()) lines.push(`### ${p.name.trim()}`);
+      if (p.description && p.description.trim()) lines.push(p.description.trim());
+      for (const h of (p.highlights || [])) {
+        if (h && h.trim()) lines.push(`- ${h}`);
+      }
+      lines.push('');
+    }
+  }
+  if ((resume.certificates || []).length) {
+    lines.push('## Certifications');
+    for (const c of resume.certificates) {
+      const parts = [c.name, c.issuer, c.date].map((s) => (s || '').trim()).filter(Boolean);
+      if (parts.length) lines.push(`- ${parts.join(' — ')}`);
+    }
+    lines.push('');
+  }
+  while (lines.length && lines[lines.length - 1].trim() === '') lines.pop();
+  return lines.join('\n');
+}
+
+// ---- Save variation (for manual imports / non-tailor flows) ----
 
 /**
- * Save a tailored resume as a variation under the user's master resume.
+ * Save a resume variation under the user's master. Used by the manual
+ * "Save as Variation" flow that accepts a structured ResumeContent
+ * blob (preferred) or a raw markdown string (fallback, for imports).
  *
- * @param {string} masterId  - The master resume ID (parentId fallback handled by caller)
- * @param {object} params    - { name, description, markdownResume, jobId?, sourceUrl? }
+ * The tailor pipeline does NOT call this — POST /api/match/tailor now
+ * persists the variation server-side in the same call and returns the
+ * new variationId directly.
+ *
+ * @param {string} masterId  - The master resume ID
+ * @param {object} params    - { name, description, content?, resumeData?, jobId?, sourceUrl? }
  * @returns {string|null}    - The new variation ID, or null on failure
  */
 async function saveAsVariation(masterId, params) {
+  const body = {
+    name: (params.name || 'Tailored Resume').slice(0, 200),
+    description: params.description || '',
+    jobId: params.jobId,
+    sourceUrl: params.sourceUrl,
+  };
+  if (params.content && typeof params.content === 'object') {
+    body.content = params.content;
+  } else {
+    body.resumeData = params.resumeData || '';
+  }
   const res = await apiFetch(buildResumeUrl(masterId, 'createvariation'), {
     method: 'POST',
-    body: JSON.stringify({
-      name: (params.name || 'Tailored Resume').slice(0, 200),
-      description: params.description || '',
-      resumeData: params.markdownResume || '',
-      jobId: params.jobId,
-      sourceUrl: params.sourceUrl,
-    }),
+    body: JSON.stringify(body),
   });
   if (!res.ok) return null;
   const data = await res.json();
@@ -238,20 +348,21 @@ function buildTrackedJobObj(raw, fallbacks = {}) {
 }
 
 /**
- * Shared tailor → save-as-variation → cache flow.
+ * Shared tailor flow.
  *
- * Calls /api/match/tailor, saves the result as a resume variation,
- * and updates the local jobScores / jobTailorings caches.
+ * Calls POST /api/match/tailor. The server tailors the resume AND
+ * persists it as a variation in the same call, returning
+ * `{ oldScore, newScore, tailoredResume, changes, summaryRecommendations,
+ *    variationId, variationTitle, sourceUrl }`. We just update the local
+ * caches and hand the result back to the caller.
  *
  * @param {object} opts
  * @param {string} opts.jobId          - The tracked job to tailor against
  * @param {object} opts.selectedResume - The active resume object
- * @param {object} opts.trackedJob     - The tracked job object (for naming)
- * @param {string} [opts.sourceUrl]    - Source URL stored with the saved variation
  * @returns {{ tailored, variationId, variationName }} or throws
  */
 async function tailorAndSaveVariation(opts) {
-  const { jobId, selectedResume: resume, trackedJob: job, sourceUrl } = opts;
+  const { jobId, selectedResume: resume } = opts;
 
   const jwtToken = await getJwtToken();
   if (!jwtToken) throw new Error('Not authenticated');
@@ -273,16 +384,9 @@ async function tailorAndSaveVariation(opts) {
   if (!tailorResp.ok) throw new Error('Tailor failed');
 
   const tailored = unwrapResponse(await tailorResp.json());
-
+  const variationId = tailored.variationId || null;
+  const variationName = tailored.variationTitle || 'Tailored Resume';
   const masterId = getMasterResumeId(resume);
-  const variationName = `${job.title}${job.company ? ' - ' + job.company : ''}`;
-  const variationId = await saveAsVariation(masterId, {
-    name: variationName,
-    description: `Generated for ${job.title}`,
-    markdownResume: tailored.markdownResume,
-    jobId,
-    sourceUrl,
-  });
 
   if (variationId) {
     const newScore = tailored.newScore ?? tailored.score ?? null;
