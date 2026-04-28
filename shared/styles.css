@@ -1861,26 +1861,26 @@ a.tracked-job-title:hover .tracked-job-title-icon {
   margin-top: 4px;
 }
 
-/* When the user is premium, .premium-unlocked is set on body and locked
+/* When the user is premium, .pro-unlocked is set on body and locked
    controls become interactive again. */
-body.premium-unlocked .settings-toggle-locked {
+body.pro-unlocked .settings-toggle-locked {
   opacity: 1;
 }
 
-body.premium-unlocked .settings-toggle-locked input[type="checkbox"] {
+body.pro-unlocked .settings-toggle-locked input[type="checkbox"] {
   pointer-events: auto;
 }
 
-body.premium-unlocked .settings-locked {
+body.pro-unlocked .settings-locked {
   opacity: 1;
   cursor: pointer;
 }
 
-body.premium-unlocked .paid-badge {
+body.pro-unlocked .paid-badge {
   background: var(--success);
 }
 
-body.premium-unlocked .paid-hint {
+body.pro-unlocked .paid-hint {
   display: none;
 }
 
@@ -1937,7 +1937,7 @@ body.premium-unlocked .paid-hint {
   margin-bottom: 4px;
 }
 
-body.premium-unlocked .upgrade-card {
+body.pro-unlocked .upgrade-card {
   display: none;
 }
 
@@ -1980,7 +1980,7 @@ body.premium-unlocked .upgrade-card {
 }
 
 /* Hidden when user is already premium */
-body.premium-unlocked .btn-upgrade-header {
+body.pro-unlocked .btn-upgrade-header {
   display: none;
 }
 

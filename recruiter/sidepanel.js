@@ -6,13 +6,13 @@
  *   2. Pipeline — kanban view of candidates by submission stage
  *   3. Candidates — talent pool list with search, scores, detail view
  *   4. Companies — extracted companies list
- *   5. Settings — auto-detect toggles (premium), account management
+ *   5. Settings — auto-detect toggles (pro), account management
  */
 
 // ---- Global state -------------------------------------------------------
 
 let currentTab = 'now';
-let isPremium = false;
+let isPro = false;
 let detectedPageJob = null;
 let detectedPageProfile = null;
 let detectedPageCompany = null;
@@ -125,22 +125,22 @@ async function loadUserProfile(token) {
   if (nameEl) nameEl.textContent = user.name || user.email || 'Signed in';
   if (emailEl) emailEl.textContent = user.email || '';
 
-  // Backend treats SuperAdmin/Admin as premium regardless of plan. Paid-plan
+  // Backend treats SuperAdmin/Admin as pro regardless of plan. Paid-plan
   // detection lives on /api/billing/token-budget; the recruiter extension
-  // doesn't use it today, so premium gating relies on role alone.
+  // doesn't use it today, so pro gating relies on role alone.
   const role = (user.role || '').toString().toLowerCase();
-  isPremium = role === 'superadmin' || role === 'admin' || role === 'pro' || role === 'premium';
-  applyPremiumGating();
+  isPro = role === 'superadmin' || role === 'admin' || role === 'pro' || role === 'premium';
+  applyProGating();
 }
 
-function applyPremiumGating() {
+function applyProGating() {
   // Auto-detect settings — all four are gated for the recruiter extension.
   const jobsToggle = document.getElementById('settingAutoDetectJobs');
   const profileToggle = document.getElementById('settingAutoDetectProfiles');
   const companyToggle = document.getElementById('settingAutoDetectCompanies');
   const scoreToggle = document.getElementById('settingAutoScore');
 
-  if (!isPremium) {
+  if (!isPro) {
     if (jobsToggle) jobsToggle.disabled = true;
     if (profileToggle) profileToggle.disabled = true;
     if (companyToggle) companyToggle.disabled = true;
@@ -454,11 +454,11 @@ function setupDetectionListeners() {
       detectedPageJob = msg.payload;
       showJobDetectedBanner(msg.payload);
     }
-    if (msg.action === 'profileDetected' && isPremium && settings.autoDetectProfiles) {
+    if (msg.action === 'profileDetected' && isPro && settings.autoDetectProfiles) {
       detectedPageProfile = msg.payload;
       showProfileDetectedBanner(msg.payload);
     }
-    if (msg.action === 'companyDetected' && isPremium && settings.autoDetectCompanies) {
+    if (msg.action === 'companyDetected' && isPro && settings.autoDetectCompanies) {
       detectedPageCompany = msg.payload;
       showCompanyDetectedBanner(msg.payload);
     }
@@ -579,7 +579,7 @@ async function extractJobFromHtml(html, sourceUrl) {
   showExtractionSuccess('job', job);
 
   // Auto-score candidates if enabled
-  if (isPremium && settings.autoScore && job.id) {
+  if (isPro && settings.autoScore && job.id) {
     triggerBackgroundScoring('candidates', job.id);
   }
 }
@@ -619,7 +619,7 @@ async function handleExtractProfile() {
     showExtractionSuccess('profile', profile);
 
     // Auto-score against jobs if enabled
-    if (isPremium && settings.autoScore && profile.talentPoolCandidate?.id) {
+    if (isPro && settings.autoScore && profile.talentPoolCandidate?.id) {
       triggerBackgroundScoring('jobs', profile.talentPoolCandidate.id);
     }
   } catch (err) {

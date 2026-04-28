@@ -33,7 +33,7 @@ let currentTab = 'jobs';
  *  on every subsequent resume list refresh (which would yank the user
  *  back to Resume while they're working elsewhere). */
 let hasAppliedDefaultTab = false;
-let isPremium = false;
+let isPro = false;
 let trackedJobsList = [];
 let detectedPageJob = null; // { title, company, location, sourceUrl, applyUrl } from content script
 let pipelineBusy = false;
@@ -118,7 +118,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setupAuthSyncListener();
   setupWebAppEventListener();
 
-  // Re-check premium status when the side panel regains visibility
+  // Re-check pro status when the side panel regains visibility
   // (e.g. user returns from the pricing/upgrade page in another tab).
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
@@ -337,29 +337,29 @@ function applyWizardMode() {
 }
 
 // =====================================================================
-// Premium gating
+// Pro gating
 // =====================================================================
 
 /**
- * True when the user's role carries built-in premium entitlement.
- * Backend treats SuperAdmin/Admin as `isPremium: true` regardless of plan.
+ * True when the user's role carries built-in pro entitlement.
+ * Backend treats SuperAdmin/Admin as `isPro: true` regardless of plan.
  */
-function isPremiumRole(role) {
+function isProRole(role) {
   if (!role) return false;
   const r = role.toString().toLowerCase();
   return r === 'superadmin' || r === 'admin' || r === 'pro' || r === 'premium';
 }
 
-function setPremium(value) {
-  isPremium = !!value;
-  document.body.classList.toggle('premium-unlocked', isPremium);
+function setIsPro(value) {
+  isPro = !!value;
+  document.body.classList.toggle('pro-unlocked', isPro);
 
-  // Unlock the gated controls when premium.
+  // Unlock the gated controls when pro.
   document.querySelectorAll('.settings-toggle-locked input[type="checkbox"]').forEach((el) => {
-    el.disabled = !isPremium;
+    el.disabled = !isPro;
   });
   document.querySelectorAll('.settings-locked').forEach((el) => {
-    el.disabled = !isPremium;
+    el.disabled = !isPro;
   });
 }
 
@@ -404,11 +404,11 @@ function renderTokenBudget(summary) {
   if (!pill || !remainingEl || !fillEl || !usageEl || !resetEl) return;
 
   // Token-budget is authoritative for billing entitlement: Pro and
-  // SuperAdmin/Admin both hide the upgrade CTA. Role-based premium is
+  // SuperAdmin/Admin both hide the upgrade CTA. Role-based pro is
   // set earlier by loadCurrentUser(); this reconciles for paid-plan users
   // whose role is "user".
   if (summary.isUnlimited || summary.isPro) {
-    setPremium(true);
+    setIsPro(true);
     hideElement('headerUpgradeButton');
   }
 
@@ -743,7 +743,7 @@ function handleJobDetected(payload) {
   highlightActiveTrackedJob(matched);
 
   if (!matched && selectedResume) {
-    if (settings.autoTailor && isPremium) {
+    if (settings.autoTailor && isPro) {
       runTailorAndSavePipeline({ track: true, silent: true }).catch((err) =>
         console.warn('[hired.video] auto-tailor failed', err),
       );
@@ -2412,7 +2412,7 @@ async function rowDownloadTailoredVariation(jobId) {
   if (!ok) return;
   const cached = jobTailorings[jobId];
   if (!cached) return rowDownloadResume(jobId);
-  const format = isPremium ? settings.downloadFormat || 'pdf' : 'pdf';
+  const format = isPro ? settings.downloadFormat || 'pdf' : 'pdf';
   await handleDownload(format, cached.variationId);
 }
 
@@ -2529,7 +2529,7 @@ async function rowDownloadResume(jobId) {
   const ok = await requireAuth();
   if (!ok) return;
 
-  const format = isPremium ? settings.downloadFormat || 'pdf' : 'pdf';
+  const format = isPro ? settings.downloadFormat || 'pdf' : 'pdf';
 
   // Prefer the variation that was tailored for THIS job. We don't have a
   // jobId column on resumes, so we match heuristically:
@@ -2773,7 +2773,7 @@ function showSignedOutState() {
 
   trackedJobsList = [];
   renderTrackedJobsTable();
-  setPremium(false);
+  setIsPro(false);
 
   updateActiveResumeStrip(null);
 
@@ -2819,10 +2819,10 @@ function showSignedInState() {
   hideElement('signedOutBanner');
   showElement('profileCard');
   hideElement('resumeListEmptyHint');
-  // The header upgrade button is controlled by the `premium-unlocked`
-  // body class (CSS hides it when premium). For signed-in free users
+  // The header upgrade button is controlled by the `pro-unlocked`
+  // body class (CSS hides it when pro). For signed-in free users
   // we show it explicitly.
-  if (!isPremium) showElement('headerUpgradeButton');
+  if (!isPro) showElement('headerUpgradeButton');
 }
 
 /**
@@ -2940,8 +2940,8 @@ function setupEventListeners() {
     const el = document.getElementById(id);
     if (!el) return;
     el.onchange = () => {
-      // Premium-gated toggle: snap back if user isn't premium.
-      if (el.closest('.settings-toggle-locked') && !isPremium) {
+      // Pro-gated toggle: snap back if user isn't pro.
+      if (el.closest('.settings-toggle-locked') && !isPro) {
         el.checked = false;
         openUpgradePage();
         return;
@@ -2959,7 +2959,7 @@ function setupEventListeners() {
   const fmt = document.getElementById('settingDownloadFormat');
   if (fmt) {
     fmt.onchange = () => {
-      if (!isPremium) {
+      if (!isPro) {
         fmt.value = 'pdf';
         openUpgradePage();
         return;
@@ -2968,7 +2968,7 @@ function setupEventListeners() {
       saveSettings();
     };
     fmt.onclick = () => {
-      if (!isPremium) openUpgradePage();
+      if (!isPro) openUpgradePage();
     };
   }
 
@@ -3131,9 +3131,9 @@ async function loadCurrentUser() {
       else if (lower === 'admin') roleEl.classList.add('role-admin');
     }
 
-    // Derive premium entitlement from role. Billing tier is reconciled later
+    // Derive pro entitlement from role. Billing tier is reconciled later
     // by renderTokenBudget() using the authoritative /api/billing/token-budget.
-    if (isPremiumRole(user.role)) setPremium(true);
+    if (isProRole(user.role)) setIsPro(true);
   } catch (err) {
     console.error('loadCurrentUser failed:', err);
   }
