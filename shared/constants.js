@@ -7,6 +7,10 @@
 const jwtTokenKey = 'jwtToken';
 const selectedResumeKey = 'selectedResumeId';
 const trackedJobKey = 'currentTrackedJob';
+// Last JWT `sub` we saw — used to detect when a different user has signed
+// in so we can wipe user-scoped caches (selected resume, tracked job,
+// score/tailoring caches) instead of leaking them into the new session.
+const lastUserIdKey = 'lastUserId';
 const isDevelopment = false;
 const showConsoleAlerts = false;
 

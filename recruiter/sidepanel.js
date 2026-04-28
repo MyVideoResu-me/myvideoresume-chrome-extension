@@ -146,13 +146,14 @@ function applyProGating() {
     if (companyToggle) companyToggle.disabled = true;
     if (scoreToggle) scoreToggle.disabled = true;
     showElement('autoDetectUpgrade');
-    hideElement('headerUpgradeButton');
+    showElement('profileUpgradeButton');
   } else {
     if (jobsToggle) jobsToggle.disabled = false;
     if (profileToggle) profileToggle.disabled = false;
     if (companyToggle) companyToggle.disabled = false;
     if (scoreToggle) scoreToggle.disabled = false;
     hideElement('autoDetectUpgrade');
+    hideElement('profileUpgradeButton');
   }
 }
 
@@ -336,7 +337,7 @@ function setupTabNavigation() {
   }
 
   // Upgrade buttons
-  ['headerUpgradeButton', 'upgradeAutoDetectButton'].forEach((id) => {
+  ['profileUpgradeButton', 'upgradeAutoDetectButton'].forEach((id) => {
     const el = document.getElementById(id);
     if (el) {
       el.addEventListener('click', () => {

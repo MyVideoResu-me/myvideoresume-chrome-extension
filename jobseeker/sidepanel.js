@@ -409,7 +409,7 @@ function renderTokenBudget(summary) {
   // whose role is "user".
   if (summary.isUnlimited || summary.isPro) {
     setIsPro(true);
-    hideElement('headerUpgradeButton');
+    hideElement('profileUpgradeButton');
   }
 
   pill.classList.remove('hidden', 'token-pill-warning', 'token-pill-exhausted', 'token-pill-unlimited');
@@ -2712,49 +2712,90 @@ function initializeApp() {
   // "open Resume tab if no master exists" rule.
   hasAppliedDefaultTab = false;
 
-  chrome.storage.local.get([jwtTokenKey, selectedResumeKey, trackedJobKey], async (data) => {
-    if (!data.jwtToken) {
-      showSignedOutState();
-      return;
-    }
-
-    let decoded;
-    try {
-      decoded = jwt_decode(data.jwtToken);
-    } catch (e) {
-      console.error('Error decoding token:', e);
-      showSignedOutState();
-      return;
-    }
-
-    const currentTime = Math.floor(Date.now() / 1000);
-    if (decoded.exp && decoded.exp < currentTime) {
-      // Try a silent refresh before falling back to signed-out.
-      const refreshed = await requestSilentRefresh();
-      if (!refreshed) {
+  chrome.storage.local.get(
+    [jwtTokenKey, selectedResumeKey, trackedJobKey, lastUserIdKey],
+    async (data) => {
+      if (!data.jwtToken) {
         showSignedOutState();
         return;
       }
-      // Re-enter init now that storage holds a fresh token.
-      initializeApp();
-      return;
-    }
 
-    // Token valid — render signed-in UI
-    showSignedInState();
+      let decoded;
+      try {
+        decoded = jwt_decode(data.jwtToken);
+      } catch (e) {
+        console.error('Error decoding token:', e);
+        showSignedOutState();
+        return;
+      }
 
-    if (data[selectedResumeKey]) selectedResume = data[selectedResumeKey];
-    if (data[trackedJobKey]) {
-      trackedJob = data[trackedJobKey];
-      renderTrackedJob();
-    }
+      const currentTime = Math.floor(Date.now() / 1000);
+      if (decoded.exp && decoded.exp < currentTime) {
+        // Try a silent refresh before falling back to signed-out.
+        const refreshed = await requestSilentRefresh();
+        if (!refreshed) {
+          showSignedOutState();
+          return;
+        }
+        // Re-enter init now that storage holds a fresh token.
+        initializeApp();
+        return;
+      }
 
-    loadSettings();
-    loadJobCaches();
-    loadMasterResumeGroups();
-    loadTrackedJobsTable();
-    loadCurrentUser();
-    loadTokenBudget();
+      // Detect a user switch — JWT subject differs from the last sign-in
+      // we observed. Drop every cached scrap of the previous user (selected
+      // resume, tracked job, score/tailoring caches) so nothing leaks into
+      // the new session. Without this, switching accounts on hired.video
+      // leaves the side panel pinned to the previous user's resume.
+      const newUserId = decoded.sub || null;
+      if (newUserId && data[lastUserIdKey] && data[lastUserIdKey] !== newUserId) {
+        await clearUserScopedState();
+        data[selectedResumeKey] = null;
+        data[trackedJobKey] = null;
+      }
+      if (newUserId && newUserId !== data[lastUserIdKey]) {
+        chrome.storage.local.set({ [lastUserIdKey]: newUserId });
+      }
+
+      // Token valid — render signed-in UI
+      showSignedInState();
+
+      if (data[selectedResumeKey]) selectedResume = data[selectedResumeKey];
+      if (data[trackedJobKey]) {
+        trackedJob = data[trackedJobKey];
+        renderTrackedJob();
+      }
+
+      loadSettings();
+      loadJobCaches();
+      loadMasterResumeGroups();
+      loadTrackedJobsTable();
+      loadCurrentUser();
+      loadTokenBudget();
+    },
+  );
+}
+
+/**
+ * Wipe all per-user cached state from chrome.storage.local AND from the
+ * in-memory globals. Called on a user-switch and on sign-out so the next
+ * session starts from a clean slate.
+ */
+function clearUserScopedState() {
+  return new Promise((resolve) => {
+    chrome.storage.local.remove(
+      [selectedResumeKey, trackedJobKey, JOB_SCORES_KEY, JOB_TAILORINGS_KEY],
+      () => {
+        selectedResume = null;
+        trackedJob = null;
+        jobScores = {};
+        jobTailorings = {};
+        resumeGroups = [];
+        generatedResumeData = null;
+        generatedVariationId = null;
+        resolve();
+      },
+    );
   });
 }
 
@@ -2763,7 +2804,7 @@ function initializeApp() {
 function showSignedOutState() {
   showElement('signedOutBanner');
   hideElement('profileCard');
-  hideElement('headerUpgradeButton');
+  hideElement('profileUpgradeButton');
   clearTokenBudget();
   showElement('resumeListEmptyHint');
   hideElement('resumeSelectionContainer');
@@ -2819,10 +2860,10 @@ function showSignedInState() {
   hideElement('signedOutBanner');
   showElement('profileCard');
   hideElement('resumeListEmptyHint');
-  // The header upgrade button is controlled by the `pro-unlocked`
+  // The profile-card upgrade button is controlled by the `pro-unlocked`
   // body class (CSS hides it when pro). For signed-in free users
   // we show it explicitly.
-  if (!isPro) showElement('headerUpgradeButton');
+  if (!isPro) showElement('profileUpgradeButton');
 }
 
 /**
@@ -2866,10 +2907,10 @@ function requestSilentRefresh() {
 }
 
 function handleTokenExpired() {
-  chrome.storage.local.remove([jwtTokenKey, selectedResumeKey, trackedJobKey], () => {
-    selectedResume = null;
-    trackedJob = null;
-    resumeGroups = [];
+  // Drop the JWT and the lastUserId stamp first, then sweep all user-scoped
+  // caches so a future sign-in (same user OR different) starts clean.
+  chrome.storage.local.remove([jwtTokenKey, lastUserIdKey], async () => {
+    await clearUserScopedState();
     showSignedOutState();
   });
 }
@@ -2973,7 +3014,7 @@ function setupEventListeners() {
   }
 
   bind('upgradeButton', openUpgradePage);
-  bind('headerUpgradeButton', openUpgradePage);
+  bind('profileUpgradeButton', openUpgradePage);
 
   const webSettingsLink = document.getElementById('openWebSettingsLink');
   if (webSettingsLink) {

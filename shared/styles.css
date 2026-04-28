@@ -1955,11 +1955,12 @@ body.pro-unlocked .upgrade-card {
   flex: 1 1 auto;
 }
 
-.btn-upgrade-header {
-  flex: 0 0 auto;
-  width: auto;
-  margin: 0;
-  padding: 5px 10px;
+/* Upgrade CTA — sits inside the profile card under the role pill so it's
+ * always next to the user info instead of competing for header real estate. */
+.btn-upgrade-profile {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 10px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.03em;
@@ -1970,17 +1971,15 @@ body.pro-unlocked .upgrade-card {
   cursor: pointer;
   white-space: nowrap;
   line-height: 1.2;
-  height: auto;
-  min-height: 0;
   transition: opacity 0.15s ease;
 }
 
-.btn-upgrade-header:hover {
+.btn-upgrade-profile:hover {
   opacity: 0.85;
 }
 
 /* Hidden when user is already premium */
-body.pro-unlocked .btn-upgrade-header {
+body.pro-unlocked .btn-upgrade-profile {
   display: none;
 }
 
