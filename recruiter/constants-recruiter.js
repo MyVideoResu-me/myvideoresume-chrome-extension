@@ -63,77 +63,9 @@ if (typeof updateConfiguration === 'function') {
   };
 }
 
-// ---- Profile site parsers -----------------------------------------------
-
-const PROFILE_SITE_PARSERS = {
-  linkedin: {
-    hostPatterns: ['linkedin.com'],
-    urlPatterns: [/\/in\/[^/]+/],
-    selectors: [
-      '.pv-top-card',
-      '.scaffold-layout__main',
-      '[class*="profile-card"]',
-      '.profile-section-card',
-    ],
-    nameSelectors: [
-      '.text-heading-xlarge',
-      'h1.text-heading-xlarge',
-      'h1',
-    ],
-    titleSelectors: [
-      '.text-body-medium[data-anonymize="headline"]',
-      '.text-body-medium',
-      '.pv-top-card--list li:first-child',
-    ],
-    companySelectors: [
-      '.pv-text-details__right-panel-item-text',
-      '[aria-label*="Current company"]',
-      '.experience-item__subtitle',
-    ],
-    locationSelectors: [
-      '.text-body-small[data-anonymize="location"]',
-      '.text-body-small.inline.t-black--light',
-      '.pv-top-card--list-bullet li:first-child',
-    ],
-  },
-  indeed: {
-    hostPatterns: ['indeed.com'],
-    urlPatterns: [/\/resumes?\//],
-    selectors: [
-      '.resume-body',
-      '#resume-body',
-      '.icl-ResumeBody',
-    ],
-    nameSelectors: [
-      '.icl-ResumeHeader-name',
-      'h1',
-    ],
-    titleSelectors: [
-      '.icl-ResumeHeader-headline',
-      '.resume-headline',
-    ],
-    companySelectors: [],
-    locationSelectors: [
-      '.icl-ResumeHeader-location',
-      '.resume-location',
-    ],
-  },
-};
-
-// ---- Profile pane selectors (wider container for extraction) ------------
-
-const PROFILE_PANE_SELECTORS = {
-  linkedin: [
-    '.scaffold-layout__main',
-    '.pv-profile-section',
-    'main',
-  ],
-  indeed: [
-    '.resume-body',
-    '#resume-body',
-    'main',
-  ],
-};
+// PROFILE_SITE_PARSERS lifted to shared/profile-parsers.js so the
+// seeker-side Vendor Sync flow can share the same selectors. Both
+// manifests now load profile-parsers.js before this file.
 
 // ---- Company site parsers -----------------------------------------------
 

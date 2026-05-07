@@ -8,52 +8,14 @@
  * Follows the same pattern as content-script-jobs.js — cheap on non-profile
  * pages, bails immediately when no selectors match.
  *
- * Loaded AFTER constants.js and constants-recruiter.js so
- * PROFILE_SITE_PARSERS and related objects are available.
+ * Selectors + focused-pane finders live in shared/profile-parsers.js
+ * (PROFILE_SITE_PARSERS, FOCUSED_PROFILE_FINDERS, findFocusedProfilePane).
+ * The recruiter manifest must load that file before this one.
  */
 
 // ---- Profile detection --------------------------------------------------
 
 let lastDetectedProfileKey = null;
-
-/**
- * Per-host profile pane finders. Returns the DOM container wrapping
- * the candidate's profile on the current page.
- */
-const FOCUSED_PROFILE_FINDERS = {
-  'linkedin.com': () => {
-    // Only on /in/ profile pages
-    if (!/\/in\/[^/]+/.test(window.location.pathname)) return null;
-    return (
-      document.querySelector('.scaffold-layout__main') ||
-      document.querySelector('.pv-top-card')?.closest('main') ||
-      null
-    );
-  },
-  'indeed.com': () => {
-    if (!/\/resumes?\//.test(window.location.pathname)) return null;
-    return (
-      document.querySelector('.resume-body') ||
-      document.querySelector('#resume-body') ||
-      null
-    );
-  },
-};
-
-function findFocusedProfilePane() {
-  const host = window.location.hostname.toLowerCase();
-  for (const [pattern, finder] of Object.entries(FOCUSED_PROFILE_FINDERS)) {
-    if (host.includes(pattern)) {
-      try {
-        const el = finder();
-        if (el) return { el, host: pattern };
-      } catch (e) {
-        // ignore
-      }
-    }
-  }
-  return null;
-}
 
 function detectProfileOnPage() {
   // Guard: only run on known profile hosts
@@ -88,13 +50,6 @@ function detectProfileOnPage() {
   const title = pickText(focused.el, siteParser.titleSelectors);
   const company = pickText(focused.el, siteParser.companySelectors);
   const location = pickText(focused.el, siteParser.locationSelectors);
-
-  // Stash the profile pane HTML for extraction
-  try {
-    window.__hiredVideoFocusedProfileHtml = focused.el.outerHTML;
-  } catch (e) {
-    // cross-origin restriction
-  }
 
   notifyProfileDetected({
     name: name.slice(0, 250),
@@ -147,16 +102,5 @@ window.addEventListener('popstate', () => {
   scheduleProfileDetect();
 });
 
-// Listen for messages from the service worker
-chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
-  if (request.action === 'getFocusedProfileHTML') {
-    detectProfileOnPage();
-    const html = window.__hiredVideoFocusedProfileHtml || null;
-    sendResponse({
-      html,
-      originUrl: window.location.href,
-    });
-    return true;
-  }
-  return false;
-});
+// `getFocusedProfileHTML` is now handled by shared/content-script-self-profile.js,
+// which both the recruiter side panel and the seeker /tools/vendor-sync flow use.

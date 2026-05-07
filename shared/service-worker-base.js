@@ -24,6 +24,76 @@ const REFRESH_THRESHOLD_SECONDS = 24 * 60 * 60; // refresh when < 24h left
 // import non-module scripts, so it's duplicated here.
 const API_BASE = 'https://api.hired.video';
 
+// Hosts the seeker Vendor Sync flow can pull profile HTML from. Mirrors
+// `PROFILE_SITE_PARSERS.*.hostPatterns` in shared/profile-parsers.js —
+// kept as plain strings here because the service worker can't import
+// the parsers module. Add to BOTH places when adding a vendor with
+// `supportsExtensionExtract: true`.
+const VENDOR_SYNC_HOST_PATTERNS = [
+  'linkedin.com',
+  'indeed.com',
+];
+
+/**
+ * Vendor Sync — "user clicked Sync on /tools/vendor-sync" handler.
+ *
+ * Finds the most recent matching profile tab (LinkedIn, Indeed, ...),
+ * asks its content script for the focused pane HTML, and broadcasts the
+ * result back to every open hired.video tab via the extension→web bridge
+ * as `hired.video:extension-event` with type `vendor-sync:focused-html`.
+ *
+ * Failure modes (no profile tab open, content script not responding,
+ * cross-origin block) all emit the same event with `html: null` so the
+ * web app can surface a user-facing error instead of hanging.
+ */
+function handleVendorSyncFocusedRequest(_payload) {
+  const matchUrls = VENDOR_SYNC_HOST_PATTERNS.map((h) => `*://*.${h}/*`);
+
+  function broadcast(result) {
+    chrome.tabs.query(
+      { url: ['https://hired.video/*', 'https://www.hired.video/*', 'http://localhost:3000/*'] },
+      (webTabs) => {
+        for (const t of webTabs) {
+          if (!t?.id) continue;
+          chrome.tabs.sendMessage(t.id, {
+            action: 'hiredVideoExtensionEvent',
+            type: 'vendor-sync:focused-html',
+            payload: result,
+          }).catch(() => {});
+        }
+      },
+    );
+  }
+
+  chrome.tabs.query({ url: matchUrls }, (tabs) => {
+    if (!tabs || tabs.length === 0) {
+      broadcast({ html: null, connectorId: null, originUrl: null, error: 'NO_PROFILE_TAB' });
+      return;
+    }
+    // Prefer the tab the user most recently focused — chrome.tabs.query
+    // has no native ordering, so fall back to lastAccessed when present.
+    const sorted = tabs.slice().sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
+    const tab = sorted[0];
+    chrome.tabs.sendMessage(tab.id, { action: 'getFocusedProfileHTML' }, (response) => {
+      if (chrome.runtime.lastError || !response) {
+        broadcast({
+          html: null,
+          connectorId: null,
+          originUrl: tab.url ?? null,
+          error: chrome.runtime.lastError?.message ?? 'NO_RESPONSE',
+        });
+        return;
+      }
+      broadcast({
+        html: response.html ?? null,
+        connectorId: response.connectorId ?? null,
+        originUrl: response.originUrl ?? tab.url ?? null,
+        error: response.html ? null : 'NO_FOCUSED_PANE',
+      });
+    });
+  });
+}
+
 // Origins where the auth bridge runs. Used to find tabs that need a
 // hard reload when the extension's own login flow stores a new token.
 const HIRED_WEB_ORIGINS = [
@@ -194,6 +264,15 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   // on /resumes, etc.) here. We relay to the side panel via
   // chrome.runtime.sendMessage so it can re-fetch affected lists.
   if (request.action === 'webAppEvent') {
+    // Special-case: Vendor Sync wants the focused profile HTML out of
+    // some OTHER tab (LinkedIn, Indeed, ...). The web app fires this
+    // when the user clicks "Sync from this tab" on /tools/vendor-sync;
+    // we find a matching profile tab, query its content script, and
+    // broadcast the HTML back via the existing extension→web bridge.
+    if (request.type === 'vendor-sync:request-focused-html') {
+      handleVendorSyncFocusedRequest(request.payload ?? {});
+      return false;
+    }
     chrome.runtime.sendMessage({
       action: 'webAppEvent',
       type: request.type,

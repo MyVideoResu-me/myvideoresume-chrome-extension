@@ -24,8 +24,10 @@
         "<all_urls>"
       ],
       "js": [
+        "profile-parsers.js",
         "constants-recruiter.js",
         "content-script-jobs.js",
+        "content-script-self-profile.js",
         "content-script-profiles.js",
         "content-script-companies.js"
       ]

@@ -24,7 +24,9 @@
         "<all_urls>"
       ],
       "js": [
-        "content-script-jobs.js"
+        "profile-parsers.js",
+        "content-script-jobs.js",
+        "content-script-self-profile.js"
       ]
     },
     {
