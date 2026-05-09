@@ -44,6 +44,15 @@
     </div>
   </div>
 
+  <!-- Studio quick-launch — opens the web Studio in a new tab pre-armed
+       for one-scene promo capture. Click handler lives in shared
+       capture-launcher.js (self-gated by element id). -->
+  <div class="card studio-quick-launch">
+    <button id="launchPromoCaptureButton" class="btn btn-primary btn-block" type="button" title="Open Studio with screen capture pre-armed">
+      🎬 Record promo video
+    </button>
+  </div>
+
   <!-- Tab strip -->
   <div class="tab-strip" role="tablist">
     <button id="tabNowButton" class="tab-button tab-active" role="tab" aria-selected="true" data-tab="now">
@@ -405,6 +414,7 @@
   <script src="constants.js"></script>
   <script src="constants-recruiter.js"></script>
   <script src="utils.js"></script>
+  <script src="capture-launcher.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 
