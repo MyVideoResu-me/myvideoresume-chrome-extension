@@ -534,6 +534,10 @@
   <script src="constants.js"></script>
   <script src="utils.js"></script>
   <script src="capture-launcher.js"></script>
+  <!-- Shared scraper bundle — must load before sidepanel.js so that
+       window.HiredVideoScraping.detectJobInPage is available when the
+       HTML-parse fallback fires (one source of truth for site configs). -->
+  <script src="sidepanel-scraping-bundle.js"></script>
   <script src="sidepanel.js"></script>
 </body>
 

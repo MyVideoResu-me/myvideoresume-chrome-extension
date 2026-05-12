@@ -31,6 +31,8 @@ const DIST_DIR = path.join(ROOT, 'dist');
 const TS_ENTRYPOINTS = {
   'content-script-jobs.js': path.join(SHARED_DIR, 'content-script-jobs.ts'),
   'content-script-autofill.js': path.join(SHARED_DIR, 'content-script-autofill.ts'),
+  // Sidepanel re-uses the shared `detectJobInPage` via window.HiredVideoScraping.
+  'sidepanel-scraping-bundle.js': path.join(SHARED_DIR, 'sidepanel-scraping-bundle.ts'),
 };
 
 const EXTENSIONS = {
@@ -54,6 +56,7 @@ const SKIP_IN_SHARED = new Set([
   // TS content scripts — bundled by esbuild, not copied raw.
   'content-script-jobs.ts',
   'content-script-autofill.ts',
+  'sidepanel-scraping-bundle.ts',
   // Legacy JS versions that are superseded by the TS bundle. The build
   // emits the bundled output AT the same filename so the manifest keeps
   // working; the raw JS originals stay in git as the migration backstop
