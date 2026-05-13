@@ -863,88 +863,21 @@ async function handleManualScan() {
 }
 
 /**
- * Best-effort job extraction from the already-captured page HTML.
- * Used when the content script's detectJob message fails (e.g. tab
- * loaded before the extension was installed). Mirrors the content
- * script's genericJobExtract() but runs against a parsed HTML string
- * rather than the live DOM.
+ * HTML-parse fallback for when the content-script `detectJob` message
+ * fails (tab predates the extension install, content script crashed,
+ * etc.). Delegates to the shared scraper bundle so per-site configs
+ * (LinkedIn, Indeed, amazon.jobs, …) automatically apply here too —
+ * no duplicate site-aware logic to keep in sync.
  */
 function extractJobFromCapturedHtml() {
   const html = currentJobOriginalHtml;
-  if (!html) return null;
-
-  const parser = new DOMParser();
-  const doc = parser.parseFromString(html, 'text/html');
-
-  const NOISE = new Set([
-    'home', 'careers', 'jobs', 'job openings', 'open positions',
-    'search results', 'apply now', 'sign in', 'log in', 'menu',
-  ]);
-
-  let title = '';
-
-  // 1. JSON-LD JobPosting (best signal)
-  const ldScripts = doc.querySelectorAll('script[type="application/ld+json"]');
-  for (const script of ldScripts) {
-    if (!script.textContent || !script.textContent.includes('JobPosting')) continue;
-    try {
-      const data = JSON.parse(script.textContent);
-      const items = Array.isArray(data) ? data : data?.['@graph'] || [data];
-      for (const item of items) {
-        if ((item?.['@type'] || '').toString().toLowerCase() !== 'jobposting') continue;
-        title = (item.title || '').toString().trim();
-        const company = (item.hiringOrganization?.name || '').toString().trim();
-        const loc = item.jobLocation?.address;
-        const location = loc
-          ? [loc.addressLocality, loc.addressRegion, loc.addressCountry].filter(Boolean).join(', ')
-          : '';
-        if (title) {
-          return { title: title.slice(0, 250), company, location, sourceUrl: currentJobUrl, applyUrl: currentJobUrl };
-        }
-      }
-    } catch (e) { /* malformed JSON-LD */ }
+  if (!html || !window.HiredVideoScraping?.detectJobInPage) return null;
+  const doc = new DOMParser().parseFromString(html, 'text/html');
+  const detected = window.HiredVideoScraping.detectJobInPage(doc, currentJobUrl);
+  if (detected) {
+    console.log('[hired.video] extractJobFromCapturedHtml — title:', detected.title, '| company:', detected.company || '', '| strategy:', detected.strategy);
   }
-
-  // 2. First h1 on the page
-  const h1 = doc.querySelector('h1');
-  if (h1) {
-    const txt = h1.textContent.replace(/\s+/g, ' ').trim();
-    if (txt && txt.length > 3 && txt.length < 200 && !NOISE.has(txt.toLowerCase())) {
-      title = txt;
-    }
-  }
-
-  // 3. <title> tag fallback
-  if (!title) {
-    const raw = (doc.title || '').replace(/\s+/g, ' ').trim();
-    const cleaned = raw
-      .replace(/\s*[-|–—•]\s*(Careers|Jobs|Hiring|Apply|Company|Recruit|Job Board|Openings).*$/i, '')
-      .trim();
-    if (cleaned && cleaned.length > 3 && cleaned.length < 200 && !NOISE.has(cleaned.toLowerCase())) {
-      title = cleaned;
-    }
-  }
-
-  if (!title) return null;
-
-  // Company from og:site_name
-  let company = '';
-  const ogSiteName = doc.querySelector('meta[property="og:site_name"]');
-  if (ogSiteName) company = (ogSiteName.getAttribute('content') || '').trim();
-
-  // Location from common selectors
-  let location = '';
-  const locEl = doc.querySelector('[data-testid*="location"], [class*="job-location"], [class*="jobLocation"]');
-  if (locEl) location = locEl.textContent.replace(/\s+/g, ' ').trim();
-
-  console.log('[hired.video] extractJobFromCapturedHtml — title:', title, '| company:', company);
-  return {
-    title: title.slice(0, 250),
-    company,
-    location,
-    sourceUrl: currentJobUrl,
-    applyUrl: currentJobUrl,
-  };
+  return detected;
 }
 
 /**
@@ -3369,8 +3302,10 @@ function renderResumeSelection() {
           </div>
           <div class="d-flex align-items-center gap-2">
             ${badges.join('')}
-            ${actions.join('')}
           </div>
+        </div>
+        <div class="resume-card-actions">
+          ${actions.join('')}
         </div>
       </div>
     `;

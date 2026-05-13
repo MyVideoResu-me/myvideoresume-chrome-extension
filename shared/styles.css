@@ -2259,6 +2259,22 @@ body.pro-unlocked .btn-upgrade-profile {
   color: var(--primary);
 }
 
+/* Studio quick-launch card hosts the absolutely-positioned dismiss (X)
+   in its top-right corner. Same markup is used in both extensions.
+   The X keeps the standard .icon-btn border + white background so it
+   reads as a clearly tappable control against the gradient button. */
+.studio-quick-launch {
+  position: relative;
+}
+
+.studio-quick-launch-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+}
+
 /* Stats card (tracked job count) */
 .stats-card .stats-label {
   font-size: 12px;
@@ -2299,13 +2315,19 @@ body.pro-unlocked .btn-upgrade-profile {
   margin-bottom: 4px;
 }
 
-/* Resume row inline action button */
+/* Resume row inline action button. Sits as a second row inside the
+   card so it never overflows the panel width when several actions
+   (icon-btns + btn-link "Set Active" / "Set Master") are visible at
+   once in edit mode. */
 .resume-card .resume-card-actions {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   gap: 4px;
-  margin-top: 6px;
+  margin-top: 8px;
 }
 
+.btn-link,
 .resume-card .btn-link {
   background: none;
   border: none;
@@ -2315,6 +2337,7 @@ body.pro-unlocked .btn-upgrade-profile {
   padding: 2px 4px;
 }
 
+.btn-link:hover,
 .resume-card .btn-link:hover {
   text-decoration: underline;
 }

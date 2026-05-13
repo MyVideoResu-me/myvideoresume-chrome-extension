@@ -21,7 +21,7 @@
 
     <div class="section-divider"></div>
 
-    <details>
+    <details id="emailPasswordDetails">
       <summary class="text-sm">Sign in with email & password</summary>
       <form id="loginForm" class="mt-3">
         <div class="mb-3">
@@ -44,6 +44,29 @@
         <div id="loading" class="loading-container hidden">
           <div class="spinner-border" aria-hidden="true"></div>
           <span>Signing in...</span>
+        </div>
+      </form>
+
+      <form id="twoFactorForm" class="mt-3 hidden">
+        <h4 class="text-sm">Check your email for a code</h4>
+        <p id="twoFactorIntro" class="text-xs text-muted mb-3">
+          We just sent a 6-digit code. It expires in 10 minutes.
+        </p>
+        <div class="mb-3">
+          <label for="twoFactorCode" class="form-label">Verification code</label>
+          <input type="text" id="twoFactorCode" required class="form-control"
+                 inputmode="numeric" autocomplete="one-time-code" maxlength="6"
+                 placeholder="123456" />
+        </div>
+        <div id="twoFactorError" class="alert alert-error hidden"></div>
+        <button id="twoFactorSubmit" type="submit" class="btn btn-secondary">Verify and continue</button>
+        <div class="mt-2">
+          <button type="button" id="twoFactorResend" class="btn-link text-xs">Resend code</button>
+          <button type="button" id="twoFactorBack" class="btn-link text-xs">Use a different account</button>
+        </div>
+        <div id="twoFactorLoading" class="loading-container hidden">
+          <div class="spinner-border" aria-hidden="true"></div>
+          <span>Verifying...</span>
         </div>
       </form>
     </details>

@@ -37,6 +37,8 @@ const PATHS = {
   me: '/api/auth/me',
   refresh: '/api/auth/refresh',
   magicLink: '/api/auth/magic-link',
+  verifyTwoFactor: '/api/auth/verify-2fa',
+  resendTwoFactor: '/api/auth/resend-2fa',
   // OAuth start: append the provider, e.g. /api/auth/oauth/google
   oauthStart: '/api/auth/oauth',
 
@@ -87,6 +89,8 @@ let jobsExtractUrl;
 let jobsSavedUrl;
 let meUrl;
 let magicLinkUrl;
+let verifyTwoFactorUrl;
+let resendTwoFactorUrl;
 let oauthStartUrl;
 let extensionPreferencesUrl;
 
@@ -108,6 +112,8 @@ function updateConfiguration() {
     jobsSavedUrl = apiBase + PATHS.jobsSaved;
     meUrl = apiBase + PATHS.me;
     magicLinkUrl = apiBase + PATHS.magicLink;
+    verifyTwoFactorUrl = apiBase + PATHS.verifyTwoFactor;
+    resendTwoFactorUrl = apiBase + PATHS.resendTwoFactor;
     oauthStartUrl = apiBase + PATHS.oauthStart;
     extensionPreferencesUrl = apiBase + PATHS.extensionPreferences;
 }

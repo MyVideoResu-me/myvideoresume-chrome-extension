@@ -45,9 +45,12 @@
   </div>
 
   <!-- Studio quick-launch — opens the web Studio in a new tab pre-armed
-       for one-scene promo capture. Click handler lives in shared
-       capture-launcher.js (self-gated by element id). -->
-  <div class="card studio-quick-launch">
+       for one-scene promo capture. Click handler + dismiss persistence
+       live in shared capture-launcher.js (self-gated by element ids). -->
+  <div id="studioQuickLaunch" class="card studio-quick-launch">
+    <button id="dismissPromoCaptureButton" class="icon-btn studio-quick-launch-dismiss" type="button" title="Hide this panel" aria-label="Hide promo recorder">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
     <button id="launchPromoCaptureButton" class="btn btn-primary btn-block" type="button" title="Open Studio with screen capture pre-armed">
       🎬 Record promo video
     </button>

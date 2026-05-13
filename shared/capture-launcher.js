@@ -23,9 +23,15 @@
  *     script does nothing.
  *   - Both sidepanel-global.html files include this script + the
  *     button. No per-extension JS edit required.
+ *   - The dismiss (X) on the panel persists to chrome.storage.local
+ *     under STUDIO_QUICK_LAUNCH_DISMISSED_KEY so the panel stays
+ *     hidden across reopens until the user reinstalls or clears
+ *     extension storage.
  */
 
 (function () {
+  const STUDIO_QUICK_LAUNCH_DISMISSED_KEY = 'studioQuickLaunchDismissed';
+
   /**
    * Open Studio in a new tab with promo capture pre-armed.
    * @param {{ toolId?: string, subjectKind?: 'resume'|'job'|'company', subjectId?: string }=} opts
@@ -57,17 +63,35 @@
   // (e.g. a context-specific "Record this candidate" button later).
   window.launchPromoCapture = launchPromoCapture;
 
-  function wireButton() {
+  function wirePanel() {
     const btn = document.getElementById('launchPromoCaptureButton');
     if (!btn) return; // self-gating per the DRY rule
     btn.addEventListener('click', function () {
       launchPromoCapture();
     });
+
+    const card = document.getElementById('studioQuickLaunch');
+    const dismissBtn = document.getElementById('dismissPromoCaptureButton');
+    if (!card || !dismissBtn) return;
+
+    // Hide immediately if previously dismissed. chrome.storage.local is
+    // async so a brief flash is possible on slow machines — acceptable
+    // tradeoff vs. shipping a separate sync flag.
+    chrome.storage.local.get(STUDIO_QUICK_LAUNCH_DISMISSED_KEY, (data) => {
+      if (data && data[STUDIO_QUICK_LAUNCH_DISMISSED_KEY]) {
+        card.classList.add('hidden');
+      }
+    });
+
+    dismissBtn.addEventListener('click', function () {
+      card.classList.add('hidden');
+      chrome.storage.local.set({ [STUDIO_QUICK_LAUNCH_DISMISSED_KEY]: true });
+    });
   }
 
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', wireButton);
+    document.addEventListener('DOMContentLoaded', wirePanel);
   } else {
-    wireButton();
+    wirePanel();
   }
 })();
