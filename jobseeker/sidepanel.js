@@ -2598,8 +2598,12 @@ function setupWebAppEventListener() {
       // the fresh values and re-render our Settings tab toggles.
       loadSettingsFromServer();
     }
-    // Add more resource handlers here as the surface area grows
-    // (tracked-job changes, applications, etc.).
+    if (message.type === 'tracked-job-changed') {
+      // User hit Save / Unsave on a job card on hired.video — pull
+      // the fresh tracked list so the badge count and rows match.
+      loadTrackedJobsTable();
+    }
+    // Add more resource handlers here as the surface area grows.
     return false;
   });
 }
