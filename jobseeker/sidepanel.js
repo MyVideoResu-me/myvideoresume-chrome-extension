@@ -881,6 +881,41 @@ function extractJobFromCapturedHtml() {
 }
 
 /**
+ * Single entry point for POSTing to /api/jobs/extract. Centralises:
+ *   - JWT acquisition
+ *   - track / force query + body params
+ *   - hint passing (title / company / location from `detectedPageJob`),
+ *     so the API can fall back to DOM-detected fields when AI extraction
+ *     surfaces "Job from linkedin.com" or other low-confidence fallbacks.
+ *
+ * Every Track / Tailor / Score path goes through this helper so the
+ * hint contract can't drift between callers. Returns the raw Response —
+ * each caller handles 401 / 422 / dedup payloads in its own way.
+ */
+async function callJobsExtract({ html, sourceUrl, track, force }) {
+  const jwtToken = await getJwtToken();
+  if (!jwtToken) return null;
+  const qs = track === false ? '?track=false' : track === true ? '?track=true' : '';
+  return fetch(`${jobsExtractUrl}${qs}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${jwtToken}`,
+    },
+    body: JSON.stringify({
+      url: sourceUrl,
+      sourceUrl,
+      html,
+      ...(track === false ? { track: false } : {}),
+      ...(force ? { force: true } : {}),
+      ...(detectedPageJob?.title ? { hintTitle: detectedPageJob.title } : {}),
+      ...(detectedPageJob?.company ? { hintCompany: detectedPageJob.company } : {}),
+      ...(detectedPageJob?.location ? { hintLocation: detectedPageJob.location } : {}),
+    }),
+  });
+}
+
+/**
  * Ask the active tab's content script to re-run job detection and
  * surface the result in the banner. Used after tab switches and
  * initial panel open.
@@ -974,19 +1009,12 @@ async function handleBannerScore() {
     const canonicalUrl = detectedPageJob?.sourceUrl || jobCtx.originUrl;
 
     const jwtToken = await getJwtToken();
-    const extractResp = await fetch(`${jobsExtractUrl}?track=false`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
-      body: JSON.stringify({
-        url: canonicalUrl,
-        sourceUrl: canonicalUrl,
-        html: jobCtx.html,
-        track: false,
-        ...(detectedPageJob?.title ? { hintTitle: detectedPageJob.title } : {}),
-        ...(detectedPageJob?.company ? { hintCompany: detectedPageJob.company } : {}),
-        ...(detectedPageJob?.location ? { hintLocation: detectedPageJob.location } : {}),
-      }),
+    const extractResp = await callJobsExtract({
+      html: jobCtx.html,
+      sourceUrl: canonicalUrl,
+      track: false,
     });
+    if (!extractResp) return handleTokenExpired();
     if (extractResp.status === 401) return handleTokenExpired();
     if (!extractResp.ok) {
       // If extract fails, try scoring by content directly
@@ -1578,26 +1606,13 @@ async function runTailorAndSavePipeline(options = {}) {
     // 2. Extract via /api/jobs/extract (with or without tracking)
     if (!options.silent) showQuickStatus('Tracking job…', 'info');
     const jwtToken = await getJwtToken();
-    const extractResp = await fetch(`${jobsExtractUrl}?track=${track ? 'true' : 'false'}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({
-        url: currentJobUrl,
-        sourceUrl: currentJobUrl,
-        html: jobPaneHtml,
-        track,
-        force: !!options._force,
-        // Pass detected title/company as hints — the content script
-        // already parsed these from the DOM. The API uses them as
-        // fallbacks when AI extraction struggles with noisy HTML.
-        ...(detectedPageJob?.title ? { hintTitle: detectedPageJob.title } : {}),
-        ...(detectedPageJob?.company ? { hintCompany: detectedPageJob.company } : {}),
-        ...(detectedPageJob?.location ? { hintLocation: detectedPageJob.location } : {}),
-      }),
+    const extractResp = await callJobsExtract({
+      html: jobPaneHtml,
+      sourceUrl: currentJobUrl,
+      track,
+      force: !!options._force,
     });
+    if (!extractResp) return handleTokenExpired();
 
     if (extractResp.status === 401) return handleTokenExpired();
     if (await check429(extractResp, 'quickStatus')) return;
@@ -1718,19 +1733,11 @@ async function runScoreOnlyPipeline() {
   const jobPaneHtml = jobCtx.html;
   currentJobUrl = jobCtx.originUrl || currentJobUrl;
 
-  const extractResp = await fetch(jobsExtractUrl, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      Authorization: `Bearer ${jwtToken}`,
-    },
-    body: JSON.stringify({
-      url: currentJobUrl,
-      sourceUrl: currentJobUrl,
-      html: jobPaneHtml,
-    }),
+  const extractResp = await callJobsExtract({
+    html: jobPaneHtml,
+    sourceUrl: currentJobUrl,
   });
-  if (!extractResp.ok) return;
+  if (!extractResp || !extractResp.ok) return;
   const extractData = await extractResp.json();
   const job = unwrapResponse(extractData);
   trackedJob = buildTrackedJobObj(job, {
@@ -1896,6 +1903,7 @@ function renderTrackedJobsTable() {
         </div>
         ${resumeRow}
         <div class="tracked-job-score-detail hidden" id="scoreDetail-${id}"></div>
+        <div class="tracked-job-row-error hidden" role="alert" aria-live="polite"></div>
       </div>
     `;
   });
@@ -1929,6 +1937,9 @@ function showRowLoading(jobId, message) {
   if (!row) return () => {};
   const actions = row.querySelector('.tracked-job-actions');
   if (!actions) return () => {};
+  // A new action invocation clears any stale error from the previous run
+  // so the spinner doesn't display alongside a now-irrelevant red box.
+  clearRowError(jobId);
   const savedHtml = actions.innerHTML;
   actions.innerHTML = `<div class="row-loading"><div class="spinner-sm"></div><span>${escapeHtml(message || 'Processing...')}</span></div>`;
   // Disable all buttons in the row header too
@@ -1941,6 +1952,51 @@ function showRowLoading(jobId, message) {
       b.addEventListener('click', onTrackedJobAction);
     });
   };
+}
+
+/**
+ * Surface a per-row error message INSIDE the offending job's row, not in
+ * the top-of-panel quickStatus banner. The banner lives inside the
+ * "JOB DETECTED ON THIS PAGE" card and is unrelated to which tracked
+ * row the user clicked — using it for row-scoped failures hides which
+ * job the error is about (gap #879, 2026-05-20).
+ *
+ * Falls back to `showQuickStatus` only when the row is no longer in the
+ * DOM (e.g. the user navigated away or the row was removed by another
+ * action mid-flight) — without a row, the global banner is the
+ * least-bad alternative.
+ */
+function showRowError(jobId, message) {
+  if (!jobId) {
+    showQuickStatus(message || 'Something went wrong.', 'error');
+    return;
+  }
+  const row = document.querySelector(`.tracked-job-row[data-job-id="${jobId}"]`);
+  if (!row) {
+    showQuickStatus(message || 'Something went wrong.', 'error');
+    return;
+  }
+  const slot = row.querySelector('.tracked-job-row-error');
+  if (!slot) {
+    showQuickStatus(message || 'Something went wrong.', 'error');
+    return;
+  }
+  slot.textContent = message || 'Something went wrong.';
+  slot.classList.remove('hidden');
+  // Don't auto-dismiss — the user needs to see this until they take the
+  // next action on the row (which calls clearRowError via showRowLoading).
+  // Scroll the row into view so the message isn't cut off below the fold.
+  row.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function clearRowError(jobId) {
+  if (!jobId) return;
+  const slot = document.querySelector(
+    `.tracked-job-row[data-job-id="${jobId}"] .tracked-job-row-error`,
+  );
+  if (!slot) return;
+  slot.textContent = '';
+  slot.classList.add('hidden');
 }
 
 async function onTrackedJobAction(event) {
@@ -2246,7 +2302,7 @@ async function handleRefreshJob(jobId) {
     );
   } catch (err) {
     console.error('[hired.video] handleRefreshJob failed:', err);
-    showQuickStatus(err?.message || 'Could not refresh this job.', 'error');
+    showRowError(jobId, err?.message || 'Could not refresh this job.');
   } finally {
     if (rescanBtn) {
       rescanBtn.disabled = false;
@@ -2284,7 +2340,7 @@ async function rowDeleteTrackedJob(jobId) {
     renderTrackedJobsTable();
     showQuickStatus('Removed from your tracker.', 'success');
   } catch (err) {
-    showQuickStatus(err.message || 'Could not remove this job.', 'error');
+    showRowError(jobId, err.message || 'Could not remove this job.');
   }
 }
 
@@ -2335,7 +2391,7 @@ async function rowDeleteTailoredVariation(jobId) {
     showQuickStatus(`Deleted "${name}".`, 'success');
   } catch (err) {
     console.error('[hired.video] rowDeleteTailoredVariation failed:', err);
-    showQuickStatus(err.message || 'Could not delete this variation.', 'error');
+    showRowError(jobId, err.message || 'Could not delete this variation.');
   }
 }
 
@@ -2383,7 +2439,7 @@ async function rowScoreJob(jobId) {
     toggleInlineScore(jobId);
   } catch (err) {
     restoreRow();
-    showQuickStatus(err.message || 'Score failed.', 'error');
+    showRowError(jobId, err.message || 'Score failed.');
   }
 }
 
@@ -2431,7 +2487,7 @@ async function rowTailorJob(jobId) {
     );
     loadMasterResumeGroups();
   } catch (err) {
-    showQuickStatus(err.message || 'Tailor failed.', 'error');
+    showRowError(jobId, err.message || 'Tailor failed.');
   } finally {
     pipelineBusy = false;
     restoreRow();
@@ -4030,18 +4086,11 @@ async function handleTrackJob() {
     currentJobOriginalHtml = jobCtx.html;
     currentJobUrl = detectedPageJob?.sourceUrl || jobCtx.originUrl || currentJobUrl;
 
-    const response = await fetch(jobsExtractUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({
-        url: currentJobUrl,
-        sourceUrl: currentJobUrl,
-        html: jobPaneHtml,
-      }),
+    const response = await callJobsExtract({
+      html: jobPaneHtml,
+      sourceUrl: currentJobUrl,
     });
+    if (!response) return handleTokenExpired();
 
     if (response.status === 401) return handleTokenExpired();
 
@@ -4709,7 +4758,7 @@ async function handleStatusChange(jobId, newStatus) {
     renderTrackedJobsTable();
     showQuickStatus(`Status updated to ${newStatus}.`, 'success');
   } catch (err) {
-    showQuickStatus(err.message || 'Failed to update status.', 'error');
+    showRowError(jobId, err.message || 'Failed to update status.');
   }
 }
 

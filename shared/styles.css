@@ -1515,6 +1515,22 @@ a.tracked-job-title:hover .tracked-job-title-icon {
   animation: slideDown 0.15s ease-out;
 }
 
+/* Row-scoped error slot — rendered inline below the action buttons of
+ * the row the user clicked, NOT in the top quickStatus banner. The
+ * banner sits inside "JOB DETECTED ON THIS PAGE" and is the wrong place
+ * for failures on a specific tracked row (gap #879). */
+.tracked-job-row-error {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background-color: var(--error-light);
+  color: var(--error);
+  border: 1px solid var(--error);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  line-height: 1.4;
+  animation: slideDown 0.15s ease-out;
+}
+
 @keyframes slideDown {
   from { opacity: 0; max-height: 0; }
   to { opacity: 1; max-height: 500px; }
