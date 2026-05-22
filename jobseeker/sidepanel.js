@@ -100,7 +100,7 @@ const DEFAULT_SETTINGS = {
   autoDetect: true,
   autoScore: false,
   autoTailor: false,   // PAID
-  wizardMode: false,
+  telemetryOptOut: false,
   downloadFormat: 'pdf', // PAID for non-default values
 };
 let settings = { ...DEFAULT_SETTINGS };
@@ -290,7 +290,7 @@ async function saveSettingsToServer() {
         autoDetect: !!settings.autoDetect,
         autoScore: !!settings.autoScore,
         autoTailor: !!settings.autoTailor,
-        wizardMode: !!settings.wizardMode,
+        telemetryOptOut: !!settings.telemetryOptOut,
         downloadFormat: settings.downloadFormat || 'pdf',
       },
     };
@@ -318,7 +318,7 @@ function applySettingsToUI() {
     settingAutoDetect: 'autoDetect',
     settingAutoScore: 'autoScore',
     settingAutoTailor: 'autoTailor',
-    settingWizardMode: 'wizardMode',
+    settingTelemetryOptOut: 'telemetryOptOut',
   };
   for (const [id, key] of Object.entries(toggles)) {
     const el = document.getElementById(id);
@@ -326,14 +326,6 @@ function applySettingsToUI() {
   }
   const fmt = document.getElementById('settingDownloadFormat');
   if (fmt) fmt.value = settings.downloadFormat || 'pdf';
-  applyWizardMode();
-}
-
-function applyWizardMode() {
-  const wizard = document.getElementById('wizardSection');
-  if (!wizard) return;
-  if (settings.wizardMode) wizard.classList.remove('hidden');
-  else wizard.classList.add('hidden');
 }
 
 // =====================================================================
@@ -2615,6 +2607,16 @@ function setupUrlChangeListener() {
         handleJobDetected(message.payload || message);
       }
     }
+    if (message.action === 'pickerResult') {
+      // User-confirmed picker output — synthesise a detected job + save
+      // selectors for replay + fire telemetry.
+      handlePickerResult(message.result).catch((err) =>
+        console.warn('[hired.video] handlePickerResult failed', err),
+      );
+    }
+    if (message.action === 'pickerCancelled') {
+      showQuickStatus('Picker cancelled.', 'info');
+    }
     return true;
   });
 }
@@ -2665,23 +2667,10 @@ function setupWebAppEventListener() {
 }
 
 function clearPreviousResults() {
-  const evalRecommendations = document.getElementById('evalRecommendations');
-  if (evalRecommendations) evalRecommendations.innerHTML = '';
-
-  const evalScore = document.getElementById('evalScore');
-  if (evalScore) evalScore.textContent = '';
-
+  // Wizard-side eval/score/recommendation DOM is gone; this now just
+  // resets the module-level state vars used by row actions + autoTailor.
   generatedResumeData = null;
   generatedVariationId = null;
-
-  hideElement('evalScoreSection');
-  hideElement('evalRecommendations');
-  hideElement('score');
-  hideElement('resumeActions');
-  hideElement('disclaimer');
-
-  const markAppliedBtn = document.getElementById('markAppliedButton');
-  if (markAppliedBtn) markAppliedBtn.disabled = true;
 }
 
 /**
@@ -2756,7 +2745,8 @@ function initializeApp() {
       if (data[selectedResumeKey]) selectedResume = data[selectedResumeKey];
       if (data[trackedJobKey]) {
         trackedJob = data[trackedJobKey];
-        renderTrackedJob();
+        // Tracked-job summary now lives only in the tracked-jobs table
+        // below; the wizard's currentJobDisplay was deleted in 0103.
       }
 
       loadSettings();
@@ -2828,15 +2818,8 @@ function showSignedOutState() {
   currentJobUrl = null;
   currentJobOriginalHtml = null;
 
-  hideElement('currentJobDisplay');
-  hideElement('trackJobError');
-  hideElement('trackJobLoading');
-  document.getElementById('currentJobTitle').textContent = '';
-  document.getElementById('currentJobMeta').textContent = '';
-  const link = document.getElementById('currentJobLink');
-  link.textContent = '';
-  link.href = '#';
-
+  // Wizard DOM no longer exists; the active-page banner is hidden by
+  // resetPageState() upstream. Just clear in-memory state.
   clearPreviousResults();
 
   // Reset the profile chip placeholders so a future sign-in doesn't
@@ -2953,21 +2936,11 @@ function setupEventListeners() {
       if (e.key === 'Enter' || e.key === ' ') triggerRefresh(e);
     });
   }
-  // Wizard mode is only useful signed in — the wizard's steps all call
-  // auth-required APIs (tailor, save, apply). Gate it so a signed-out
-  // click bounces to login.html instead of silently enabling wizard UI
-  // the user can't actually use.
-  bind('openWizardButton', gate(() => {
-    settings.wizardMode = true;
-    saveSettings();
-    applySettingsToUI();
-  }));
-  // Exit is safe for signed-out users (it only clears local UI state).
-  bind('exitWizardButton', () => {
-    settings.wizardMode = false;
-    saveSettings();
-    applySettingsToUI();
-  });
+  // Manual identify — injects the interactive picker into the active
+  // tab. Available to signed-out users too (the picker just captures
+  // selectors locally; tracking the job afterwards is what requires
+  // auth, and that flow already bounces to login).
+  bind('openPickerButton', () => launchPicker('manual'));
 
   // ---- Settings tab: toggles ----
   const wireSetting = (id, key) => {
@@ -2982,13 +2955,12 @@ function setupEventListeners() {
       }
       settings[key] = el.checked;
       saveSettings();
-      if (key === 'wizardMode') applyWizardMode();
     };
   };
   wireSetting('settingAutoDetect', 'autoDetect');
   wireSetting('settingAutoScore', 'autoScore');
   wireSetting('settingAutoTailor', 'autoTailor');
-  wireSetting('settingWizardMode', 'wizardMode');
+  wireSetting('settingTelemetryOptOut', 'telemetryOptOut');
 
   const fmt = document.getElementById('settingDownloadFormat');
   if (fmt) {
@@ -3100,19 +3072,6 @@ function setupEventListeners() {
       chrome.tabs.create({ url: buildWebUrl('/profile') });
     };
   }
-
-  bind('trackJobButton', gate(handleTrackJob));
-  bind('scoreEvaluateButton', gate(handleScoreEvaluate));
-  bind('trackGenerateButton', gate(handleTailorGenerate));
-  bind('saveVariationButton', gate(handleSaveVariation));
-  bind('markAppliedButton', gate(handleMarkApplied));
-
-  bind('downloadPdfButton', gate(() => handleDownload('pdf')));
-  bind('downloadDocxButton', gate(() => handleDownload('docx')));
-
-  bind('closeModalButton', hideModal);
-  bind('cancelModalButton', hideModal);
-  bind('confirmSaveButton', handleModalSave);
 
   // Dedup modal
   bind('closeDedupModal', hideDedupModal);
@@ -3615,23 +3574,12 @@ function showResumeSelection() {
 }
 
 function resetResults() {
+  // Same as clearPreviousResults — wizard DOM was the only thing this
+  // function painted into. Kept as a separate symbol because the resume
+  // selection flow calls it explicitly at a different point in the
+  // lifecycle than clearPreviousResults.
   generatedResumeData = null;
   generatedVariationId = null;
-
-  hideElement('evalScoreSection');
-  hideElement('evalRecommendations');
-  hideElement('score');
-  hideElement('recommendations');
-  hideElement('resumeActions');
-  hideElement('disclaimer');
-
-  document.getElementById('custom').innerHTML = '<p class="text-center text-muted"><em>Your AI-generated tailored resume will appear here</em></p>';
-  document.getElementById('evalRecommendations').innerHTML = '';
-  document.getElementById('recommendations').innerHTML = '';
-
-  document.getElementById('trackGenerateButton').disabled = true;
-  const markAppliedBtn = document.getElementById('markAppliedButton');
-  if (markAppliedBtn) markAppliedBtn.disabled = true;
 }
 
 /**
@@ -4042,41 +3990,20 @@ async function inflateBytes(bytes) {
 // =====================================================================
 
 /**
- * Render the currently-tracked job in the side panel.
- */
-function renderTrackedJob() {
-  if (!trackedJob) {
-    hideElement('currentJobDisplay');
-    return;
-  }
-  document.getElementById('currentJobTitle').textContent = trackedJob.title || 'Untitled job';
-  const meta = [trackedJob.company, trackedJob.location].filter(Boolean).join(' • ');
-  document.getElementById('currentJobMeta').textContent = meta;
-
-  const link = document.getElementById('currentJobLink');
-  link.textContent = trackedJob.sourceUrl || '';
-  link.href = trackedJob.sourceUrl || '#';
-
-  showElement('currentJobDisplay');
-}
-
-/**
  * Track this Job — extracts the current page via AI and saves it as
  * a hired.video Job entity. Stores the resulting jobId so the user
  * can later mark a resume as "applied" against it.
+ *
+ * Triggered from the active-page banner's Track button. Feedback
+ * surfaces through showQuickStatus (which writes into the banner's
+ * own status slot) — no wizard-specific DOM dependencies remain.
  */
 async function handleTrackJob() {
   const jwtToken = await getJwtToken();
   if (!jwtToken) return;
 
-  hideElement('trackJobError');
-  showElement('trackJobLoading');
-  document.getElementById('trackJobButton').disabled = true;
   const quickTrackBtn = document.getElementById('quickTrackButton');
   if (quickTrackBtn) quickTrackBtn.disabled = true;
-  // Surface progress in the visible banner too — the wizard's
-  // trackJobLoading/trackJobError elements are hidden when the user
-  // triggers this from the compact banner Track button.
   showQuickStatus('Tracking job…', 'info');
 
   try {
@@ -4094,19 +4021,16 @@ async function handleTrackJob() {
 
     if (response.status === 401) return handleTokenExpired();
 
-    // 422 = page didn't classify as a job posting. Surface the AI's
-    // reason as a soft warning rather than a hard error so the user
-    // knows to navigate to the actual job.
     if (response.status === 422) {
       const errorData = await response.json().catch(() => ({}));
       const reason =
         errorData.error?.message ||
         "This page doesn't look like a job posting. Open the actual job listing and try again.";
-      const errEl = document.getElementById('trackJobError');
-      errEl.className = 'alert alert-warning mt-2';
-      errEl.textContent = '⚠️ ' + reason;
-      showElement('trackJobError');
       showQuickStatus('⚠️ ' + reason, 'warning');
+      window.HiredVideoTelemetry?.record('detect_attempt', {
+        url: currentJobUrl, host: hostOf(currentJobUrl),
+        payload: { result: 'rejected_422', reason },
+      });
       return;
     }
 
@@ -4125,384 +4049,107 @@ async function handleTrackJob() {
     });
     chrome.storage.local.set({ [trackedJobKey]: trackedJob });
 
-    renderTrackedJob();
     loadTrackedJobsTable();
     showQuickStatus('✓ Job tracked.', 'success');
+    window.HiredVideoTelemetry?.record('track', {
+      url: currentJobUrl, host: hostOf(currentJobUrl),
+      payload: { jobId: trackedJob.id, title: trackedJob.title, company: trackedJob.company },
+    });
   } catch (err) {
     console.error('Track job failed:', err);
     const message = err.message || 'Could not track this job. Please try again.';
-    const errEl = document.getElementById('trackJobError');
-    errEl.className = 'alert alert-error mt-2';
-    errEl.textContent = message;
-    showElement('trackJobError');
     showQuickStatus(message, 'error');
+    window.HiredVideoTelemetry?.record('error', {
+      url: currentJobUrl, host: hostOf(currentJobUrl),
+      payload: { op: 'track', message },
+    });
   } finally {
-    hideElement('trackJobLoading');
-    document.getElementById('trackJobButton').disabled = false;
     if (quickTrackBtn) quickTrackBtn.disabled = false;
   }
 }
 
+function hostOf(url) {
+  try { return new URL(url).hostname.toLowerCase(); } catch { return undefined; }
+}
+
 // =====================================================================
-// Score & evaluate
+// Picker invocation — launches the in-page interactive picker.
 // =====================================================================
 
 /**
- * Score & Evaluate — fetches page HTML if we don't already have it
- * (e.g. when the user skips Track this Job and goes straight to
- * scoring), then calls /api/match/analyze.
+ * Inject the picker content script into the active tab.
+ * `source` distinguishes a user-triggered launch (`manual`) from
+ * an auto-fallback after detection failure (`autoFallback`) so the
+ * SuperAdmin captures view can show the trigger reason.
  */
-async function handleScoreEvaluate() {
-  const jwtToken = await getJwtToken();
-  if (!jwtToken) return;
-
-  if (!selectedResume) {
-    showQuickStatus('Upload or select a resume first.', 'warning');
-    switchTab('resume');
-    showResumeSelection();
-    return;
-  }
-
-  if (!currentJobHtml) {
-    const ok = await capturePageHtmlLegacy();
-    if (!ok) {
-      showError('evalRecommendations', 'Could not read page content. Please make sure you are on a job posting page.');
-      showElement('evalRecommendations');
-      return;
-    }
-  }
-
-  const analyzeRequest = {
-    jobHtml: currentJobHtml,
-    resumeId: selectedResume.id,
-    jobId: trackedJob?.id,
-  };
-
-  document.getElementById('scoreEvaluateButton').disabled = true;
-  showElement('evalLoading');
-  hideElement('evalScoreSection');
-  hideElement('evalRecommendations');
-
-  try {
-    const response = await fetch(matchAnalyze, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify(analyzeRequest),
+async function launchPicker(source = 'manual') {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (!tab || !tab.id || (tab.url && tab.url.startsWith('chrome://'))) {
+        showQuickStatus('Open a job page first — picker can\'t run on chrome:// URLs.', 'warning');
+        resolve(false);
+        return;
+      }
+      chrome.scripting.executeScript(
+        { target: { tabId: tab.id }, files: ['content-script-picker.js'] },
+        () => {
+          if (chrome.runtime.lastError) {
+            console.warn('[hired.video] picker injection failed:', chrome.runtime.lastError.message);
+            showQuickStatus('Could not start picker on this page (' + chrome.runtime.lastError.message + ').', 'error');
+            resolve(false);
+            return;
+          }
+          window.HiredVideoTelemetry?.record('manual', {
+            url: tab.url, host: hostOf(tab.url),
+            payload: { kind: 'picker_launched', source },
+          });
+          showQuickStatus('🪄 Picker active — switch to the page and click the highlighted areas.', 'info');
+          resolve(true);
+        },
+      );
     });
-
-    if (response.status === 401) return handleTokenExpired();
-    if (await check429(response, 'evalRecommendations')) { showElement('evalRecommendations'); return; }
-    if (response.status === 404) return handleApiNotFound('evalRecommendations');
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || 'Analysis failed');
-    }
-
-    const data = await response.json();
-    consoleAlerts('Analysis result: ' + JSON.stringify(data));
-
-    if (data.errorMessage) {
-      showError('evalRecommendations', data.errorMessage);
-      showElement('evalRecommendations');
-      return;
-    }
-
-    const result = unwrapResponse(data);
-    const score = result.score || result.oldScore || 0;
-    document.getElementById('evalScore').textContent = formatScore(score);
-    applyScoreStyle('evalScore', score);
-    showElement('evalScoreSection');
-
-    if (result.summaryRecommendations) {
-      const converter = new showdown.Converter();
-      document.getElementById('evalRecommendations').innerHTML = converter.makeHtml(result.summaryRecommendations);
-      showElement('evalRecommendations');
-    }
-
-    document.getElementById('trackGenerateButton').disabled = false;
-
-    // Reset Step 3 results
-    document.getElementById('custom').innerHTML = '<p class="text-center text-muted"><em>Your AI-generated tailored resume will appear here</em></p>';
-    hideElement('score');
-    hideElement('recommendations');
-    hideElement('resumeActions');
-  } catch (error) {
-    console.error('Error analyzing job:', error);
-    showError('evalRecommendations', 'Failed to analyze job posting. Please try again.');
-    showElement('evalRecommendations');
-  } finally {
-    hideElement('evalLoading');
-    document.getElementById('scoreEvaluateButton').disabled = false;
-  }
+  });
 }
 
-// capturePageHtml + requestFocusedPaneHtml replaced by
-// captureJobContext() in shared/utils.js.
-//
-// Legacy wrapper that also sets the module-level state vars (used by
-// the wizard's handleScoreEvaluate / handleTailorGenerate which need
-// currentJobHtml/currentJobUrl).
-async function capturePageHtmlLegacy() {
-  const ctx = await captureJobContext();
-  if (!ctx) return false;
-  currentJobOriginalHtml = ctx.html;
-  currentJobUrl = ctx.originUrl;
-  currentJobHtml = typeof jobDescriptionParser === 'function'
-    ? jobDescriptionParser(ctx.html, ctx.originUrl)
-    : ctx.html;
-  return true;
-}
-
-// =====================================================================
-// Tailor & generate
-// =====================================================================
-
-async function handleTailorGenerate() {
-  const jwtToken = await getJwtToken();
-  if (!jwtToken) return;
-
-  if (!selectedResume) {
-    showQuickStatus('Upload or select a resume first.', 'warning');
-    switchTab('resume');
-    showResumeSelection();
-    return;
-  }
-
-  if (!currentJobHtml) {
-    const ok = await capturePageHtmlLegacy();
-    if (!ok) {
-      showError('custom', 'Could not read page content.');
-      return;
-    }
-  }
-
-  const tailorRequest = {
-    jobHtml: currentJobHtml,
-    resumeId: selectedResume.id,
-    jobId: trackedJob?.id,
-  };
-
-  document.getElementById('trackGenerateButton').disabled = true;
-  document.getElementById('scoreEvaluateButton').disabled = true;
-  showElement('loading');
-  hideElement('score');
-  hideElement('resumeActions');
-  document.getElementById('custom').innerHTML = '<p class="text-center text-muted"><em>Generating tailored resume...</em></p>';
-
+/**
+ * Apply a picker result coming back from the content script.
+ * Saves the captured selectors per-host (for future replay) and
+ * synthesises a "detected" payload so the rest of the side panel
+ * treats it like a normal detection.
+ */
+async function handlePickerResult(result) {
+  if (!result || !result.fields) return;
+  const { host, sourceUrl, fields } = result;
+  // Persist selectors so subsequent visits to the same host can replay.
   try {
-    const response = await fetch(matchTailor, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify(tailorRequest),
-    });
-
-    if (response.status === 401) return handleTokenExpired();
-    if (await check429(response, 'custom')) return;
-    if (response.status === 404) return handleApiNotFound('custom');
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || 'Generation failed');
-    }
-
-    const data = await response.json();
-    consoleAlerts('Generate result: ' + JSON.stringify(data));
-
-    if (data.errorMessage) {
-      showError('custom', data.errorMessage);
-      return;
-    }
-
-    const result = unwrapResponse(data);
-    generatedResumeData = result;
-
-    // The tailor endpoint now persists the variation server-side and
-    // returns `variationId` in the response. Capture it immediately so
-    // the "Mark Applied" button works without a second round-trip.
-    if (result.variationId) {
-      generatedVariationId = result.variationId;
-    }
-
-    // Preview: render the structured tailoredResume JSON to markdown
-    // locally (shared/utils.js:renderResumeAsMarkdown), then through
-    // showdown for the HTML preview. Server no longer ships markdown.
-    if (result.tailoredResume) {
-      const md = renderResumeAsMarkdown(result.tailoredResume);
-      const converter = new showdown.Converter();
-      document.getElementById('custom').innerHTML = converter.makeHtml(md);
-      document.getElementById('custom').classList.add('success');
-    }
-
-    const newScore = result.newScore || result.score || 0;
-    document.getElementById('newScore').textContent = formatScore(newScore);
-    applyScoreStyle('newScore', newScore);
-    showElement('score');
-
-    if (result.summaryRecommendations) {
-      const converter = new showdown.Converter();
-      document.getElementById('recommendations').innerHTML = converter.makeHtml(result.summaryRecommendations);
-      showElement('recommendations');
-    }
-
-    showElement('resumeActions');
-    showElement('disclaimer');
-
-    document.getElementById('variationName').value = result.variationTitle || generateVariationName();
-    hideElement('saveVariationSuccess');
-    hideElement('saveVariationError');
-    // Variation is already saved — the Apply button gates on a linked
-    // resume, which we now have from the tailor response itself.
-    document.getElementById('markAppliedButton').disabled = !result.variationId;
-  } catch (error) {
-    console.error('Error generating resume:', error);
-    showError('custom', 'Failed to generate tailored resume. Please try again.');
-  } finally {
-    hideElement('loading');
-    document.getElementById('trackGenerateButton').disabled = false;
-    document.getElementById('scoreEvaluateButton').disabled = false;
-  }
-}
-
-function generateVariationName() {
-  const company = trackedJob?.company;
-  const title = trackedJob?.title;
-  if (title && company) return `${title} - ${company}`;
-  if (title) return title;
-
-  if (!currentJobUrl) return 'Job Application ' + new Date().toLocaleDateString();
-  try {
-    const url = new URL(currentJobUrl);
-    const hostname = url.hostname.replace('www.', '').split('.')[0];
-    return `${capitalizeFirst(hostname)} - ${new Date().toLocaleDateString()}`;
+    await window.HiredVideoTelemetry?.saveLearned(host, fields);
   } catch {
-    return 'Job Application ' + new Date().toLocaleDateString();
+    /* non-fatal */
   }
+  // Telemetry: this is the high-leverage capture the SA viewer reads.
+  window.HiredVideoTelemetry?.record('picker_capture', {
+    url: sourceUrl, host,
+    payload: {
+      fields,
+      page: { title: document.title, ua: navigator.userAgent.slice(0, 200) },
+    },
+  });
+  // Surface as a detected job so the existing Track flow picks up.
+  detectedPageJob = {
+    title: fields.title?.value || '',
+    company: fields.company?.value || '',
+    location: fields.location?.value || '',
+    sourceUrl,
+    applyUrl: fields.applyUrl?.value || sourceUrl,
+    hasFocusedPane: !!fields.description?.snippet,
+  };
+  handleJobDetected(detectedPageJob);
+  showQuickStatus('✓ Captured. Click Track to save it.', 'success');
 }
 
-// =====================================================================
-// Save as Variation
-// =====================================================================
+// (3-step wizard handlers removed in 0103 — see git history for handleScoreEvaluate / handleTailorGenerate / handleSaveVariation / handleMarkApplied / showStatus)
 
-async function handleSaveVariation() {
-  const jwtToken = await getJwtToken();
-  if (!jwtToken) return;
-
-  if (!generatedResumeData) {
-    showError('saveVariationError', 'No generated resume to save');
-    showElement('saveVariationError');
-    return;
-  }
-
-  const variationName = document.getElementById('variationName').value.trim();
-  if (!variationName) {
-    showError('saveVariationError', 'Please enter a name for this variation');
-    showElement('saveVariationError');
-    return;
-  }
-
-  const masterId = getMasterResumeId(selectedResume);
-
-  document.getElementById('saveVariationButton').disabled = true;
-  showElement('saveVariationLoading');
-  hideElement('saveVariationError');
-  hideElement('saveVariationSuccess');
-
-  try {
-    // The tailor endpoint already persisted a variation with a
-    // server-chosen title. When the user hasn't edited the name, we
-    // have nothing to do — adopt the existing variationId. When the
-    // user HAS renamed it, save a new copy with the custom name using
-    // the tailoredResume JSON (no re-parse round-trip).
-    const autoTitle = generatedResumeData?.variationTitle;
-    if (generatedResumeData?.variationId && variationName === autoTitle) {
-      generatedVariationId = generatedResumeData.variationId;
-    } else {
-      generatedVariationId = await saveAsVariation(masterId, {
-        name: variationName,
-        description: trackedJob
-          ? `Generated for: ${trackedJob.title} at ${trackedJob.company || 'unknown company'}`
-          : `Generated for: ${currentJobUrl || 'Job Application'}`,
-        content: generatedResumeData.tailoredResume,
-        jobId: trackedJob?.id,
-        sourceUrl: currentJobUrl,
-      });
-    }
-
-    showElement('saveVariationSuccess');
-    if (trackedJob && generatedVariationId) {
-      document.getElementById('markAppliedButton').disabled = false;
-    }
-
-    setTimeout(() => loadMasterResumeGroups(), 1500);
-  } catch (error) {
-    console.error('Error saving variation:', error);
-    document.getElementById('saveVariationError').textContent = error.message || 'Failed to save variation. Please try again.';
-    showElement('saveVariationError');
-  } finally {
-    hideElement('saveVariationLoading');
-    document.getElementById('saveVariationButton').disabled = false;
-  }
-}
-
-// =====================================================================
-// Mark as Applied — link variation to tracked job
-// =====================================================================
-
-async function handleMarkApplied() {
-  const jwtToken = await getJwtToken();
-  if (!jwtToken) return;
-
-  if (!trackedJob || !trackedJob.id) {
-    showStatus('markAppliedStatus', 'No tracked job. Click "Track this Job" first.', 'error');
-    return;
-  }
-
-  const resumeId = generatedVariationId || selectedResume?.id;
-  if (!resumeId) {
-    showStatus('markAppliedStatus', 'Save the variation first, or select a resume.', 'error');
-    return;
-  }
-
-  document.getElementById('markAppliedButton').disabled = true;
-  showStatus('markAppliedStatus', 'Recording your application…', 'info');
-
-  try {
-    const response = await fetch(buildJobUrl(trackedJob.id, 'apply'), {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify({ resumeId }),
-    });
-
-    if (response.status === 401) return handleTokenExpired();
-    if (!response.ok) {
-      const errorData = await response.json().catch(() => ({}));
-      throw new Error(errorData.error?.message || 'Failed to record application');
-    }
-
-    showStatus('markAppliedStatus', '✅ Recorded! This resume is now linked to the job in your tracker.', 'success');
-    loadTrackedJobsTable();
-  } catch (err) {
-    console.error('Mark applied failed:', err);
-    showStatus('markAppliedStatus', err.message || 'Could not record your application. Please try again.', 'error');
-    document.getElementById('markAppliedButton').disabled = false;
-  }
-}
-
-function showStatus(id, message, kind) {
-  const el = document.getElementById(id);
-  if (!el) return;
-  el.className = `alert alert-${kind}`;
-  el.textContent = message;
-  el.classList.remove('hidden');
-}
 
 // =====================================================================
 // Resume download
@@ -4561,31 +4208,12 @@ async function handleDownload(format, overrideResumeId) {
     }
   } catch (error) {
     console.error('Error downloading resume:', error);
-    document.getElementById('downloadError').textContent = 'Download failed. Please try again.';
-    showElement('downloadError');
-  } finally {
-    hideElement('downloadLoading');
+    showQuickStatus('Download failed. Please try again.', 'error');
   }
 }
 
-// =====================================================================
-// Modal helpers
-// =====================================================================
-
-function showModal() {
-  showElement('saveVariationModal');
-  document.getElementById('modalVariationName').value = document.getElementById('variationName').value;
-}
-
-function hideModal() {
-  hideElement('saveVariationModal');
-}
-
-function handleModalSave() {
-  document.getElementById('variationName').value = document.getElementById('modalVariationName').value;
-  hideModal();
-  handleSaveVariation();
-}
+// (showModal/hideModal/handleModalSave removed in 0103 — the Save Variation modal
+//  was unreachable: `showModal` had zero callers. Wizard chain only.)
 
 // =====================================================================
 // Dedup modal — "Similar job already tracked" prompt
@@ -4673,8 +4301,6 @@ function handleApiNotFound(containerId) {
 
   hideElement('evalLoading');
   hideElement('loading');
-  document.getElementById('scoreEvaluateButton').disabled = false;
-  document.getElementById('trackGenerateButton').disabled = false;
 }
 
 // =====================================================================

@@ -33,6 +33,9 @@ const TS_ENTRYPOINTS = {
   'content-script-autofill.js': path.join(SHARED_DIR, 'content-script-autofill.ts'),
   // Sidepanel re-uses the shared `detectJobInPage` via window.HiredVideoScraping.
   'sidepanel-scraping-bundle.js': path.join(SHARED_DIR, 'sidepanel-scraping-bundle.ts'),
+  // Interactive picker — injected on demand via chrome.scripting.executeScript
+  // when auto-detect fails or the user clicks "Identify manually".
+  'content-script-picker.js': path.join(SHARED_DIR, 'content-script-picker.ts'),
 };
 
 const EXTENSIONS = {
@@ -57,6 +60,7 @@ const SKIP_IN_SHARED = new Set([
   'content-script-jobs.ts',
   'content-script-autofill.ts',
   'sidepanel-scraping-bundle.ts',
+  'content-script-picker.ts',
   // Legacy JS versions that are superseded by the TS bundle. The build
   // emits the bundled output AT the same filename so the manifest keeps
   // working; the raw JS originals stay in git as the migration backstop
