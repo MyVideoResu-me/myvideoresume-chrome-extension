@@ -717,13 +717,12 @@ function handleJobDetected(payload) {
 
     // Track is the only primary action on the banner now — Tailor / Score
     // are reached from the tracked-jobs list below once the job is saved.
+    // The "no active resume" warning is NOT shown preemptively here —
+    // `rowTailorJob` surfaces it as a row-scoped error when the user
+    // actually attempts to tailor without a resume (gap #879).
     showElement('quickTrackButton');
-    const resumeState = ensureActiveResume();
-    if (resumeState === 'none') {
-      showQuickStatus('Upload a resume on the Resume tab to enable tailoring.', 'warning');
-    } else {
-      hideElement('quickStatus');
-    }
+    ensureActiveResume();
+    hideElement('quickStatus');
   }
 
   hideElement('noJobBanner');
@@ -824,7 +823,11 @@ async function handleManualScan() {
     return;
   }
 
-  // Ask the content script to re-run detection for real title/company/location
+  // Ask the content script to re-run detection for real title/company/location.
+  // The content script's `detectJob` handler sends back the raw DetectedJob
+  // (not wrapped in a {payload} envelope like the pushed `jobDetected` event),
+  // so accept either shape — wrapper tolerance keeps us safe if the contract
+  // ever flips.
   const detected = await new Promise((resolve) => {
     chrome.runtime.sendMessage({ action: 'detectJob' }, (response) => {
       if (chrome.runtime.lastError) {
@@ -832,7 +835,7 @@ async function handleManualScan() {
         resolve(null);
         return;
       }
-      resolve(response?.payload || null);
+      resolve(response?.payload || response || null);
     });
   });
 
@@ -2439,7 +2442,10 @@ async function rowTailorJob(jobId) {
   const ok = await requireAuth();
   if (!ok) return;
   if (!selectedResume) {
-    showQuickStatus('Upload or select a resume first.', 'warning');
+    // Surface the error INSIDE this row so the user sees which job their
+    // click was about, then jump to the Resume tab so the next step is
+    // one click away (gap #879).
+    showRowError(jobId, 'Upload or select a resume first — then re-run Tailor.');
     switchTab('resume');
     showResumeSelection();
     return;
@@ -2919,6 +2925,7 @@ function setupEventListeners() {
   bind('quickAutofillButton', gate(handleAutofillApplication));
   bind('manualScanButton', gate(handleManualScan));
   bind('rescanButton', gate(handleManualScan));
+  bind('bannerPickerButton', () => launchPicker('manual'));
   // The refresh button lives INSIDE the Jobs tab button — stop event
   // propagation so clicking it doesn't also trigger the tab switch
   // handler (we're almost always already on the Jobs tab). Also wire
