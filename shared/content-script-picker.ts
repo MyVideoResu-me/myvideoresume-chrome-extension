@@ -32,6 +32,7 @@
 import {
   detectJobInPage,
   canonicalizeJobUrl,
+  buildSelector,
   type DetectedJob,
 } from "../../hired.video/shared/scraping/index.js";
 
@@ -204,32 +205,10 @@ import {
     highlight.style.height = `${rect.height}px`;
   }
 
-  function buildSelector(el: Element): string {
-    // Build a compact, stable CSS selector. Prefers id, then a chain of
-    // tag + nth-of-type up to body. Class names are skipped — they're
-    // the first thing sites rename.
-    const parts: string[] = [];
-    let cur: Element | null = el;
-    while (cur && cur.nodeType === 1 && cur !== document.documentElement) {
-      if (cur.id && /^[a-zA-Z][\w-]*$/.test(cur.id)) {
-        parts.unshift(`#${cur.id}`);
-        break;
-      }
-      let part = cur.tagName.toLowerCase();
-      const parent = cur.parentElement;
-      if (parent) {
-        const sameTag = Array.from(parent.children).filter((c) => c.tagName === cur!.tagName);
-        if (sameTag.length > 1) {
-          const idx = sameTag.indexOf(cur) + 1;
-          part += `:nth-of-type(${idx})`;
-        }
-      }
-      parts.unshift(part);
-      cur = cur.parentElement;
-      if (parts.length > 8) break; // cap depth — anything longer is noise
-    }
-    return parts.join(" > ");
-  }
+  // CSS selector construction delegates to the shared
+  // hired.video/shared/scraping/selector.ts implementation that
+  // formFields.ts (autofill) also uses — single source of truth, tested
+  // in __tests__/selector.test.ts.
 
   function textOf(el: Element): string {
     if (el.tagName === "A" || el.tagName === "BUTTON") {
@@ -262,7 +241,7 @@ import {
     if (!value || !value.trim()) return;
     const fieldVal: CapturedField = {
       value: value.trim(),
-      selector: el ? buildSelector(el) : "",
+      selector: el ? buildSelector(document as unknown as { body: Element }, el as unknown as Parameters<typeof buildSelector>[1]) : "",
       snippet: el ? captureSnippet(el) : undefined,
       rect: el
         ? (() => {
