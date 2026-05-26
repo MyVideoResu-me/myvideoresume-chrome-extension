@@ -64,6 +64,9 @@
     <button id="tabPipelineButton" class="tab-button" role="tab" aria-selected="false" data-tab="pipeline">
       📋 Pipeline
     </button>
+    <button id="tabTrackedButton" class="tab-button" role="tab" aria-selected="false" data-tab="tracked">
+      🔖 Tracked <span id="trackedJobsCountBadge" class="badge badge-inline hidden">0</span>
+    </button>
     <button id="tabCandidatesButton" class="tab-button" role="tab" aria-selected="false" data-tab="candidates">
       👤 Candidates
     </button>
@@ -133,9 +136,17 @@
       </div>
     </div>
 
-    <!-- Manual scan button -->
+    <!-- Manual scan + interactive picker (gap #946).
+         Three picker variants — the recruiter chooses which surface (job /
+         profile / company) they're trying to capture from. Each opens the
+         same shared content-script-picker in the matching mode. -->
     <div class="card">
       <button id="scanPageButton" class="btn btn-outline btn-block">🔍 Scan this page</button>
+      <div class="d-flex gap-1 mt-2">
+        <button id="openPickerButton" class="btn btn-outline btn-xs" data-picker-mode="job" title="Open in-page picker for a job posting">🪄 Pick job</button>
+        <button id="openPickerProfileButton" class="btn btn-outline btn-xs" data-picker-mode="profile" title="Open in-page picker for a candidate profile">🪄 Pick profile</button>
+        <button id="openPickerCompanyButton" class="btn btn-outline btn-xs" data-picker-mode="company" title="Open in-page picker for a company page">🪄 Pick company</button>
+      </div>
     </div>
 
     <!-- Extraction result -->
@@ -232,6 +243,34 @@
       <div class="text-muted text-sm text-center">No candidates in pipeline yet. Extract a profile to get started.</div>
     </div>
 
+  </div>
+
+  <!-- ======================== TRACKED JOBS TAB (gap #677) ====================
+       Recruiter-side parity with the jobseeker tracked-jobs surface.
+       Reads /api/jobs/saved, listens for `tracked-job-changed` so saving
+       a job from the web reflects here. Per-row actions are recruiter-
+       relevant only: open source URL, share with a candidate (existing
+       flow), and score candidates against the job. -->
+  <div id="tabTracked" class="tab-content" role="tabpanel">
+    <div class="card">
+      <div class="d-flex align-items-center justify-between">
+        <h4 class="card-title">Tracked jobs</h4>
+        <input id="trackedJobsSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:140px">
+      </div>
+    </div>
+
+    <div id="trackedJobsList" class="tracked-jobs-list"></div>
+
+    <div id="trackedJobsLoading" class="card hidden">
+      <div class="d-flex align-items-center justify-center gap-2">
+        <div class="spinner"></div>
+        <span>Loading tracked jobs...</span>
+      </div>
+    </div>
+
+    <div id="trackedJobsEmpty" class="card hidden">
+      <div class="text-muted text-sm text-center">No tracked jobs yet. Click the 🔖 Save icon on any job at hired.video to track it here.</div>
+    </div>
   </div>
 
   <!-- ======================== CANDIDATES TAB ======================== -->
@@ -358,6 +397,27 @@
           <input type="checkbox" id="settingAutoScore">
           <span class="toggle-slider"></span>
         </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4 class="card-title">Voice calls</h4>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Call via hired.video <span class="badge badge-premium">PRO</span></div>
+          <div class="setting-desc">Route phone clicks through your hired.video business number so calls are recorded and logged automatically. Falls back to the OS dialer when off.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settingCallViaHiredVideo">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div id="callerIdRow" class="setting-row hidden">
+        <div class="setting-info">
+          <div class="setting-label">Caller ID</div>
+          <div class="setting-desc">Which of your provisioned numbers to dial from.</div>
+        </div>
+        <select id="settingCallerIdNumber" class="form-select form-select-sm"></select>
       </div>
     </div>
 
@@ -497,6 +557,7 @@
   <script src="constants.js"></script>
   <script src="constants-recruiter.js"></script>
   <script src="utils.js"></script>
+  <script src="extension-telemetry.js"></script>
   <script src="capture-launcher.js"></script>
   <script src="sidepanel.js"></script>
 </body>

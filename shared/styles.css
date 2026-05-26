@@ -2580,6 +2580,31 @@ body.pro-unlocked .btn-upgrade-profile {
   background: var(--surface, #f0f0f0);
 }
 
+/* ---- Tracked jobs list (recruiter parity, gap #677) -------------------- */
+
+.tracked-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tracked-job-card {
+  padding: 8px 10px;
+}
+
+.badge.badge-inline {
+  display: inline-flex;
+  margin-left: 4px;
+  padding: 0 6px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--brand-purple, #7c3aed);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+}
+
 /* ---- Contact card (Loxo-parity profile capture) ------------------------ */
 
 .contact-card {

@@ -48,7 +48,25 @@ import {
     }
   }
 
-  type FieldKey = "title" | "company" | "location" | "description" | "applyUrl";
+  // Picker mode is set by the launching side panel via a window global
+  // before this script runs (see `launchPicker(mode)` in sidepanel.js).
+  // Job mode is the original surface; profile / company modes were added
+  // for the recruiter extension (gap #946).
+  type PickerMode = "job" | "profile" | "company";
+  const PICKER_MODE: PickerMode = (() => {
+    const raw = (w as any).__HIRED_VIDEO_PICKER_MODE__;
+    return raw === "profile" || raw === "company" ? raw : "job";
+  })();
+
+  type FieldKey =
+    | "title"
+    | "company"
+    | "location"
+    | "description"
+    | "applyUrl"
+    | "name"
+    | "industry"
+    | "size";
 
   interface CapturedField {
     value: string;
@@ -60,21 +78,29 @@ import {
 
   type Captured = Partial<Record<FieldKey, CapturedField>>;
 
-  const STEPS: { key: FieldKey; label: string; hint: string }[] = [
-    { key: "title", label: "Job title", hint: "Click the job title heading on the page." },
-    { key: "company", label: "Company", hint: "Click the company name." },
-    { key: "location", label: "Location", hint: "Click the location text (city/remote)." },
-    {
-      key: "description",
-      label: "Description",
-      hint: "Click anywhere inside the job description body.",
-    },
-    {
-      key: "applyUrl",
-      label: "Apply button",
-      hint: "Click the apply button or link. (Optional — Skip is OK.)",
-    },
-  ];
+  const STEPS_BY_MODE: Record<PickerMode, { key: FieldKey; label: string; hint: string }[]> = {
+    job: [
+      { key: "title", label: "Job title", hint: "Click the job title heading on the page." },
+      { key: "company", label: "Company", hint: "Click the company name." },
+      { key: "location", label: "Location", hint: "Click the location text (city/remote)." },
+      { key: "description", label: "Description", hint: "Click anywhere inside the job description body." },
+      { key: "applyUrl", label: "Apply button", hint: "Click the apply button or link. (Optional — Skip is OK.)" },
+    ],
+    profile: [
+      { key: "name", label: "Candidate name", hint: "Click the candidate's name heading." },
+      { key: "title", label: "Headline / title", hint: "Click the headline or current title." },
+      { key: "company", label: "Current company", hint: "Click the current employer's name. (Optional — Skip is OK.)" },
+      { key: "location", label: "Location", hint: "Click the city or region. (Optional — Skip is OK.)" },
+    ],
+    company: [
+      { key: "name", label: "Company name", hint: "Click the company name heading." },
+      { key: "industry", label: "Industry", hint: "Click the industry label. (Optional — Skip is OK.)" },
+      { key: "size", label: "Employee count", hint: "Click the employee count or size. (Optional — Skip is OK.)" },
+      { key: "location", label: "Headquarters", hint: "Click the HQ or primary location. (Optional — Skip is OK.)" },
+    ],
+  };
+
+  const STEPS = STEPS_BY_MODE[PICKER_MODE];
 
   // ── Shadow-DOM-isolated overlay ─────────────────────────────────────────
 
@@ -280,29 +306,54 @@ import {
   // The suggestion is rendered with a green outline + "Is this right?"
   // chips. Confirming commits it; rejecting drops into manual mode.
 
+  // `detectJobInPage` is only useful in job mode — profile / company
+  // modes lean on simple DOM heuristics so the picker doesn't need the
+  // full scraping graph for the recruiter surface.
   let autoDetected: DetectedJob | null = null;
-  try {
-    autoDetected = detectJobInPage(document as any, window.location.href);
-  } catch (err) {
-    autoDetected = null;
+  if (PICKER_MODE === "job") {
+    try {
+      autoDetected = detectJobInPage(document as any, window.location.href);
+    } catch {
+      autoDetected = null;
+    }
+  }
+
+  /**
+   * Heuristic: pick the largest visible text node matching a tag list,
+   * skipping the picker overlay. Used by every non-job auto-suggest so
+   * the same DOM-scan routine isn't repeated per field.
+   */
+  function biggestVisibleText(tags: string[]): { el: Element; text: string } | null {
+    let best: { el: Element; text: string; area: number } | null = null;
+    for (const tag of tags) {
+      for (const el of Array.from(document.querySelectorAll(tag))) {
+        if (overlayHost.contains(el)) continue;
+        const txt = (el.textContent || "").replace(/\s+/g, " ").trim();
+        if (!txt || txt.length > 200) continue;
+        const r = el.getBoundingClientRect();
+        if (r.width < 40 || r.height < 12) continue;
+        const area = r.width * r.height;
+        if (!best || area > best.area) best = { el, text: txt, area };
+      }
+    }
+    return best ? { el: best.el, text: best.text } : null;
   }
 
   function autoSuggestFor(key: FieldKey): { el: Element | null; text: string } | null {
-    if (key === "title" && autoDetected?.title) {
+    // Job-mode keys
+    if (key === "title" && PICKER_MODE === "job" && autoDetected?.title) {
       const el = bestElementForText(autoDetected.title, ["h1", "h2", "h3"]);
       return { el, text: autoDetected.title };
     }
-    if (key === "company" && autoDetected?.company) {
+    if (key === "company" && PICKER_MODE === "job" && autoDetected?.company) {
       const el = bestElementForText(autoDetected.company, ["a", "div", "span"]);
       return { el, text: autoDetected.company };
     }
-    if (key === "location" && autoDetected?.location) {
+    if (key === "location" && PICKER_MODE === "job" && autoDetected?.location) {
       const el = bestElementForText(autoDetected.location, ["div", "span", "li"]);
       return { el, text: autoDetected.location };
     }
     if (key === "description") {
-      // Longest text-heavy block. Stops descending when a child is "too
-      // long" — picks the closest wrapping container.
       let best: { el: Element; len: number } | null = null;
       const candidates = Array.from(document.querySelectorAll("article, section, div, main"));
       for (const c of candidates) {
@@ -320,6 +371,48 @@ import {
         (anc) => anc.href === autoDetected!.applyUrl,
       );
       return { el: a ?? null, text: autoDetected.applyUrl };
+    }
+    // Profile-mode keys (gap #946)
+    if (key === "name") return biggestVisibleText(["h1", "h2"]);
+    if (key === "title" && PICKER_MODE === "profile") {
+      // LinkedIn marks the headline with data-anonymize; fall back to the
+      // first sub-heading below h1.
+      const ds = document.querySelector('[data-anonymize="headline"]');
+      if (ds) return { el: ds, text: (ds.textContent || "").trim() };
+      return biggestVisibleText(["h2", "h3"]);
+    }
+    if (key === "company" && PICKER_MODE === "profile") {
+      return biggestVisibleText(["a", "span", "div"]);
+    }
+    if (key === "location" && PICKER_MODE === "profile") {
+      const ds = document.querySelector('[data-anonymize="location"]');
+      if (ds) return { el: ds, text: (ds.textContent || "").trim() };
+      return biggestVisibleText(["span", "div"]);
+    }
+    // Company-mode keys (gap #946)
+    if (key === "industry") {
+      const cands = ["[data-test-id*=\"industry\"]", "[class*=\"industry\"]", "dd"];
+      for (const sel of cands) {
+        const el = document.querySelector(sel);
+        if (el && el.textContent) return { el, text: el.textContent.trim().slice(0, 100) };
+      }
+      return null;
+    }
+    if (key === "size") {
+      const cands = ["[data-test-id*=\"size\"]", "[class*=\"staff-count\"]", "[class*=\"employees\"]"];
+      for (const sel of cands) {
+        const el = document.querySelector(sel);
+        if (el && el.textContent) return { el, text: el.textContent.trim().slice(0, 80) };
+      }
+      return null;
+    }
+    if (key === "location" && PICKER_MODE === "company") {
+      const cands = ["[data-test-id*=\"headquarters\"]", "[class*=\"location\"]", "[class*=\"hq\"]"];
+      for (const sel of cands) {
+        const el = document.querySelector(sel);
+        if (el && el.textContent) return { el, text: el.textContent.trim().slice(0, 100) };
+      }
+      return null;
     }
     return null;
   }
@@ -476,10 +569,15 @@ import {
 
   function finish() {
     paintHighlight(null);
-    const sourceUrl = canonicalizeJobUrl(window.location.href);
+    // Job mode normalises through `canonicalizeJobUrl`; profile / company
+    // pages don't have that normaliser today so use the raw URL.
+    const sourceUrl = PICKER_MODE === "job"
+      ? canonicalizeJobUrl(window.location.href)
+      : window.location.href;
     const payload = {
       action: "pickerResult",
       result: {
+        mode: PICKER_MODE,
         host: window.location.hostname.toLowerCase(),
         sourceUrl,
         fields: captured,

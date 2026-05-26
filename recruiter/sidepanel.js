@@ -25,6 +25,10 @@ let pipelineData = {};
 let companiesList = [];
 let matchScores = {};
 
+// Tracked jobs (gap #677) — populated lazily when the Tracked tab opens
+// or when a `tracked-job-changed` event fires from the web app.
+let trackedJobsList = [];
+
 // Most-recently-extracted candidate (drives the post-extraction quick
 // actions: add-to-job, log activity, click-to-call, etc.). Holds the
 // rowToTalentPoolEntry-shaped object returned by /extract-profile.
@@ -59,8 +63,14 @@ const DEFAULT_SETTINGS = {
   autoDetectProfiles: false,   // PAID
   autoDetectCompanies: false,  // PAID
   autoScore: false,            // PAID
+  callViaHiredVideo: false,    // PAID — gap #1359
+  callerIdNumberId: '',        // companion to callViaHiredVideo
 };
 let settings = { ...DEFAULT_SETTINGS };
+
+// Provisioned phone numbers — populated when the VoIP toggle is enabled
+// so the dialer knows which number to call from.
+let recruiterPhoneNumbers = [];
 
 // ---- Bootstrapping ------------------------------------------------------
 
@@ -229,16 +239,62 @@ async function loadSettingsFromServer() {
   }
 }
 
+// Map each <input id> to the matching settings key. Used by both
+// applySettingsToUI (read) and setupTabNavigation's change listener
+// (write) so the two stay in sync.
+const SETTING_TOGGLE_IDS = {
+  settingAutoDetectJobs: 'autoDetectJobs',
+  settingAutoDetectProfiles: 'autoDetectProfiles',
+  settingAutoDetectCompanies: 'autoDetectCompanies',
+  settingAutoScore: 'autoScore',
+  settingCallViaHiredVideo: 'callViaHiredVideo',
+};
+
 function applySettingsToUI() {
-  const mapping = {
-    settingAutoDetectJobs: 'autoDetectJobs',
-    settingAutoDetectProfiles: 'autoDetectProfiles',
-    settingAutoDetectCompanies: 'autoDetectCompanies',
-    settingAutoScore: 'autoScore',
-  };
-  for (const [elId, key] of Object.entries(mapping)) {
+  for (const [elId, key] of Object.entries(SETTING_TOGGLE_IDS)) {
     const el = document.getElementById(elId);
     if (el) el.checked = !!settings[key];
+  }
+  const callerIdSelect = document.getElementById('settingCallerIdNumber');
+  if (callerIdSelect) callerIdSelect.value = settings.callerIdNumberId || '';
+  applyVoipToggleVisibility();
+}
+
+function applyVoipToggleVisibility() {
+  const row = document.getElementById('callerIdRow');
+  if (!row) return;
+  if (settings.callViaHiredVideo) {
+    row.classList.remove('hidden');
+    if (recruiterPhoneNumbers.length === 0) loadRecruiterPhoneNumbers();
+  } else {
+    row.classList.add('hidden');
+  }
+}
+
+async function loadRecruiterPhoneNumbers() {
+  try {
+    const res = await apiFetch(phoneNumbersUrl);
+    if (!res.ok) throw new Error('Failed to load phone numbers');
+    const data = await res.json();
+    recruiterPhoneNumbers = data.data?.numbers || data.data || [];
+  } catch (err) {
+    console.warn('[hired.video] loadRecruiterPhoneNumbers failed:', err);
+    recruiterPhoneNumbers = [];
+  }
+  const select = document.getElementById('settingCallerIdNumber');
+  if (!select) return;
+  if (recruiterPhoneNumbers.length === 0) {
+    select.innerHTML = '<option value="">No numbers yet — provision one on hired.video</option>';
+    return;
+  }
+  select.innerHTML = recruiterPhoneNumbers
+    .map((n) => `<option value="${escapeHtml(n.id)}">${escapeHtml(n.phoneNumber || n.friendlyName || n.id)}</option>`)
+    .join('');
+  if (settings.callerIdNumberId) select.value = settings.callerIdNumberId;
+  else if (recruiterPhoneNumbers[0]) {
+    settings.callerIdNumberId = recruiterPhoneNumbers[0].id;
+    saveSettings();
+    select.value = settings.callerIdNumberId;
   }
 }
 
@@ -261,6 +317,8 @@ async function saveSettingsToServer() {
         autoDetectProfiles: !!settings.autoDetectProfiles,
         autoDetectCompanies: !!settings.autoDetectCompanies,
         autoScore: !!settings.autoScore,
+        callViaHiredVideo: !!settings.callViaHiredVideo,
+        callerIdNumberId: settings.callerIdNumberId || '',
       },
     };
     const resp = await fetch(extensionPreferencesUrl, {
@@ -290,6 +348,11 @@ function setupWebAppEventListener() {
   chrome.runtime.onMessage.addListener((message) => {
     if (!message || message.action !== 'webAppEvent') return false;
     if (message.type === 'settings-changed') loadSettingsFromServer();
+    if (message.type === 'tracked-job-changed') {
+      // Saving/unsaving a job on hired.video should keep the recruiter
+      // panel's Tracked tab in sync without a manual refresh. Gap #677.
+      loadTrackedJobs();
+    }
     return false;
   });
 }
@@ -305,24 +368,27 @@ function setupTabNavigation() {
     });
   });
 
-  // Settings toggles
-  ['settingAutoDetectJobs', 'settingAutoDetectProfiles', 'settingAutoDetectCompanies', 'settingAutoScore'].forEach((id) => {
+  // Settings toggles — driven by the shared SETTING_TOGGLE_IDS mapping
+  // so a new toggle only needs to be added in one place.
+  for (const [id, key] of Object.entries(SETTING_TOGGLE_IDS)) {
     const el = document.getElementById(id);
-    if (el) {
-      el.addEventListener('change', () => {
-        const key = {
-          settingAutoDetectJobs: 'autoDetectJobs',
-          settingAutoDetectProfiles: 'autoDetectProfiles',
-          settingAutoDetectCompanies: 'autoDetectCompanies',
-          settingAutoScore: 'autoScore',
-        }[id];
-        if (key) {
-          settings[key] = el.checked;
-          saveSettings();
-        }
-      });
-    }
-  });
+    if (!el) continue;
+    el.addEventListener('change', () => {
+      settings[key] = el.checked;
+      saveSettings();
+      if (key === 'callViaHiredVideo') applyVoipToggleVisibility();
+    });
+  }
+
+  // Caller-ID dropdown is keyed but not in SETTING_TOGGLE_IDS (it's a
+  // select, not a checkbox).
+  const callerIdSelect = document.getElementById('settingCallerIdNumber');
+  if (callerIdSelect) {
+    callerIdSelect.addEventListener('change', () => {
+      settings.callerIdNumberId = callerIdSelect.value;
+      saveSettings();
+    });
+  }
 
   // Sign out
   const signOut = document.getElementById('signOutButton') || document.getElementById('settingsSignOutButton');
@@ -375,6 +441,12 @@ function setupTabNavigation() {
     scanBtn.addEventListener('click', handleScanPage);
   }
 
+  // Interactive picker buttons (gap #946) — three modes share the same
+  // launcher; the button's data-picker-mode drives the mode parameter.
+  document.querySelectorAll('[data-picker-mode]').forEach((el) => {
+    el.addEventListener('click', () => launchPicker(el.dataset.pickerMode || 'job'));
+  });
+
   // Extract buttons
   const extractJob = document.getElementById('extractJobButton');
   if (extractJob) extractJob.addEventListener('click', handleExtractJob);
@@ -402,6 +474,14 @@ function setupTabNavigation() {
   if (companySearchInput) {
     companySearchInput.addEventListener('input', () => {
       renderCompanyList(companySearchInput.value.trim());
+    });
+  }
+
+  // Tracked-jobs search (gap #677)
+  const trackedJobsSearch = document.getElementById('trackedJobsSearch');
+  if (trackedJobsSearch) {
+    trackedJobsSearch.addEventListener('input', () => {
+      renderTrackedJobs(trackedJobsSearch.value.trim());
     });
   }
 
@@ -488,6 +568,9 @@ async function loadTabData(tab) {
   switch (tab) {
     case 'pipeline':
       loadPipeline();
+      break;
+    case 'tracked':
+      loadTrackedJobs();
       break;
     case 'candidates':
       loadCandidates();
@@ -1039,6 +1122,12 @@ document.addEventListener('click', (e) => {
       openLogInteractionPanel(lastExtractedCandidate);
       return;
     }
+    if (action === 'score-candidates-for-tracked-job') {
+      e.preventDefault();
+      triggerBackgroundScoring('candidates', actionBtn.dataset.jobId);
+      consoleAlerts('Scoring candidates against this job...');
+      return;
+    }
     if (action === 'view-candidate' && lastExtractedCandidate?.id) {
       e.preventDefault();
       switchTab('candidates');
@@ -1051,6 +1140,19 @@ document.addEventListener('click', (e) => {
   if (contactLink) {
     const channel = contactLink.dataset.contactAction;
     const candidateRowId = contactLink.dataset.contactId;
+
+    // VoIP route (gap #1359): if the recruiter has "Call via hired.video"
+    // enabled and this is a phone-call click, intercept and place the
+    // call through SignalWire so it lands in `call_logs` with a
+    // recording instead of dropping out to the OS dialer.
+    if (channel === 'call' && settings.callViaHiredVideo && settings.callerIdNumberId) {
+      e.preventDefault();
+      const href = contactLink.getAttribute('href') || '';
+      const to = href.replace(/^tel:/, '').trim();
+      placeBusinessCall(to, candidateRowId);
+      return;
+    }
+
     if (candidateRowId) {
       autoLogInteraction(candidateRowId, {
         type: channel,
@@ -1061,6 +1163,40 @@ document.addEventListener('click', (e) => {
     // Don't preventDefault — let the OS handle mailto:/tel:/sms:.
   }
 });
+
+async function placeBusinessCall(to, candidateRowId) {
+  if (!to) return;
+  try {
+    const res = await apiFetch(phoneCallUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        phoneNumberId: settings.callerIdNumberId,
+        to,
+        record: true,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Call failed');
+    if (candidateRowId) {
+      autoLogInteraction(candidateRowId, {
+        type: 'call',
+        subject: 'Outbound call (recorded)',
+        notes: `Placed via hired.video business line (call SID ${data.data?.sid ?? data.sid ?? ''}).`,
+      });
+    }
+    showCallStatusBanner('Calling ' + to + '...', 'info');
+  } catch (err) {
+    showCallStatusBanner('Call failed: ' + err.message, 'error');
+  }
+}
+
+function showCallStatusBanner(message, kind) {
+  const container = document.getElementById('extractionResultContent');
+  if (!container) return;
+  const cls = kind === 'error' ? 'alert-error' : 'alert-info';
+  container.innerHTML = `<div class="alert ${cls}">${escapeHtml(message)}</div>`;
+  showElement('extractionResult');
+}
 
 // ---- Universal target picker ------------------------------------------
 //
@@ -1765,6 +1901,81 @@ function renderCompanyList(filter = '') {
   `).join('');
 }
 
+// ---- Tracked jobs tab (gap #677) ---------------------------------------
+//
+// Recruiter-side companion to the jobseeker tracked-jobs surface. The
+// recruiter saves jobs on hired.video that they want to source against;
+// this tab keeps those visible inside the side panel so they don't have
+// to bounce between web + extension. `tracked-job-changed` webAppEvents
+// keep it live.
+
+async function loadTrackedJobs() {
+  showElement('trackedJobsLoading');
+  hideElement('trackedJobsEmpty');
+  try {
+    const res = await apiFetch(jobsSavedUrl);
+    if (!res.ok) throw new Error('Failed to load tracked jobs');
+    const data = await res.json();
+    const items = data?.data?.items || data?.data || data?.items || [];
+    trackedJobsList = Array.isArray(items) ? items : [];
+    renderTrackedJobs();
+  } catch (err) {
+    console.error('[hired.video] loadTrackedJobs error:', err);
+    showElement('trackedJobsEmpty');
+  } finally {
+    hideElement('trackedJobsLoading');
+  }
+}
+
+function renderTrackedJobs(filter = '') {
+  const container = document.getElementById('trackedJobsList');
+  const badge = document.getElementById('trackedJobsCountBadge');
+  if (!container) return;
+
+  let items = trackedJobsList;
+  if (filter) {
+    const lc = filter.toLowerCase();
+    items = items.filter((j) =>
+      (j.title || '').toLowerCase().includes(lc) ||
+      (j.company || '').toLowerCase().includes(lc) ||
+      (j.location || '').toLowerCase().includes(lc),
+    );
+  }
+
+  if (badge) {
+    badge.textContent = String(trackedJobsList.length);
+    badge.classList.toggle('hidden', trackedJobsList.length === 0);
+  }
+
+  if (items.length === 0) {
+    container.innerHTML = '';
+    showElement('trackedJobsEmpty');
+    return;
+  }
+  hideElement('trackedJobsEmpty');
+
+  container.innerHTML = items.map((j) => {
+    const id = j.id || j.Id || '';
+    const title = escapeHtml(j.title || 'Untitled job');
+    const meta = escapeHtml([j.company, j.location].filter(Boolean).join(' • '));
+    const sourceUrl = j.sourceUrl || j.applyUrl || '';
+    return `
+      <div class="card tracked-job-card" data-job-id="${escapeHtml(id)}">
+        <div class="d-flex align-items-center justify-between gap-2">
+          <div>
+            <div class="font-medium">${title}</div>
+            <div class="text-sm text-muted">${meta}</div>
+          </div>
+          <div class="d-flex gap-1">
+            ${sourceUrl ? `<a class="btn btn-outline btn-xs" href="${escapeHtml(sourceUrl)}" target="_blank" rel="noopener">↗ Open</a>` : ''}
+            <button class="btn btn-outline btn-xs" data-action="score-candidates-for-tracked-job" data-job-id="${escapeHtml(id)}">📊 Score</button>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
 // ---- Messaging ----------------------------------------------------------
 
 /**
@@ -2153,4 +2364,150 @@ function selectCandidateForShare(candidateId, candidateName) {
   };
 
   openMessagePanel(candidateId, candidateName, jobAttachment);
+}
+
+// =====================================================================
+// Interactive picker (gap #946) — recruiter-side parity with jobseeker.
+// Three modes (job / profile / company) share one launcher; the mode is
+// stamped onto the active tab as a window global before the picker
+// content script runs, then echoed back in the pickerResult payload so
+// we know which extraction endpoint to route to.
+// =====================================================================
+
+async function launchPicker(mode = 'job') {
+  return new Promise((resolve) => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+      const tab = tabs[0];
+      if (!tab || !tab.id || (tab.url && tab.url.startsWith('chrome://'))) {
+        consoleAlerts("Open a webpage first — picker can't run on chrome:// URLs.");
+        resolve(false);
+        return;
+      }
+      // Stage 1: stamp the mode onto the page before the bundled picker
+      // boots, so its `PICKER_MODE` constant resolves correctly.
+      chrome.scripting.executeScript(
+        {
+          target: { tabId: tab.id },
+          func: (m) => { window.__HIRED_VIDEO_PICKER_MODE__ = m; },
+          args: [mode],
+        },
+        () => {
+          if (chrome.runtime.lastError) {
+            consoleAlerts('Could not start picker (' + chrome.runtime.lastError.message + ').');
+            resolve(false);
+            return;
+          }
+          // Stage 2: inject the picker bundle. Re-injection while already
+          // loaded is safe (the SENTINEL guard in the bundle tears down
+          // any prior overlay before rebuilding).
+          chrome.scripting.executeScript(
+            { target: { tabId: tab.id }, files: ['content-script-picker.js'] },
+            () => {
+              if (chrome.runtime.lastError) {
+                consoleAlerts('Picker injection failed: ' + chrome.runtime.lastError.message);
+                resolve(false);
+                return;
+              }
+              window.HiredVideoTelemetry?.record('manual', {
+                url: tab.url, host: hostOf(tab.url),
+                payload: { kind: 'picker_launched', source: 'manual', mode },
+              });
+              resolve(true);
+            },
+          );
+        },
+      );
+    });
+  });
+}
+
+function hostOf(url) {
+  if (!url) return '';
+  try { return new URL(url).hostname; } catch { return ''; }
+}
+
+/**
+ * Convert a `pickerResult` message from the content script into the same
+ * shape the extract-* endpoints already accept. Each mode synthesises a
+ * minimal HTML stub from the captured field selectors + values so the
+ * server's LLM extractor + harvest backstop can do their normal work.
+ */
+chrome.runtime.onMessage.addListener((message) => {
+  if (!message || message.action !== 'pickerResult' || !message.result) return false;
+  handlePickerResult(message.result);
+  return false;
+});
+
+async function handlePickerResult(result) {
+  const { mode, host, sourceUrl, fields } = result;
+  try {
+    await window.HiredVideoTelemetry?.saveLearned?.(host, fields);
+  } catch { /* non-fatal */ }
+  window.HiredVideoTelemetry?.record?.('picker_capture', {
+    url: sourceUrl, host,
+    payload: { mode, fields },
+  });
+
+  // Build a tiny HTML envelope from the captured field snippets so the
+  // server's existing LLM + harvest pipeline runs unchanged regardless
+  // of mode. The snippet contains the literal user-clicked outerHTML so
+  // contact/social URLs the user selected survive to the harvester.
+  const stitched = stitchFieldsToHtml(fields);
+
+  if (mode === 'profile') {
+    await runManualExtract(recruiterExtractProfileUrl, stitched, sourceUrl, 'profile');
+  } else if (mode === 'company') {
+    await runManualExtract(companiesExtractUrl, stitched, sourceUrl, 'company');
+  } else {
+    await runManualExtract(jobsExtractUrl + '?track=true', stitched, sourceUrl, 'job');
+  }
+}
+
+function stitchFieldsToHtml(fields) {
+  if (!fields) return '';
+  const parts = [];
+  for (const [key, f] of Object.entries(fields)) {
+    if (!f) continue;
+    if (f.snippet) parts.push(f.snippet);
+    else if (f.value) parts.push(`<div data-picker-key="${key}">${escapeHtml(String(f.value))}</div>`);
+  }
+  return `<html><body>${parts.join('\n')}</body></html>`;
+}
+
+async function runManualExtract(url, html, sourceUrl, type) {
+  if (extractionBusy) return;
+  extractionBusy = true;
+  showElement('extractionLoading');
+  const loadingText = document.getElementById('extractionLoadingText');
+  if (loadingText) loadingText.textContent = `Extracting ${type}...`;
+
+  try {
+    const res = await apiFetch(url, {
+      method: 'POST',
+      body: JSON.stringify({ html, sourceUrl }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Extraction failed');
+
+    if (type === 'profile') {
+      lastExtractedCandidate = data.data?.talentPoolCandidate || null;
+      showExtractionSuccess('profile', data.data);
+      if (lastExtractedCandidate?.id) {
+        autoLogInteraction(lastExtractedCandidate.id, {
+          type: 'sourcing',
+          subject: 'Captured via picker from ' + extractHost(sourceUrl),
+          notes: 'Profile extracted via in-page picker.',
+        });
+      }
+    } else if (type === 'company') {
+      showExtractionSuccess('company', data.data);
+    } else {
+      showExtractionSuccess('job', data.data);
+    }
+  } catch (err) {
+    showExtractionError('Picker extraction failed: ' + err.message);
+  } finally {
+    extractionBusy = false;
+    hideElement('extractionLoading');
+  }
 }
