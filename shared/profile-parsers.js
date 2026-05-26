@@ -115,6 +115,37 @@ const PROFILE_SITE_PARSERS = {
     companySelectors: [],
     locationSelectors: ['.profile-location'],
   },
+  // Wellfound (formerly AngelList Talent). Profile lives at /u/<handle>.
+  wellfound: {
+    hostPatterns: ['wellfound.com', 'angel.co'],
+    urlPatterns: [/\/u\//, /\/profile/],
+    selectors: ['main', '.profile-page', '#root'],
+    nameSelectors: ['h1'],
+    titleSelectors: ['h2', '.profile-headline'],
+    companySelectors: [],
+    locationSelectors: [],
+  },
+  // Dice profile / dashboard.
+  dice: {
+    hostPatterns: ['dice.com'],
+    urlPatterns: [/\/dashboard\/profile/, /\/profile/],
+    selectors: ['main', '.profile-container', '#root'],
+    nameSelectors: ['h1'],
+    titleSelectors: ['h2', '.profile-headline'],
+    companySelectors: [],
+    locationSelectors: [],
+  },
+  // GitHub user profile (github.com/<username>). README repo + bio
+  // live on this page — we let the LLM extractor pick out what it can.
+  github: {
+    hostPatterns: ['github.com'],
+    urlPatterns: [/^\/[^/]+\/?$/, /^\/[^/]+\?/],
+    selectors: ['.h-card', 'main', '.application-main'],
+    nameSelectors: ['.p-name', 'h1.vcard-names', 'h1'],
+    titleSelectors: ['.p-note', '[data-bio]'],
+    companySelectors: ['[itemprop="worksFor"]', '.p-org'],
+    locationSelectors: ['[itemprop="homeLocation"]', '.p-label'],
+  },
 };
 
 // ---- Per-host focused-pane finders --------------------------------------
@@ -170,6 +201,24 @@ const FOCUSED_PROFILE_FINDERS = {
     if (!/\/(profile|account\/profile)/.test(window.location.pathname)) return null;
     return (
       document.querySelector('.profile-container') ||
+      document.querySelector('main') ||
+      null
+    );
+  },
+  'wellfound.com': () => {
+    if (!/\/(u\/|profile)/.test(window.location.pathname)) return null;
+    return document.querySelector('main') || document.querySelector('.profile-page') || null;
+  },
+  'dice.com': () => {
+    if (!/\/(dashboard\/profile|profile)/.test(window.location.pathname)) return null;
+    return document.querySelector('main') || document.querySelector('.profile-container') || null;
+  },
+  'github.com': () => {
+    // Only fire on the user profile page (single path segment), not repos
+    // or any of the dozens of other GitHub surfaces.
+    if (!/^\/[^/]+\/?$/.test(window.location.pathname)) return null;
+    return (
+      document.querySelector('.h-card') ||
       document.querySelector('main') ||
       null
     );

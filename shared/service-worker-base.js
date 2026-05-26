@@ -42,6 +42,10 @@ const VENDOR_SYNC_REGISTRY = [
   { id: 'glassdoor', label: 'Glassdoor', host: 'glassdoor.com' },
   { id: 'ziprecruiter', label: 'ZipRecruiter', host: 'ziprecruiter.com' },
   { id: 'monster', label: 'Monster', host: 'monster.com' },
+  { id: 'wellfound', label: 'Wellfound', host: 'wellfound.com' },
+  { id: 'wellfound', label: 'Wellfound', host: 'angel.co' },
+  { id: 'dice', label: 'Dice', host: 'dice.com' },
+  { id: 'github', label: 'GitHub', host: 'github.com' },
 ];
 
 function matchVendorForUrl(url) {
