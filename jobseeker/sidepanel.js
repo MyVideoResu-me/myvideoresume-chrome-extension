@@ -4130,7 +4130,9 @@ async function handlePickerResult(result) {
   const { host, sourceUrl, fields } = result;
   // Persist selectors so subsequent visits to the same host can replay.
   try {
-    await window.HiredVideoTelemetry?.saveLearned(host, fields);
+    // Jobseeker is always job-mode (the only picker surface it exposes).
+    // Recruiter passes 'profile' or 'company' from its own handler.
+    await window.HiredVideoTelemetry?.saveLearned(host, 'job', fields);
   } catch {
     /* non-fatal */
   }

@@ -54,12 +54,19 @@ const PROFILE_SITE_PARSERS = {
     ],
   },
   indeed: {
-    hostPatterns: ['indeed.com'],
-    urlPatterns: [/\/resumes?\//],
+    // Accept both the legacy public resume URL (/resumes/<id> on indeed.com)
+    // AND the modern profile editor on profile.indeed.com (root path). The
+    // editProfileUrl on the backend connector points at profile.indeed.com,
+    // so the parser must match that host or the "Sync from Indeed tab" CTA
+    // sends the user somewhere the parser ignores. Fixes gap #1414.
+    hostPatterns: ['indeed.com', 'profile.indeed.com'],
+    urlPatterns: [/\/resumes?\//, /^\/$/, /^\/profile/],
     selectors: [
       '.resume-body',
       '#resume-body',
       '.icl-ResumeBody',
+      '[data-testid="profile-summary"]',
+      'main',
     ],
     nameSelectors: [
       '.icl-ResumeHeader-name',
@@ -74,6 +81,39 @@ const PROFILE_SITE_PARSERS = {
       '.icl-ResumeHeader-location',
       '.resume-location',
     ],
+  },
+  // Glassdoor — extracts the signed-in user's profile from
+  // glassdoor.com/member/profile. The LLM extractor handles section-name
+  // variance, so a single fall-back `main` selector is enough for v1.
+  // Pairs with VENDOR_HINTS.glassdoor on the backend. Fixes gap #1418.
+  glassdoor: {
+    hostPatterns: ['glassdoor.com'],
+    urlPatterns: [/\/member\/profile/, /\/profile/],
+    selectors: ['.profileContainer', 'main', '#root'],
+    nameSelectors: ['h1'],
+    titleSelectors: ['[data-test="profile-headline"]', 'h2'],
+    companySelectors: [],
+    locationSelectors: ['[data-test="profile-location"]'],
+  },
+  // ZipRecruiter profile editor lives at /profile (signed-in redirect).
+  ziprecruiter: {
+    hostPatterns: ['ziprecruiter.com'],
+    urlPatterns: [/\/profile/, /\/candidate\//],
+    selectors: ['.profile-container', '#profile', 'main'],
+    nameSelectors: ['h1'],
+    titleSelectors: ['.profile-headline', 'h2'],
+    companySelectors: [],
+    locationSelectors: ['.profile-location'],
+  },
+  // Monster profile editor.
+  monster: {
+    hostPatterns: ['monster.com'],
+    urlPatterns: [/\/profile/, /\/account\/profile/],
+    selectors: ['.profile-container', 'main', '#main'],
+    nameSelectors: ['h1'],
+    titleSelectors: ['.profile-headline', 'h2'],
+    companySelectors: [],
+    locationSelectors: ['.profile-location'],
   },
 };
 
@@ -93,10 +133,44 @@ const FOCUSED_PROFILE_FINDERS = {
     );
   },
   'indeed.com': () => {
-    if (!/\/resumes?\//.test(window.location.pathname)) return null;
+    // Legacy public resume URL OR the modern profile editor on
+    // profile.indeed.com (root path). chrome.tabs.query matches the host
+    // suffix, so profile.indeed.com hits this branch too. Falls back to
+    // <main> when the resume-body classes aren't present (modern editor).
+    const isLegacyResume = /\/resumes?\//.test(window.location.pathname);
+    const isModernProfile = window.location.hostname.startsWith('profile.')
+      || /^\/(profile)?$/.test(window.location.pathname);
+    if (!isLegacyResume && !isModernProfile) return null;
     return (
       document.querySelector('.resume-body') ||
       document.querySelector('#resume-body') ||
+      document.querySelector('[data-testid="profile-summary"]')?.closest('main') ||
+      document.querySelector('main') ||
+      null
+    );
+  },
+  'glassdoor.com': () => {
+    if (!/\/(member\/)?profile/.test(window.location.pathname)) return null;
+    return (
+      document.querySelector('.profileContainer') ||
+      document.querySelector('main') ||
+      null
+    );
+  },
+  'ziprecruiter.com': () => {
+    if (!/\/(profile|candidate)/.test(window.location.pathname)) return null;
+    return (
+      document.querySelector('.profile-container') ||
+      document.querySelector('#profile') ||
+      document.querySelector('main') ||
+      null
+    );
+  },
+  'monster.com': () => {
+    if (!/\/(profile|account\/profile)/.test(window.location.pathname)) return null;
+    return (
+      document.querySelector('.profile-container') ||
+      document.querySelector('main') ||
       null
     );
   },

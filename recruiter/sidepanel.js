@@ -2441,7 +2441,7 @@ chrome.runtime.onMessage.addListener((message) => {
 async function handlePickerResult(result) {
   const { mode, host, sourceUrl, fields } = result;
   try {
-    await window.HiredVideoTelemetry?.saveLearned?.(host, fields);
+    await window.HiredVideoTelemetry?.saveLearned?.(host, mode, fields);
   } catch { /* non-fatal */ }
   window.HiredVideoTelemetry?.record?.('picker_capture', {
     url: sourceUrl, host,

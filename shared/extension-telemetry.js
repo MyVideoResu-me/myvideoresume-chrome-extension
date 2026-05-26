@@ -149,48 +149,37 @@
   // ── Per-host learned selectors ──────────────────────────────────────────
   //
   // Schema (chrome.storage.local key `hv:learnedSelectors`):
-  //   { [host: string]: {
+  //   { [`${host}|${mode}`]: {
   //       updatedAt: ISOString,
   //       fields: { [fieldKey]: { selector, value } }
   //   } }
+  //
+  // The `${host}|${mode}` composite key separates job / profile / company
+  // captures from the same host so they don't clobber each other (gap
+  // #1395). Mode is also read by `content-script-picker.ts` to replay
+  // saved selectors as the first auto-suggest on subsequent visits
+  // (gap #1396) — the picker uses the same key shape directly against
+  // chrome.storage.local because it runs in the page context and can't
+  // see this side-panel-scoped `window.HiredVideoTelemetry`.
 
   const STORAGE_KEY = "hv:learnedSelectors";
 
-  async function getLearned(host) {
-    if (!host) return null;
-    return new Promise((resolve) => {
-      try {
-        chrome.storage.local.get([STORAGE_KEY], (data) => {
-          const all = (data && data[STORAGE_KEY]) || {};
-          resolve(all[host] || null);
-        });
-      } catch {
-        resolve(null);
-      }
-    });
+  // Single source of truth for the composite key. Mirrored in
+  // shared/content-script-picker.ts — change both together.
+  function makeStorageKey(host, mode) {
+    return `${host}|${mode || "job"}`;
   }
 
-  async function saveLearned(host, fields) {
+  async function saveLearned(host, mode, fields) {
     if (!host || !fields) return;
     return new Promise((resolve) => {
       try {
         chrome.storage.local.get([STORAGE_KEY], (data) => {
           const all = (data && data[STORAGE_KEY]) || {};
-          all[host] = { updatedAt: new Date().toISOString(), fields };
-          chrome.storage.local.set({ [STORAGE_KEY]: all }, () => resolve());
-        });
-      } catch {
-        resolve();
-      }
-    });
-  }
-
-  async function clearLearned(host) {
-    return new Promise((resolve) => {
-      try {
-        chrome.storage.local.get([STORAGE_KEY], (data) => {
-          const all = (data && data[STORAGE_KEY]) || {};
-          delete all[host];
+          all[makeStorageKey(host, mode)] = {
+            updatedAt: new Date().toISOString(),
+            fields,
+          };
           chrome.storage.local.set({ [STORAGE_KEY]: all }, () => resolve());
         });
       } catch {
@@ -203,8 +192,6 @@
     sessionId: SESSION_ID,
     record,
     flush,
-    getLearned,
     saveLearned,
-    clearLearned,
   };
 })();

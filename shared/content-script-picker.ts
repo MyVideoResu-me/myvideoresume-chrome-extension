@@ -306,6 +306,52 @@ import {
   // The suggestion is rendered with a green outline + "Is this right?"
   // chips. Confirming commits it; rejecting drops into manual mode.
 
+  // ── Replay of saved selectors (gap #1396) ──────────────────────────────
+  //
+  // The picker side panel persists confirmed selectors into
+  // chrome.storage.local under `hv:learnedSelectors` keyed by
+  // `${host}|${mode}` (see shared/extension-telemetry.js — change both
+  // together). Replaying these as the first auto-suggest skips manual
+  // picking on the second visit to any host the user has already trained.
+
+  const LEARNED_STORAGE_KEY = "hv:learnedSelectors";
+  const LEARNED_HOST_KEY = `${window.location.hostname.toLowerCase()}|${PICKER_MODE}`;
+  let learnedFields: Record<string, { selector: string; value: string }> | null = null;
+  let learnedLoaded = false;
+
+  async function loadLearnedFields(): Promise<void> {
+    if (learnedLoaded) return;
+    learnedLoaded = true;
+    return new Promise((resolve) => {
+      try {
+        chrome.storage.local.get([LEARNED_STORAGE_KEY], (data) => {
+          const all = (data && data[LEARNED_STORAGE_KEY]) || {};
+          const entry = all[LEARNED_HOST_KEY];
+          learnedFields = entry?.fields ?? null;
+          resolve();
+        });
+      } catch {
+        resolve();
+      }
+    });
+  }
+
+  function savedSuggestionFor(key: FieldKey): { el: Element | null; text: string } | null {
+    const f = learnedFields?.[key];
+    if (!f || !f.selector) return null;
+    let el: Element | null = null;
+    try {
+      el = document.querySelector(f.selector);
+    } catch {
+      // Invalid selector (DOM moved on, host upgraded its CSS, etc.) —
+      // fall through to the heuristic auto-suggest.
+      return null;
+    }
+    if (!el) return null;
+    const liveText = (el.textContent || "").replace(/\s+/g, " ").trim();
+    return { el, text: liveText || f.value || "" };
+  }
+
   // `detectJobInPage` is only useful in job mode — profile / company
   // modes lean on simple DOM heuristics so the picker doesn't need the
   // full scraping graph for the recruiter surface.
@@ -553,8 +599,12 @@ import {
     paintHighlight(null);
     renderToolbar(true);
     // Defer one frame so the spinner paints before the heavy work.
-    requestAnimationFrame(() => {
-      const guess = autoSuggestFor(currentStep().key);
+    requestAnimationFrame(async () => {
+      const key = currentStep().key;
+      // Saved (host, mode, key) selector wins over heuristics — replay
+      // skips manual picking on repeat visits (gap #1396).
+      await loadLearnedFields();
+      const guess = savedSuggestionFor(key) ?? autoSuggestFor(key);
       if (guess && guess.text) {
         suggestion = guess;
         if (guess.el) paintHighlight(guess.el, true);

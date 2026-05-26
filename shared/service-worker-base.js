@@ -32,6 +32,10 @@ const API_BASE = 'https://api.hired.video';
 const VENDOR_SYNC_HOST_PATTERNS = [
   'linkedin.com',
   'indeed.com',
+  'profile.indeed.com',
+  'glassdoor.com',
+  'ziprecruiter.com',
+  'monster.com',
 ];
 
 /**
