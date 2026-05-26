@@ -421,6 +421,26 @@
       </div>
     </div>
 
+    <!-- Privacy — telemetry opt-out. The toggle lives in chrome.storage.local
+         under `recruiterSettings.telemetryOptOut` AND syncs to the server's
+         `recruiter.telemetryOptOut` slice. The shared extension-telemetry.js
+         consults this flag before `record()`; flipping it stops all event
+         emission immediately. Mirrors the jobseeker's privacy toggle so
+         both extensions have parity on data-collection consent. -->
+    <div class="card">
+      <h4 class="card-title">Privacy</h4>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Don't share anonymous usage</div>
+          <div class="setting-desc">By default we collect anonymous detection-failure events + manual picker captures so we can teach the extension to auto-detect more sites. Tick this to opt out — no telemetry events will be sent.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settingTelemetryOptOut">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
     <div class="card">
       <h4 class="card-title">Account</h4>
       <div class="d-flex gap-2">

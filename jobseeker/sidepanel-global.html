@@ -84,6 +84,24 @@
     </div>
   </div>
 
+  <!-- Vendor Sync banner — visible only when the active tab is on a
+       supported vendor profile page (LinkedIn, Indeed, Glassdoor,
+       ZipRecruiter, Monster). The host → label mapping comes from
+       VENDOR_SYNC_REGISTRY in service-worker-base.js (single SSoT —
+       see profile-parsers.js for the matching parser entries). The
+       banner self-gates: if the active tab isn't a vendor profile,
+       the JS keeps it hidden. -->
+  <div id="vendorSyncBanner" class="card vendor-sync-banner hidden">
+    <div class="vendor-sync-eyebrow">📌 Profile detected on this page</div>
+    <div class="vendor-sync-text">
+      You're on your <span id="vendorSyncVendorLabel">profile</span> — sync changes to your hired.video master?
+    </div>
+    <div class="d-flex gap-2 mt-2">
+      <button id="vendorSyncTriggerButton" class="btn btn-primary btn-compact">Sync to master</button>
+      <button id="vendorSyncDismissButton" class="btn btn-outline btn-compact">Not now</button>
+    </div>
+  </div>
+
   <!-- Tab strip -->
   <div class="tab-strip" role="tablist">
     <button id="tabJobsButton" class="tab-button tab-active" role="tab" aria-selected="true" data-tab="jobs">

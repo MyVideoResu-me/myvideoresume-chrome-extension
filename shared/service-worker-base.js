@@ -29,14 +29,71 @@ const API_BASE = 'https://api.hired.video';
 // kept as plain strings here because the service worker can't import
 // the parsers module. Add to BOTH places when adding a vendor with
 // `supportsExtensionExtract: true`.
-const VENDOR_SYNC_HOST_PATTERNS = [
-  'linkedin.com',
-  'indeed.com',
-  'profile.indeed.com',
-  'glassdoor.com',
-  'ziprecruiter.com',
-  'monster.com',
+// Single source of truth for which vendors are extension-supported. The
+// ids match backend connector ids; labels are reused by the jobseeker
+// side panel's "Sync this profile" banner so the host → label mapping
+// doesn't drift between worker + UI. Add a new vendor here AND in
+// profile-parsers.js → flip the backend connector's
+// supportsExtensionExtract to true → done. DRY rule.
+const VENDOR_SYNC_REGISTRY = [
+  { id: 'linkedin', label: 'LinkedIn', host: 'linkedin.com' },
+  { id: 'indeed', label: 'Indeed', host: 'indeed.com' },
+  { id: 'indeed', label: 'Indeed', host: 'profile.indeed.com' },
+  { id: 'glassdoor', label: 'Glassdoor', host: 'glassdoor.com' },
+  { id: 'ziprecruiter', label: 'ZipRecruiter', host: 'ziprecruiter.com' },
+  { id: 'monster', label: 'Monster', host: 'monster.com' },
 ];
+
+function matchVendorForUrl(url) {
+  if (!url) return null;
+  let parsed;
+  try { parsed = new URL(url); } catch { return null; }
+  const host = parsed.hostname.toLowerCase();
+  for (const v of VENDOR_SYNC_REGISTRY) {
+    if (host === v.host || host.endsWith('.' + v.host)) return v;
+  }
+  return null;
+}
+
+/**
+ * Best-effort selector-drift telemetry from the service worker. Fires a
+ * single-event batch directly to /api/extension/sessions when an autofill
+ * attempt skips because the target field wasn't found — that's the signal
+ * the vendor renamed an ARIA label and our selector needs maintenance.
+ *
+ * Reads `telemetryOptOut` from chrome.storage.local — the same flag the
+ * side-panel telemetry module consults (#1450 SSoT). Anonymous if no JWT,
+ * authed if one is present. Closes gap #1453.
+ */
+function reportSelectorMiss({ vendorId, selector, blockSection, errCode, host }) {
+  chrome.storage.local.get(['settings', 'recruiterSettings', 'jwtToken'], async (data) => {
+    const optedOut = !!(data?.settings?.telemetryOptOut || data?.recruiterSettings?.telemetryOptOut);
+    if (optedOut) return;
+    try {
+      const headers = { 'Content-Type': 'application/json' };
+      if (data.jwtToken) headers.Authorization = `Bearer ${data.jwtToken}`;
+      await fetch(API_BASE + '/api/extension/sessions', {
+        method: 'POST',
+        headers,
+        keepalive: true,
+        body: JSON.stringify({
+          sessionId: crypto.randomUUID(),
+          extension: chrome.runtime.getManifest()?.name?.toLowerCase().includes('recruiter')
+            ? 'recruiter' : 'jobseeker',
+          version: chrome.runtime.getManifest()?.version || '0.0.0',
+          events: [{
+            kind: 'vendor_selector_miss',
+            ts: new Date().toISOString(),
+            host,
+            payload: { vendorId, selector, blockSection, errCode },
+          }],
+        }),
+      });
+    } catch {
+      // Telemetry is best-effort — never block the user flow.
+    }
+  });
+}
 
 /**
  * Vendor Sync — "user clicked Sync on /tools/vendor-sync" handler.
@@ -51,7 +108,7 @@ const VENDOR_SYNC_HOST_PATTERNS = [
  * web app can surface a user-facing error instead of hanging.
  */
 function handleVendorSyncFocusedRequest(_payload) {
-  const matchUrls = VENDOR_SYNC_HOST_PATTERNS.map((h) => `*://*.${h}/*`);
+  const matchUrls = VENDOR_SYNC_REGISTRY.map((v) => `*://*.${v.host}/*`);
 
   function broadcast(result) {
     chrome.tabs.query(
@@ -94,6 +151,108 @@ function handleVendorSyncFocusedRequest(_payload) {
         originUrl: response.originUrl ?? tab.url ?? null,
         error: response.html ? null : 'NO_FOCUSED_PANE',
       });
+    });
+  });
+}
+
+/**
+ * Vendor Sync — DOM autofill. Locate a vendor tab matching `vendorId`,
+ * inject the autofill content script if needed, type `value` into the
+ * element matching `selector`. Broadcasts a `vendor-sync:autofill-result`
+ * event back to the web tabs so the UI can toast success/failure.
+ *
+ * Single-field, user-initiated — the user opens the edit modal on the
+ * vendor tab first. We never auto-open modals or auto-save; the user
+ * reviews and saves themselves. Matches the same "no silent automation"
+ * envelope as a password manager.
+ */
+function handleVendorSyncAutofill(payload) {
+  const { vendorId, selector, value, blockSection } = payload || {};
+  const vendorHosts = VENDOR_SYNC_REGISTRY
+    .filter((v) => v.id === vendorId)
+    .map((v) => `*://*.${v.host}/*`);
+
+  function broadcast(result) {
+    chrome.tabs.query(
+      { url: ['https://hired.video/*', 'https://www.hired.video/*', 'http://localhost:3000/*'] },
+      (webTabs) => {
+        for (const t of webTabs) {
+          if (!t?.id) continue;
+          chrome.tabs.sendMessage(t.id, {
+            action: 'hiredVideoExtensionEvent',
+            type: 'vendor-sync:autofill-result',
+            payload: { ...result, vendorId, blockSection },
+          }).catch(() => {});
+        }
+      },
+    );
+  }
+
+  if (!vendorId || !selector || typeof value !== 'string') {
+    broadcast({ status: 'error', error: 'BAD_REQUEST' });
+    return;
+  }
+  if (vendorHosts.length === 0) {
+    broadcast({ status: 'error', error: 'UNKNOWN_VENDOR' });
+    return;
+  }
+
+  chrome.tabs.query({ url: vendorHosts }, (tabs) => {
+    if (!tabs || tabs.length === 0) {
+      broadcast({ status: 'error', error: 'NO_VENDOR_TAB' });
+      return;
+    }
+    const sorted = tabs.slice().sort((a, b) => (b.lastAccessed ?? 0) - (a.lastAccessed ?? 0));
+    const tab = sorted[0];
+
+    function send() {
+      chrome.tabs.sendMessage(
+        tab.id,
+        { action: 'fillFormFields', answers: { [selector]: value } },
+        (response) => {
+          if (chrome.runtime.lastError || !response) {
+            broadcast({ status: 'error', error: 'NO_RESPONSE' });
+            return;
+          }
+          const fillResult = response.results?.[selector];
+          if (fillResult === 'filled') {
+            broadcast({ status: 'filled' });
+          } else {
+            const errCode = fillResult === 'skipped'
+              ? 'FIELD_NOT_FOUND'
+              : (fillResult === 'error' ? 'FILL_FAILED' : 'UNKNOWN');
+            // Selector-drift telemetry: aggregate misses so the team
+            // sees when LinkedIn / Indeed / ... rename a field's
+            // ARIA label. Fire-and-forget; opt-out is honoured because
+            // the side panel's HiredVideoTelemetry consumes the same
+            // flag via #1450's gate. Closes gap #1453.
+            reportSelectorMiss({
+              vendorId, selector, blockSection, errCode,
+              host: tab.url ? new URL(tab.url).hostname : null,
+            });
+            broadcast({ status: 'skipped', error: errCode });
+          }
+        },
+      );
+    }
+
+    // Lazy-inject the autofill content script if it's not loaded — mirrors
+    // the pattern used by the form-fill flow above.
+    chrome.tabs.sendMessage(tab.id, { action: 'fillFormFields', answers: {} }, (probe) => {
+      if (chrome.runtime.lastError || !probe) {
+        chrome.scripting.executeScript(
+          { target: { tabId: tab.id }, files: ['content-script-autofill.js'] },
+          () => {
+            if (chrome.runtime.lastError) {
+              broadcast({ status: 'error', error: 'INJECTION_FAILED' });
+              return;
+            }
+            setTimeout(send, 300);
+          },
+        );
+      } else {
+        send();
+      }
     });
   });
 }
@@ -277,6 +436,16 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       handleVendorSyncFocusedRequest(request.payload ?? {});
       return false;
     }
+    // Vendor Sync write-back: type a single field's value into the
+    // matching vendor tab via the existing autofill content script.
+    // The web app sends `{ vendorId, selector, value }`; we locate
+    // the vendor tab, ensure the autofill content script is injected,
+    // and forward `fillFormFields({ [selector]: value })`. Broadcasts
+    // the result back as `vendor-sync:autofill-result`.
+    if (request.type === 'vendor-sync:autofill-field') {
+      handleVendorSyncAutofill(request.payload ?? {});
+      return false;
+    }
     chrome.runtime.sendMessage({
       action: 'webAppEvent',
       type: request.type,
@@ -306,6 +475,19 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       },
     );
     return false;
+  }
+
+  // ---- Vendor-sync host detection ---------------------------------
+  // The side panel polls this on init + tab change so its "Sync this
+  // profile" banner can self-gate against the active tab's host. One
+  // SSoT (VENDOR_SYNC_REGISTRY) — DRY rule.
+  if (request.action === 'vendor-sync:detect-active-tab') {
+    chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+      const url = tabs?.[0]?.url ?? null;
+      const match = matchVendorForUrl(url);
+      sendResponse({ vendor: match, url });
+    });
+    return true; // async sendResponse
   }
 
   // ---- On-demand job detection from the active tab -----------------

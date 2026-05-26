@@ -43,6 +43,73 @@
       : "jobseeker";
   const VERSION = chrome?.runtime?.getManifest()?.version || "0.0.0";
 
+  // ── Opt-out — the single source of truth, consulted at every record() ──
+  //
+  // Both extensions persist the toggle inside their own settings object
+  // under chrome.storage.local: jobseeker uses `settings.telemetryOptOut`,
+  // recruiter uses `recruiterSettings.telemetryOptOut`. We mirror both
+  // containers so this file is the only place that has to know how to
+  // resolve the flag. Without this gate the Settings toggle was cosmetic
+  // — `record()` posted regardless. (Fixes gap #1450.)
+  //
+  // We snapshot synchronously-ish on init and update via `onChanged` so a
+  // user who flips the toggle mid-session stops sending immediately.
+
+  const OPT_OUT_STORAGE_KEYS = ["settings", "recruiterSettings"];
+  let optedOut = false;
+
+  function deriveOptOut(stores) {
+    for (const key of OPT_OUT_STORAGE_KEYS) {
+      const v = stores?.[key]?.telemetryOptOut;
+      if (v === true) return true;
+    }
+    return false;
+  }
+
+  try {
+    chrome.storage.local.get(OPT_OUT_STORAGE_KEYS, (data) => {
+      optedOut = deriveOptOut(data);
+    });
+    chrome.storage.onChanged.addListener((changes, area) => {
+      if (area !== "local") return;
+      const touched = OPT_OUT_STORAGE_KEYS.some((k) => k in changes);
+      if (!touched) return;
+      chrome.storage.local.get(OPT_OUT_STORAGE_KEYS, (data) => {
+        optedOut = deriveOptOut(data);
+      });
+    });
+  } catch {
+    // Pre-MV3 / sandboxed context — leave optedOut at its default (false).
+  }
+
+  // ── Payload scrubbers — narrow what reaches the telemetry channel ─────
+  //
+  // Some event kinds carry the literal scraped DOM (selectors + values)
+  // because the same `record()` site forwards captures to the LLM
+  // extractor. The LLM extractor receives that payload via a separate
+  // /api/recruiter/extract-* POST; the *analytics-telemetry* channel
+  // should not also store the content. We keep the SIGNAL (a capture
+  // happened, on this host, with N field keys) and drop the CONTENT
+  // (selector strings + value strings). Fixes gap #1452.
+
+  function scrubPayload(kind, payload) {
+    if (!payload || typeof payload !== "object") return payload;
+    if (kind !== "picker_capture") return payload;
+    const out = { ...payload };
+    if (out.fields && typeof out.fields === "object") {
+      const keys = Object.keys(out.fields);
+      out.fieldCount = keys.length;
+      out.fieldKeys = keys;
+      delete out.fields;
+    }
+    // Page-context probes are coarse signal too (UA / title) but the
+    // title can carry candidate names on profile captures — strip it.
+    if (out.page && typeof out.page === "object") {
+      out.page = { ua: out.page.ua };
+    }
+    return out;
+  }
+
   // ── Outbound batcher ────────────────────────────────────────────────────
 
   const buffer = [];
@@ -125,12 +192,13 @@
 
   function record(kind, attrs = {}) {
     if (!kind) return;
+    if (optedOut) return;
     const ev = {
       kind,
       ts: new Date().toISOString(),
       url: attrs.url,
       host: attrs.host,
-      payload: attrs.payload,
+      payload: scrubPayload(kind, attrs.payload),
     };
     buffer.push(ev);
     if (buffer.length >= FLUSH_THRESHOLD) {

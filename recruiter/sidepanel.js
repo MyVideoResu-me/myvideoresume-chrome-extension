@@ -65,6 +65,7 @@ const DEFAULT_SETTINGS = {
   autoScore: false,            // PAID
   callViaHiredVideo: false,    // PAID — gap #1359
   callerIdNumberId: '',        // companion to callViaHiredVideo
+  telemetryOptOut: false,      // mirrors jobseeker — gates extension-telemetry.js
 };
 let settings = { ...DEFAULT_SETTINGS };
 
@@ -248,6 +249,7 @@ const SETTING_TOGGLE_IDS = {
   settingAutoDetectCompanies: 'autoDetectCompanies',
   settingAutoScore: 'autoScore',
   settingCallViaHiredVideo: 'callViaHiredVideo',
+  settingTelemetryOptOut: 'telemetryOptOut',
 };
 
 function applySettingsToUI() {
@@ -319,6 +321,7 @@ async function saveSettingsToServer() {
         autoScore: !!settings.autoScore,
         callViaHiredVideo: !!settings.callViaHiredVideo,
         callerIdNumberId: settings.callerIdNumberId || '',
+        telemetryOptOut: !!settings.telemetryOptOut,
       },
     };
     const resp = await fetch(extensionPreferencesUrl, {

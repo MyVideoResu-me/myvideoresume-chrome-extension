@@ -111,18 +111,22 @@ document.addEventListener('DOMContentLoaded', () => {
   // so the user can always escape to the sign-in page even if the
   // rest of init breaks.
   wireLoginButtons();
+  wireVendorSyncBanner();
 
   updateConfiguration();
   initializeApp();
   setupUrlChangeListener();
   setupAuthSyncListener();
   setupWebAppEventListener();
+  refreshVendorSyncBanner();
 
   // Re-check pro status when the side panel regains visibility
   // (e.g. user returns from the pricing/upgrade page in another tab).
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
       loadTokenBudget();
+      // Active tab may have changed while the side panel was hidden.
+      refreshVendorSyncBanner();
     }
   });
 });
@@ -2581,6 +2585,69 @@ function resetPageState() {
   showElement('noJobBanner');
   hideElement('quickStatus');
   clearPreviousResults();
+  // Re-evaluate the vendor-sync banner against the new tab. The
+  // banner self-gates inside refreshVendorSyncBanner — no `isVendorTab`
+  // boolean flows through resetPageState's callers.
+  refreshVendorSyncBanner();
+}
+
+// ---------------------------------------------------------------------
+// Vendor Sync — "you're on your LinkedIn / Indeed / ... profile" banner
+// ---------------------------------------------------------------------
+//
+// Asks the service worker which vendor (if any) matches the active tab
+// (single SSoT for the host → label mapping lives in VENDOR_SYNC_REGISTRY
+// in service-worker-base.js). Self-gates: hides the banner when the
+// active tab isn't a supported vendor profile, or when the user has
+// dismissed the banner for this URL.
+
+let lastDetectedVendor = null;
+
+function refreshVendorSyncBanner() {
+  chrome.runtime.sendMessage(
+    { action: 'vendor-sync:detect-active-tab' },
+    (response) => {
+      if (chrome.runtime.lastError) return;
+      const vendor = response?.vendor ?? null;
+      lastDetectedVendor = vendor;
+      const banner = document.getElementById('vendorSyncBanner');
+      if (!banner) return;
+      if (!vendor) {
+        banner.classList.add('hidden');
+        return;
+      }
+      const label = document.getElementById('vendorSyncVendorLabel');
+      if (label) label.textContent = vendor.label;
+      banner.classList.remove('hidden');
+    },
+  );
+}
+
+function wireVendorSyncBanner() {
+  const trigger = document.getElementById('vendorSyncTriggerButton');
+  const dismiss = document.getElementById('vendorSyncDismissButton');
+  if (trigger && !trigger.dataset.wired) {
+    trigger.dataset.wired = '1';
+    trigger.addEventListener('click', () => {
+      const vendor = lastDetectedVendor;
+      if (!vendor) return;
+      // Hand off to the web app's /tools/vendor-sync page with autoSync
+      // pre-armed — it kicks off the same vendor-sync:request-focused-html
+      // round-trip the user would otherwise trigger by clicking "Sync from
+      // <Vendor> tab" manually. Keeps the merge UI on the web (DRY:
+      // MergeResumeDialog is React and lives there, not duplicated here).
+      chrome.tabs.create({
+        url: buildWebUrl(`/tools/vendor-sync?autoSync=${encodeURIComponent(vendor.id)}`),
+      });
+    });
+  }
+  if (dismiss && !dismiss.dataset.wired) {
+    dismiss.dataset.wired = '1';
+    dismiss.addEventListener('click', () => {
+      const banner = document.getElementById('vendorSyncBanner');
+      if (banner) banner.classList.add('hidden');
+    });
+  }
 }
 
 /**
