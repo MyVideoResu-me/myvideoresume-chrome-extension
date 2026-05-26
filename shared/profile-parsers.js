@@ -117,6 +117,53 @@ function findFocusedProfilePane() {
   return null;
 }
 
+// ---- List-view (search-results) finders --------------------------------
+//
+// For each supported host, return an array of DOM nodes representing
+// individual candidate cards on a list page (LinkedIn search results,
+// Indeed resume search, GitHub user list). Used by the recruiter
+// extension's "Capture all on this page" bulk-source flow (gap #1358).
+//
+// Each finder is a no-op on profile-detail pages (the focused-pane
+// finders cover that case) so the bulk button stays hidden until the
+// user is actually on a list view.
+
+const LIST_VIEW_FINDERS = {
+  'linkedin.com': () => {
+    // LinkedIn search results — only on /search/results/people/ etc.
+    if (!/\/search\/results\//.test(window.location.pathname)) return [];
+    return Array.from(document.querySelectorAll(
+      '.reusable-search__result-container, .entity-result__item, li.search-result',
+    ));
+  },
+  'indeed.com': () => {
+    if (!/\/resumes?\//.test(window.location.pathname)) return [];
+    // The detail page is one item; only count when there are >= 2 cards.
+    const cards = Array.from(document.querySelectorAll('.resume-list__item, .icl-ResumeCard'));
+    return cards.length >= 2 ? cards : [];
+  },
+  'github.com': () => {
+    if (!/\/search\?/.test(window.location.search) && !/\/orgs\//.test(window.location.pathname)) return [];
+    return Array.from(document.querySelectorAll(
+      '.user-list-item, [data-testid="results-list"] > div',
+    ));
+  },
+};
+
+function findListProfileCards() {
+  const host = window.location.hostname.toLowerCase();
+  for (const [pattern, finder] of Object.entries(LIST_VIEW_FINDERS)) {
+    if (!host.includes(pattern)) continue;
+    try {
+      const cards = finder();
+      if (cards.length > 0) return { host: pattern, cards };
+    } catch {
+      // ignore — DOM access throws in sandboxed frames
+    }
+  }
+  return { host: null, cards: [] };
+}
+
 /** Identify which connector (LinkedIn / Indeed / ...) the current page
  *  belongs to. Returns the connector id ('linkedin', 'indeed', ...) when
  *  the host + URL pattern matches a known parser, else null. Mirrors the

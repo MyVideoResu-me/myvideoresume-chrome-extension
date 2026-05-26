@@ -14,6 +14,11 @@
 
 if (typeof PATHS !== 'undefined') {
   PATHS.recruiterExtractProfile = '/api/recruiter/extract-profile';
+  PATHS.recruiterExtractProfilesBatch = '/api/recruiter/extract-profiles/batch';
+  PATHS.recruiterLists = '/api/recruiter/lists';
+  PATHS.recruiterSequences = '/api/recruiter/sequences';
+  PATHS.phoneCall = '/api/phone/call';
+  PATHS.phoneNumbers = '/api/phone/numbers';
   PATHS.recruiterTalentPool = '/api/recruiter/talent-pool';
   PATHS.recruiterTalentPoolExport = '/api/recruiter/talent-pool/export';
   PATHS.recruiterInteractions = '/api/recruiter/interactions';
@@ -25,6 +30,11 @@ if (typeof PATHS !== 'undefined') {
   PATHS.recruiterMatchScores = '/api/recruiter/match/scores';
   PATHS.companiesExtract = '/api/companies/extract';
 
+  // Recruiter's own posted jobs (used by the "Add to job" picker after
+  // extracting a candidate — matches Loxo Boost's "add to jobs / lists /
+  // call queues" capability).
+  PATHS.userJobs = '/api/jobs/user-jobs';
+
   // Messaging (direct conversations)
   PATHS.messagesInbox = '/api/messages/inbox';
   PATHS.messagesConversations = '/api/messages/conversations';
@@ -34,11 +44,19 @@ if (typeof PATHS !== 'undefined') {
 // ---- Computed URLs (populated after updateConfiguration runs) -----------
 
 var recruiterExtractProfileUrl;
+var recruiterExtractProfilesBatchUrl;
+var recruiterListsUrl;
+var recruiterSequencesUrl;
+var phoneCallUrl;
+var phoneNumbersUrl;
 var recruiterTalentPoolUrl;
 var recruiterPipelineUrl;
 var recruiterMatchScoreCandidatesUrl;
 var recruiterMatchScoreJobsUrl;
 var recruiterMatchScoresUrl;
+var recruiterInteractionsUrl;
+var recruiterSubmissionsUrl;
+var userJobsUrl;
 var companiesExtractUrl;
 var messagesInboxUrl;
 var messagesConversationsUrl;
@@ -51,11 +69,19 @@ if (typeof updateConfiguration === 'function') {
   updateConfiguration = function () {
     _origUpdateConfiguration();
     recruiterExtractProfileUrl = apiBase + PATHS.recruiterExtractProfile;
+    recruiterExtractProfilesBatchUrl = apiBase + PATHS.recruiterExtractProfilesBatch;
+    recruiterListsUrl = apiBase + PATHS.recruiterLists;
+    recruiterSequencesUrl = apiBase + PATHS.recruiterSequences;
+    phoneCallUrl = apiBase + PATHS.phoneCall;
+    phoneNumbersUrl = apiBase + PATHS.phoneNumbers;
     recruiterTalentPoolUrl = apiBase + PATHS.recruiterTalentPool;
     recruiterPipelineUrl = apiBase + PATHS.recruiterPipeline;
     recruiterMatchScoreCandidatesUrl = apiBase + PATHS.recruiterMatchScoreCandidates;
     recruiterMatchScoreJobsUrl = apiBase + PATHS.recruiterMatchScoreJobs;
     recruiterMatchScoresUrl = apiBase + PATHS.recruiterMatchScores;
+    recruiterInteractionsUrl = apiBase + PATHS.recruiterInteractions;
+    recruiterSubmissionsUrl = apiBase + PATHS.recruiterSubmissions;
+    userJobsUrl = apiBase + PATHS.userJobs;
     companiesExtractUrl = apiBase + PATHS.companiesExtract;
     messagesInboxUrl = apiBase + PATHS.messagesInbox;
     messagesConversationsUrl = apiBase + PATHS.messagesConversations;

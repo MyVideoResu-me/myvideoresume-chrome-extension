@@ -16,6 +16,7 @@ let isPro = false;
 let detectedPageJob = null;
 let detectedPageProfile = null;
 let detectedPageCompany = null;
+let detectedListView = null;
 let extractionBusy = false;
 
 // Talent pool cache
@@ -23,6 +24,28 @@ let talentPoolList = [];
 let pipelineData = {};
 let companiesList = [];
 let matchScores = {};
+
+// Most-recently-extracted candidate (drives the post-extraction quick
+// actions: add-to-job, log activity, click-to-call, etc.). Holds the
+// rowToTalentPoolEntry-shaped object returned by /extract-profile.
+let lastExtractedCandidate = null;
+
+// Lazily populated caches feeding the universal target picker (jobs,
+// lists, sequences). Reloaded the first time each picker opens after a
+// session start; subsequent opens reuse the cache to keep the side
+// panel feeling instant.
+let recruiterJobsList = [];
+let recruiterListsCache = [];
+let recruiterSequencesCache = [];
+
+// Active picker config — set when one of the openAddToX helpers fires;
+// drives the click handler on each row and the optional "Create new"
+// inline form at the bottom.
+let activeTargetPicker = null;
+
+// Active candidate for the "Log activity" panel — set when the user opens
+// the panel from either a detected-profile banner or a candidate detail.
+let activeLogCandidate = null;
 
 // Messaging state
 let currentUserId = null;
@@ -362,6 +385,10 @@ function setupTabNavigation() {
   const extractCompany = document.getElementById('extractCompanyButton');
   if (extractCompany) extractCompany.addEventListener('click', handleExtractCompany);
 
+  // Bulk capture from search-result list views (gap #1358).
+  const bulkCapture = document.getElementById('bulkCaptureButton');
+  if (bulkCapture) bulkCapture.addEventListener('click', handleBulkCapture);
+
   // Candidate search
   const searchInput = document.getElementById('candidateSearch');
   if (searchInput) {
@@ -410,6 +437,30 @@ function setupTabNavigation() {
   const personalizeBtn = document.getElementById('personalizeMessageButton');
   if (personalizeBtn) {
     personalizeBtn.addEventListener('click', handlePersonalizeMessage);
+  }
+
+  // Universal target picker (add-to-job / list / call-queue / sequence)
+  const closeTargetPicker = document.getElementById('closeTargetPickerPanel');
+  if (closeTargetPicker) {
+    closeTargetPicker.addEventListener('click', () => hideElement('targetPickerPanel'));
+  }
+  const targetPickerSearch = document.getElementById('targetPickerSearch');
+  if (targetPickerSearch) {
+    targetPickerSearch.addEventListener('input', () => renderTargetPickerList(targetPickerSearch.value.trim()));
+  }
+  const targetPickerCreate = document.getElementById('targetPickerCreateButton');
+  if (targetPickerCreate) {
+    targetPickerCreate.addEventListener('click', handleTargetPickerCreate);
+  }
+
+  // Log-interaction panel
+  const closeLogInteraction = document.getElementById('closeLogInteractionPanel');
+  if (closeLogInteraction) {
+    closeLogInteraction.addEventListener('click', () => hideElement('logInteractionPanel'));
+  }
+  const saveLogInteraction = document.getElementById('saveLogInteractionButton');
+  if (saveLogInteraction) {
+    saveLogInteraction.addEventListener('click', handleSaveLogInteraction);
   }
 }
 
@@ -463,6 +514,14 @@ function setupDetectionListeners() {
       detectedPageCompany = msg.payload;
       showCompanyDetectedBanner(msg.payload);
     }
+    if (msg.action === 'listViewDetected' && isPro && settings.autoDetectProfiles) {
+      detectedListView = msg.payload;
+      showListViewDetectedBanner(msg.payload);
+    }
+    if (msg.action === 'listViewCleared') {
+      detectedListView = null;
+      hideElement('listViewDetectedBanner');
+    }
     if (msg.action === 'urlChanged' || msg.action === 'tabActivated') {
       clearDetectionBanners();
     }
@@ -498,6 +557,15 @@ function showProfileDetectedBanner(payload) {
   if (el) el.classList.remove('hidden');
 }
 
+function showListViewDetectedBanner(payload) {
+  const el = document.getElementById('listViewDetectedBanner');
+  const title = document.getElementById('listViewDetectedTitle');
+  const sub = document.getElementById('listViewDetectedSub');
+  if (title) title.textContent = `${payload.count} candidates on this page`;
+  if (sub) sub.textContent = payload.host || '';
+  if (el) el.classList.remove('hidden');
+}
+
 function showCompanyDetectedBanner(payload) {
   const el = document.getElementById('companyDetectedBanner');
   const name = document.getElementById('companyDetectedName');
@@ -511,9 +579,11 @@ function clearDetectionBanners() {
   detectedPageJob = null;
   detectedPageProfile = null;
   detectedPageCompany = null;
+  detectedListView = null;
   hideElement('jobDetectedBanner');
   hideElement('profileDetectedBanner');
   hideElement('companyDetectedBanner');
+  hideElement('listViewDetectedBanner');
   hideElement('extractionResult');
 }
 
@@ -617,7 +687,19 @@ async function handleExtractProfile() {
     if (!res.ok) throw new Error(data.error?.message || 'Extraction failed');
 
     const profile = data.data;
+    lastExtractedCandidate = profile.talentPoolCandidate || null;
     showExtractionSuccess('profile', profile);
+
+    // Auto-log the capture as a "sourcing" interaction so the activity
+    // timeline reflects the action — matches Loxo Boost's "Auto-logging
+    // of all extension activities back to candidate profiles."
+    if (lastExtractedCandidate?.id) {
+      autoLogInteraction(lastExtractedCandidate.id, {
+        type: 'sourcing',
+        subject: 'Captured from ' + extractHost(response?.originUrl || ''),
+        notes: 'Profile extracted via Chrome extension.',
+      });
+    }
 
     // Auto-score against jobs if enabled
     if (isPro && settings.autoScore && profile.talentPoolCandidate?.id) {
@@ -629,6 +711,74 @@ async function handleExtractProfile() {
     extractionBusy = false;
     hideElement('extractionLoading');
   }
+}
+
+// ---- Bulk capture (search-results list views) --------------------------
+//
+// Loxo-Boost-parity flow: when the recruiter is on a LinkedIn / Indeed /
+// GitHub search-result page, the content script reports the visible card
+// count via `listViewDetected`; clicking the button below ships up to 25
+// card HTMLs to `/api/recruiter/extract-profiles/batch` which runs each
+// through the same pipeline as the single endpoint.
+
+async function handleBulkCapture() {
+  if (extractionBusy) return;
+  if (!detectedListView) {
+    showExtractionError('No search-result list detected on this page.');
+    return;
+  }
+
+  extractionBusy = true;
+  showElement('extractionLoading');
+  const loadingText = document.getElementById('extractionLoadingText');
+  if (loadingText) loadingText.textContent = `Capturing ${detectedListView.count} candidates...`;
+
+  try {
+    const response = await new Promise((resolve) => {
+      chrome.runtime.sendMessage({ action: 'getListCardsHTML', limit: 25 }, resolve);
+    });
+
+    const cards = response?.cards || [];
+    if (cards.length === 0) {
+      throw new Error('Could not read profile cards from the page.');
+    }
+
+    const res = await apiFetch(recruiterExtractProfilesBatchUrl, {
+      method: 'POST',
+      body: JSON.stringify({ sourceUrl: response.originUrl || window.location.href, cards }),
+    });
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error?.message || 'Bulk capture failed');
+
+    const result = data.data;
+    showBulkExtractionSummary(result);
+
+    // Reset the cache so the recruiter sees the new candidates after switching.
+    if (currentTab === 'candidates') loadCandidates();
+  } catch (err) {
+    showExtractionError('Bulk capture failed: ' + err.message);
+  } finally {
+    extractionBusy = false;
+    hideElement('extractionLoading');
+  }
+}
+
+function showBulkExtractionSummary(result) {
+  const container = document.getElementById('extractionResultContent');
+  if (!container) return;
+  container.innerHTML = `
+    <div class="extraction-success">
+      <div class="d-flex align-items-center gap-2">
+        <span class="extraction-icon">📋</span>
+        <div>
+          <div class="font-medium">Captured ${result.created} new · ${result.duplicates} duplicate · ${result.failed} failed</div>
+          <div class="text-sm text-muted">Switch to the Candidates tab to view, tag, or submit them to a job.</div>
+        </div>
+      </div>
+    </div>
+  `;
+  showElement('extractionResult');
 }
 
 // ---- Extract company ----------------------------------------------------
@@ -694,6 +844,9 @@ function showExtractionSuccess(type, data) {
   } else if (type === 'profile') {
     const profile = data.profile || data;
     const extracted = profile.extractedData || profile.extracted_data || {};
+    const candidateId = data.talentPoolCandidate?.id || profile.talentPoolCandidateId;
+    const contactCard = renderContactCard(extracted.contactInfo || {}, candidateId);
+    const tagChips = renderTagChips(data.talentPoolCandidate?.tags || extracted.skills || []);
     html = `
       <div class="extraction-success">
         <div class="d-flex align-items-center gap-2">
@@ -704,6 +857,9 @@ function showExtractionSuccess(type, data) {
           </div>
         </div>
         ${data.duplicate ? '<div class="text-xs text-muted mt-1">Duplicate detected — linked to existing record.</div>' : ''}
+        ${contactCard}
+        ${tagChips ? `<div class="mt-2">${tagChips}</div>` : ''}
+        ${renderCandidateActions(candidateId)}
       </div>
     `;
   } else if (type === 'company') {
@@ -723,6 +879,11 @@ function showExtractionSuccess(type, data) {
 
   container.innerHTML = html;
   showElement('extractionResult');
+
+  // Wire the post-extraction quick actions for the profile success card.
+  // Same `data-action` convention is reused by candidate detail and the
+  // detected-profile banner, so a single delegated listener (below) covers
+  // all three surfaces.
 }
 
 function showExtractionError(message) {
@@ -730,6 +891,572 @@ function showExtractionError(message) {
   if (!container) return;
   container.innerHTML = `<div class="alert alert-error">${escapeHtml(message)}</div>`;
   showElement('extractionResult');
+}
+
+// ---- Contact info + quick actions (Loxo Boost parity) ------------------
+
+/**
+ * Render the contact info card surfaced on the extraction-success panel
+ * and the candidate-detail slideout. Click-to-call / mailto / SMS / social
+ * links match what Loxo Boost surfaces from a captured profile — but the
+ * native handlers go through the OS so there's no separate VoIP licence
+ * to pay for.
+ *
+ * `candidateId` is optional — when present, clicks also auto-log an
+ * `interaction` row so the activity timeline reflects every outreach
+ * attempt without manual entry.
+ */
+function renderContactCard(contactInfo, candidateId) {
+  const ci = contactInfo || {};
+  const rows = [];
+  if (ci.email) {
+    rows.push(`<a class="contact-link" href="mailto:${escapeHtml(ci.email)}" data-contact-action="email" data-contact-id="${escapeHtml(candidateId || '')}">📧 ${escapeHtml(ci.email)}</a>`);
+  }
+  if (ci.phone) {
+    const telHref = ci.phone.replace(/[^+0-9]/g, '');
+    rows.push(`<a class="contact-link" href="tel:${escapeHtml(telHref)}" data-contact-action="call" data-contact-id="${escapeHtml(candidateId || '')}">📞 ${escapeHtml(ci.phone)}</a>`);
+    rows.push(`<a class="contact-link" href="sms:${escapeHtml(telHref)}" data-contact-action="sms" data-contact-id="${escapeHtml(candidateId || '')}">💬 Text</a>`);
+  }
+  if (ci.linkedin) {
+    rows.push(`<a class="contact-link" href="${escapeHtml(ci.linkedin)}" target="_blank" rel="noopener">in LinkedIn</a>`);
+  }
+  if (ci.github) {
+    rows.push(`<a class="contact-link" href="${escapeHtml(ci.github)}" target="_blank" rel="noopener">⌨️ GitHub</a>`);
+  }
+  if (ci.twitter) {
+    rows.push(`<a class="contact-link" href="${escapeHtml(ci.twitter)}" target="_blank" rel="noopener">𝕏 X</a>`);
+  }
+  if (ci.website) {
+    rows.push(`<a class="contact-link" href="${escapeHtml(ci.website)}" target="_blank" rel="noopener">🌐 Site</a>`);
+  }
+
+  if (rows.length === 0) {
+    return '<div class="text-xs text-muted mt-2">No contact info found on the page — try refreshing or scrolling so the email / phone / social links are loaded.</div>';
+  }
+
+  return `
+    <div class="contact-card mt-2">
+      <div class="text-xs text-muted contact-card-label">Contact</div>
+      <div class="contact-card-rows">${rows.join('')}</div>
+    </div>
+  `;
+}
+
+/**
+ * Render the post-capture action row shown on both the extraction-success
+ * card and the candidate-detail slide-out. One place to add a new action
+ * (e.g. "Send SMS") and it appears in every surface that already has a
+ * resolved candidate. The delegated `data-action` click handler upstream
+ * makes each button self-routing.
+ *
+ * Pass `extras` to inject surface-specific buttons (e.g. "Message" /
+ * "Score Jobs") only available where a full candidate identity is known.
+ */
+function renderCandidateActions(candidateId, extras = '') {
+  if (!candidateId) return '';
+  return `
+    <div class="d-flex gap-1 flex-wrap mt-2">
+      ${extras}
+      <button class="btn btn-primary btn-xs" data-action="add-to-job">📌 Add to job</button>
+      <button class="btn btn-outline btn-xs" data-action="add-to-list">📋 Add to list</button>
+      <button class="btn btn-outline btn-xs" data-action="add-to-call-queue">☎️ Call queue</button>
+      <button class="btn btn-outline btn-xs" data-action="enroll-in-sequence">▶️ Sequence</button>
+      <button class="btn btn-outline btn-xs" data-action="log-activity">📝 Log</button>
+      <button class="btn btn-outline btn-xs" data-action="view-candidate">👁️ View</button>
+    </div>
+  `;
+}
+
+function renderTagChips(tags) {
+  const items = Array.isArray(tags) ? tags : [];
+  if (items.length === 0) return '';
+  return items
+    .slice(0, 8)
+    .map((t) => `<span class="tag">${escapeHtml(String(t))}</span>`)
+    .join(' ');
+}
+
+function extractHost(url) {
+  if (!url) return 'this page';
+  try { return new URL(url).hostname; } catch { return 'this page'; }
+}
+
+/**
+ * POST /api/recruiter/interactions silently — used as a fire-and-forget
+ * auto-log so the recruiter doesn't have to remember to file a note for
+ * every action.
+ */
+async function autoLogInteraction(candidateRowId, { type, subject, notes }) {
+  try {
+    await apiFetch(recruiterInteractionsUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        talentPoolId: candidateRowId,
+        interactionType: type,
+        subject: subject || '',
+        notes: notes || '',
+        interactionDate: new Date().toISOString(),
+        requiresFollowUp: false,
+      }),
+    });
+  } catch (err) {
+    console.warn('[hired.video] autoLogInteraction failed:', err);
+  }
+}
+
+/**
+ * Delegated click handler for all quick-action buttons and contact-link
+ * rows. Lives at the document level so it covers the extraction card,
+ * the candidate-detail slide-out, and the detected-profile banner without
+ * each one wiring its own onclick.
+ */
+document.addEventListener('click', (e) => {
+  const actionBtn = e.target.closest('[data-action]');
+  if (actionBtn) {
+    const action = actionBtn.dataset.action;
+    if (action === 'add-to-job') {
+      e.preventDefault();
+      openAddToJobPanel(lastExtractedCandidate);
+      return;
+    }
+    if (action === 'add-to-list') {
+      e.preventDefault();
+      openAddToListPanel(lastExtractedCandidate, 'list');
+      return;
+    }
+    if (action === 'add-to-call-queue') {
+      e.preventDefault();
+      openAddToListPanel(lastExtractedCandidate, 'call_queue');
+      return;
+    }
+    if (action === 'enroll-in-sequence') {
+      e.preventDefault();
+      openEnrollInSequencePanel(lastExtractedCandidate);
+      return;
+    }
+    if (action === 'log-activity') {
+      e.preventDefault();
+      openLogInteractionPanel(lastExtractedCandidate);
+      return;
+    }
+    if (action === 'view-candidate' && lastExtractedCandidate?.id) {
+      e.preventDefault();
+      switchTab('candidates');
+      loadCandidates().then(() => viewCandidateDetail(lastExtractedCandidate.id));
+      return;
+    }
+  }
+
+  const contactLink = e.target.closest('[data-contact-action]');
+  if (contactLink) {
+    const channel = contactLink.dataset.contactAction;
+    const candidateRowId = contactLink.dataset.contactId;
+    if (candidateRowId) {
+      autoLogInteraction(candidateRowId, {
+        type: channel,
+        subject: `Outreach via ${channel}`,
+        notes: 'Initiated from Chrome extension.',
+      });
+    }
+    // Don't preventDefault — let the OS handle mailto:/tel:/sms:.
+  }
+});
+
+// ---- Universal target picker ------------------------------------------
+//
+// One slide-out panel covers every "drop this candidate somewhere" flow:
+//   - Add to job        (POST /api/recruiter/submissions)
+//   - Add to list       (POST /api/recruiter/lists/:id/members)
+//   - Add to call queue (same endpoint, kind=call_queue)
+//   - Enroll in sequence (POST /api/recruiter/sequences/:id/enroll)
+//
+// Each opener registers a `config` describing how to fetch the targets,
+// render one row, submit the selection, and (optionally) create a new
+// target inline. The panel HTML lives once in sidepanel-global.html.
+
+async function openTargetPicker(config) {
+  if (!config?.candidate?.id) {
+    showExtractionError('No candidate selected. Extract a profile first.');
+    return;
+  }
+  activeTargetPicker = config;
+
+  const titleEl = document.getElementById('targetPickerTitle');
+  if (titleEl) titleEl.textContent = config.title;
+
+  const search = document.getElementById('targetPickerSearch');
+  if (search) {
+    search.placeholder = config.searchPlaceholder || 'Filter…';
+    search.value = '';
+  }
+
+  const empty = document.getElementById('targetPickerEmpty');
+  if (empty) empty.textContent = config.emptyText || 'Nothing here yet.';
+
+  const createCard = document.getElementById('targetPickerCreate');
+  if (createCard) {
+    if (config.createPlaceholder) {
+      createCard.classList.remove('hidden');
+      const label = document.getElementById('targetPickerCreateLabel');
+      if (label) label.textContent = config.createPlaceholder.label;
+      const input = document.getElementById('targetPickerCreateName');
+      if (input) input.value = '';
+    } else {
+      createCard.classList.add('hidden');
+    }
+  }
+
+  const preview = document.getElementById('targetPickerCandidatePreview');
+  if (preview) {
+    const candidate = config.candidate;
+    preview.innerHTML = `
+      <div class="d-flex align-items-center gap-2">
+        <span class="extraction-icon">👤</span>
+        <div>
+          <div class="font-medium">${escapeHtml(candidate.candidateName || 'Candidate')}</div>
+          <div class="text-sm text-muted">${escapeHtml(candidate.candidateTitle || candidate.currentTitle || '')} ${candidate.currentCompany ? '· ' + escapeHtml(candidate.currentCompany) : ''}</div>
+        </div>
+      </div>
+    `;
+  }
+
+  showElement('targetPickerPanel');
+  showElement('targetPickerLoading');
+  hideElement('targetPickerEmpty');
+
+  try {
+    activeTargetPicker.items = await config.loadItems();
+  } catch (err) {
+    activeTargetPicker.items = [];
+    console.error('[hired.video] target picker load error:', err);
+  }
+
+  hideElement('targetPickerLoading');
+  renderTargetPickerList();
+}
+
+function renderTargetPickerList(filter = '') {
+  if (!activeTargetPicker) return;
+  const container = document.getElementById('targetPickerList');
+  const empty = document.getElementById('targetPickerEmpty');
+  if (!container) return;
+
+  let items = activeTargetPicker.items || [];
+  if (filter && activeTargetPicker.filterItem) {
+    items = items.filter((i) => activeTargetPicker.filterItem(i, filter.toLowerCase()));
+  }
+
+  if (items.length === 0) {
+    container.innerHTML = '';
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+
+  container.innerHTML = items.map((item, idx) => `
+    <div class="candidate-picker-item" data-picker-idx="${idx}">
+      ${activeTargetPicker.renderItem(item)}
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.candidate-picker-item').forEach((el) => {
+    el.addEventListener('click', async () => {
+      const idx = Number(el.dataset.pickerIdx);
+      const item = activeTargetPicker.items[idx];
+      try {
+        const result = await activeTargetPicker.submitItem(item);
+        hideElement('targetPickerPanel');
+        if (activeTargetPicker.onSuccess) activeTargetPicker.onSuccess(item, result);
+      } catch (err) {
+        showExtractionError(activeTargetPicker.errorPrefix + ': ' + err.message);
+      }
+    });
+  });
+}
+
+async function handleTargetPickerCreate() {
+  if (!activeTargetPicker?.createPlaceholder) return;
+  const input = document.getElementById('targetPickerCreateName');
+  const name = (input?.value || '').trim();
+  if (!name) return;
+  try {
+    const created = await activeTargetPicker.createPlaceholder.create(name);
+    activeTargetPicker.items = [created, ...(activeTargetPicker.items || [])];
+    if (input) input.value = '';
+    renderTargetPickerList();
+  } catch (err) {
+    showExtractionError('Could not create: ' + err.message);
+  }
+}
+
+// ---- Add to job ---------------------------------------------------------
+
+async function loadRecruiterJobs() {
+  try {
+    const res = await apiFetch(userJobsUrl);
+    if (!res.ok) throw new Error('Failed to load jobs');
+    const data = await res.json();
+    recruiterJobsList = (data.data || data || []).filter((j) => {
+      const status = (j.status || j.jobStatus || '').toLowerCase();
+      return !status || status === 'open' || status === 'active' || status === 'published';
+    });
+  } catch (err) {
+    console.error('[hired.video] loadRecruiterJobs error:', err);
+    recruiterJobsList = [];
+  }
+  return recruiterJobsList;
+}
+
+function openAddToJobPanel(candidate) {
+  openTargetPicker({
+    candidate,
+    title: 'Add candidate to a job',
+    searchPlaceholder: 'Filter your open jobs…',
+    emptyText: 'No open jobs yet. Post a job from hired.video first.',
+    errorPrefix: 'Failed to submit candidate',
+    loadItems: async () => {
+      if (recruiterJobsList.length === 0) await loadRecruiterJobs();
+      return recruiterJobsList;
+    },
+    filterItem: (j, lc) =>
+      (j.title || j.jobTitle || '').toLowerCase().includes(lc) ||
+      (j.company || j.companyName || '').toLowerCase().includes(lc) ||
+      (j.location || '').toLowerCase().includes(lc),
+    renderItem: (j) => `
+      <div>
+        <div class="font-medium">${escapeHtml(j.title || j.jobTitle || 'Untitled job')}</div>
+        <div class="text-sm text-muted">${escapeHtml(j.company || j.companyName || '')} ${j.location ? '· ' + escapeHtml(j.location) : ''}</div>
+      </div>
+      <button class="btn btn-primary btn-xs">📌 Submit</button>
+    `,
+    submitItem: async (j) => {
+      const res = await apiFetch(recruiterSubmissionsUrl, {
+        method: 'POST',
+        body: JSON.stringify({
+          jobId: j.id,
+          candidateName: candidate.candidateName || 'Candidate',
+          candidateEmail: candidate.candidateEmail || '',
+          jobTitle: j.title || j.jobTitle || '',
+          companyName: j.company || j.companyName || '',
+          recruiterNotes: 'Submitted from Chrome extension.',
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Submission failed');
+      return data.data;
+    },
+    onSuccess: (j) => {
+      if (candidate.id) {
+        autoLogInteraction(candidate.id, {
+          type: 'submission',
+          subject: `Submitted to ${j.title || j.jobTitle || 'a job'}`,
+          notes: `Submitted to ${j.company || j.companyName || ''} via Chrome extension.`,
+        });
+      }
+      showExtractionSuccess('job', {
+        title: j.title || j.jobTitle,
+        company: j.company || j.companyName,
+        submitted: true,
+      });
+    },
+  });
+}
+
+// ---- Add to list / call queue (gap #1360) -----------------------------
+
+async function loadRecruiterLists(kind) {
+  try {
+    const res = await apiFetch(recruiterListsUrl);
+    if (!res.ok) throw new Error('Failed to load lists');
+    const data = await res.json();
+    recruiterListsCache = data.data || data || [];
+  } catch (err) {
+    console.error('[hired.video] loadRecruiterLists error:', err);
+    recruiterListsCache = [];
+  }
+  return recruiterListsCache.filter((l) => (l.kind || 'list') === kind);
+}
+
+function openAddToListPanel(candidate, kind = 'list') {
+  const niceName = kind === 'call_queue' ? 'call queue' : 'list';
+  openTargetPicker({
+    candidate,
+    title: `Add candidate to a ${niceName}`,
+    searchPlaceholder: `Filter your ${niceName}s…`,
+    emptyText: `No ${niceName}s yet — create one below.`,
+    errorPrefix: `Failed to add to ${niceName}`,
+    loadItems: () => loadRecruiterLists(kind),
+    filterItem: (l, lc) =>
+      (l.name || '').toLowerCase().includes(lc) ||
+      (l.description || '').toLowerCase().includes(lc),
+    renderItem: (l) => `
+      <div>
+        <div class="font-medium">${escapeHtml(l.name)}</div>
+        <div class="text-sm text-muted">${escapeHtml(l.description || '')}</div>
+      </div>
+      <button class="btn btn-primary btn-xs">➕ Add</button>
+    `,
+    submitItem: async (l) => {
+      const res = await apiFetch(`${recruiterListsUrl}/${encodeURIComponent(l.id)}/members`, {
+        method: 'POST',
+        body: JSON.stringify({ talentPoolCandidateId: candidate.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Add failed');
+      return data.data;
+    },
+    createPlaceholder: {
+      label: `Or create a new ${niceName}`,
+      create: async (name) => {
+        const res = await apiFetch(recruiterListsUrl, {
+          method: 'POST',
+          body: JSON.stringify({ name, kind }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error?.message || 'Create failed');
+        recruiterListsCache = [data.data, ...recruiterListsCache];
+        return data.data;
+      },
+    },
+    onSuccess: (l) => {
+      if (candidate.id) {
+        autoLogInteraction(candidate.id, {
+          type: kind === 'call_queue' ? 'queued_for_call' : 'added_to_list',
+          subject: `Added to ${niceName}: ${l.name}`,
+          notes: 'Via Chrome extension.',
+        });
+      }
+    },
+  });
+}
+
+// ---- Enroll in sequence (gap #1357) -----------------------------------
+
+async function loadRecruiterSequences() {
+  try {
+    const res = await apiFetch(recruiterSequencesUrl);
+    if (!res.ok) throw new Error('Failed to load sequences');
+    const data = await res.json();
+    recruiterSequencesCache = (data.data || data || []).filter((s) => s.isActive !== false);
+  } catch (err) {
+    console.error('[hired.video] loadRecruiterSequences error:', err);
+    recruiterSequencesCache = [];
+  }
+  return recruiterSequencesCache;
+}
+
+function openEnrollInSequencePanel(candidate) {
+  openTargetPicker({
+    candidate,
+    title: 'Enroll in outreach sequence',
+    searchPlaceholder: 'Filter sequences…',
+    emptyText: 'No sequences yet — author one on hired.video, then it shows up here.',
+    errorPrefix: 'Failed to enroll',
+    loadItems: () => loadRecruiterSequences(),
+    filterItem: (s, lc) =>
+      (s.name || '').toLowerCase().includes(lc) ||
+      (s.description || '').toLowerCase().includes(lc),
+    renderItem: (s) => {
+      const stepCount = Array.isArray(s.steps) ? s.steps.length : 0;
+      return `
+        <div>
+          <div class="font-medium">${escapeHtml(s.name)}</div>
+          <div class="text-sm text-muted">${stepCount} step${stepCount === 1 ? '' : 's'} · ${escapeHtml(s.description || '')}</div>
+        </div>
+        <button class="btn btn-primary btn-xs">▶️ Enroll</button>
+      `;
+    },
+    submitItem: async (s) => {
+      const res = await apiFetch(`${recruiterSequencesUrl}/${encodeURIComponent(s.id)}/enroll`, {
+        method: 'POST',
+        body: JSON.stringify({ talentPoolCandidateId: candidate.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error?.message || 'Enroll failed');
+      return data.data;
+    },
+    onSuccess: (s) => {
+      if (candidate.id) {
+        autoLogInteraction(candidate.id, {
+          type: 'sequence_enrollment',
+          subject: `Enrolled in ${s.name}`,
+          notes: 'Via Chrome extension.',
+        });
+      }
+    },
+  });
+}
+
+// ---- Log interaction panel ---------------------------------------------
+
+function openLogInteractionPanel(candidate) {
+  if (!candidate?.id) {
+    showExtractionError('No candidate selected.');
+    return;
+  }
+  activeLogCandidate = candidate;
+
+  const titleEl = document.getElementById('logInteractionTitle');
+  if (titleEl) titleEl.textContent = 'Log activity — ' + (candidate.candidateName || 'Candidate');
+
+  const subj = document.getElementById('logInteractionSubject');
+  const notes = document.getElementById('logInteractionNotes');
+  const type = document.getElementById('logInteractionType');
+  const followUp = document.getElementById('logInteractionFollowUp');
+  if (subj) subj.value = '';
+  if (notes) notes.value = '';
+  if (type) type.value = 'call';
+  if (followUp) followUp.checked = false;
+
+  showElement('logInteractionPanel');
+}
+
+async function handleSaveLogInteraction() {
+  if (!activeLogCandidate?.id) return;
+
+  const type = document.getElementById('logInteractionType')?.value || 'note';
+  const subject = document.getElementById('logInteractionSubject')?.value?.trim() || '';
+  const notes = document.getElementById('logInteractionNotes')?.value?.trim() || '';
+  const followUp = !!document.getElementById('logInteractionFollowUp')?.checked;
+
+  try {
+    const res = await apiFetch(recruiterInteractionsUrl, {
+      method: 'POST',
+      body: JSON.stringify({
+        talentPoolId: activeLogCandidate.id,
+        interactionType: type,
+        subject,
+        notes,
+        interactionDate: new Date().toISOString(),
+        requiresFollowUp: followUp,
+      }),
+    });
+    if (!res.ok) {
+      const errBody = await res.json().catch(() => ({}));
+      throw new Error(errBody.error?.message || 'Failed to log activity');
+    }
+    hideElement('logInteractionPanel');
+  } catch (err) {
+    showExtractionError('Could not log activity: ' + err.message);
+  }
+}
+
+// ---- Tag editor (inline on candidate detail) ---------------------------
+
+async function updateCandidateTags(candidateRowId, tags) {
+  try {
+    const res = await apiFetch(recruiterTalentPoolUrl + '/' + candidateRowId, {
+      method: 'PUT',
+      body: JSON.stringify({ tags }),
+    });
+    if (!res.ok) throw new Error('Failed to update tags');
+    // Update local cache so the candidate list reflects the new tags
+    // immediately, without a full reload.
+    const idx = talentPoolList.findIndex((c) => c.id === candidateRowId);
+    if (idx >= 0) talentPoolList[idx] = { ...talentPoolList[idx], tags };
+  } catch (err) {
+    console.error('[hired.video] updateCandidateTags error:', err);
+  }
 }
 
 // ---- Background scoring triggers ----------------------------------------
@@ -876,8 +1603,20 @@ function viewCandidateDetail(candidateId) {
   const candidate = talentPoolList.find((c) => c.id === candidateId);
   if (!candidate) return;
 
+  // Set this as the active candidate for the post-extraction quick-action
+  // buttons (Add to job, Log activity, contact-link auto-logging).
+  lastExtractedCandidate = candidate;
+
   const nameEl = document.getElementById('candidateDetailName');
   if (nameEl) nameEl.textContent = candidate.candidateName || 'Candidate';
+
+  const contactInfo = candidate.contactInfo || {
+    email: candidate.candidateEmail || '',
+    phone: candidate.candidatePhone || '',
+    linkedin: candidate.linkedinUrl || '',
+  };
+  const contactCard = renderContactCard(contactInfo, candidate.id);
+  const tagChips = renderTagChips(candidate.tags || []);
 
   const content = document.getElementById('candidateDetailContent');
   if (content) {
@@ -886,8 +1625,15 @@ function viewCandidateDetail(candidateId) {
         <div class="font-medium">${escapeHtml(candidate.candidateName || '')}</div>
         <div class="text-sm">${escapeHtml(candidate.candidateTitle || candidate.currentTitle || '')}</div>
         <div class="text-sm text-muted">${escapeHtml(candidate.currentCompany || '')}</div>
-        ${candidate.candidateEmail ? `<div class="text-sm">📧 ${escapeHtml(candidate.candidateEmail)}</div>` : ''}
         ${candidate.preferredLocations ? `<div class="text-sm">📍 ${escapeHtml(candidate.preferredLocations)}</div>` : ''}
+        ${contactCard}
+      </div>
+      <div class="card">
+        <h4 class="card-title">Tags</h4>
+        <div id="candidateTagsRow">${tagChips || '<span class="text-xs text-muted">No tags yet.</span>'}</div>
+        <div class="d-flex gap-1 mt-2">
+          <input id="candidateTagInput" type="text" class="form-control form-control-sm" placeholder="Add a tag (press Enter)">
+        </div>
       </div>
       <div class="card">
         <h4 class="card-title">Notes</h4>
@@ -897,11 +1643,33 @@ function viewCandidateDetail(candidateId) {
         <h4 class="card-title">Match Scores</h4>
         <div id="candidateScores" class="text-sm text-muted">Loading scores...</div>
       </div>
-      <div class="d-flex gap-2 mt-2">
-        <button class="btn btn-primary btn-sm btn-block" onclick="openMessagePanel('${candidateId}', '${escapeHtml(candidate.candidateName || '')}')">💬 Message</button>
-        <button class="btn btn-outline btn-sm btn-block" onclick="scoreCandidateJobs('${candidateId}')">📊 Score Jobs</button>
-      </div>
+      ${renderCandidateActions(candidate.id, `
+        <button class="btn btn-primary btn-xs" data-action="message-candidate">💬 Message</button>
+        <button class="btn btn-outline btn-xs" data-action="score-jobs">📊 Score Jobs</button>
+      `)}
     `;
+
+    // Wire the candidate-detail-only actions that need the candidate
+    // identity in closure (Message / Score Jobs aren't covered by the
+    // global delegated handler because they need this candidate's id).
+    content.querySelector('[data-action="message-candidate"]')
+      ?.addEventListener('click', () => openMessagePanel(candidateId, candidate.candidateName || ''));
+    content.querySelector('[data-action="score-jobs"]')
+      ?.addEventListener('click', () => scoreCandidateJobs(candidateId));
+
+    // Inline tag editor — press Enter to add, click a chip to remove.
+    const tagInput = content.querySelector('#candidateTagInput');
+    tagInput?.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter') return;
+      const value = tagInput.value.trim();
+      if (!value) return;
+      const next = [...(candidate.tags || []), value];
+      candidate.tags = next;
+      updateCandidateTags(candidate.id, next);
+      tagInput.value = '';
+      const row = content.querySelector('#candidateTagsRow');
+      if (row) row.innerHTML = renderTagChips(next) || '<span class="text-xs text-muted">No tags yet.</span>';
+    });
   }
 
   showElement('candidateDetail');

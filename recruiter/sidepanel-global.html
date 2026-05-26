@@ -91,6 +91,16 @@
       </div>
     </div>
 
+    <!-- List view detected — bulk capture (gap #1358) -->
+    <div id="listViewDetectedBanner" class="card detection-banner hidden">
+      <div class="detection-icon">📋</div>
+      <div class="detection-info">
+        <div id="listViewDetectedTitle" class="detection-title">Search results detected</div>
+        <div id="listViewDetectedSub" class="detection-sub"></div>
+      </div>
+      <button id="bulkCaptureButton" class="btn btn-primary btn-sm">Capture all</button>
+    </div>
+
     <!-- Profile detected banner -->
     <div id="profileDetectedBanner" class="card detection-banner hidden">
       <div class="detection-icon">👤</div>
@@ -359,6 +369,76 @@
       </div>
     </div>
 
+  </div>
+
+  <!-- ======================== UNIVERSAL TARGET PICKER ========================
+       Single picker used by every "where do you want to put this candidate?"
+       flow: add-to-job (gap shipped earlier), add-to-list (#1360), add-to-
+       call-queue (#1360), enroll-in-sequence (#1357). The opener fills in
+       its own title, item list, and submit handler so we don't have N
+       copies of the same picker DOM. -->
+  <div id="targetPickerPanel" class="slide-panel hidden">
+    <div class="slide-panel-header">
+      <button id="closeTargetPickerPanel" class="btn btn-outline btn-sm">← Back</button>
+      <h4 id="targetPickerTitle" class="card-title">Add candidate</h4>
+    </div>
+    <div class="slide-panel-content">
+      <div id="targetPickerCandidatePreview" class="card share-job-preview"></div>
+      <input id="targetPickerSearch" type="text" class="form-control form-control-sm" placeholder="Filter…">
+      <div id="targetPickerList" class="candidate-picker-list"></div>
+      <div id="targetPickerEmpty" class="text-muted text-sm text-center p-2 hidden"></div>
+      <div id="targetPickerLoading" class="d-flex align-items-center justify-center gap-2 p-2 hidden">
+        <div class="spinner"></div>
+        <span class="text-sm text-muted">Loading…</span>
+      </div>
+      <div id="targetPickerCreate" class="card hidden">
+        <label class="setting-label" id="targetPickerCreateLabel">Or create new</label>
+        <div class="d-flex gap-1">
+          <input id="targetPickerCreateName" type="text" class="form-control form-control-sm" placeholder="Name">
+          <button id="targetPickerCreateButton" class="btn btn-primary btn-sm">+ Create</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== LOG INTERACTION PANEL ========================
+       Manual activity logging (call / email / SMS / note / meeting) — the
+       extension auto-logs extraction + share events too. -->
+  <div id="logInteractionPanel" class="slide-panel hidden">
+    <div class="slide-panel-header">
+      <button id="closeLogInteractionPanel" class="btn btn-outline btn-sm">← Back</button>
+      <h4 id="logInteractionTitle" class="card-title">Log activity</h4>
+    </div>
+    <div class="slide-panel-content">
+      <div class="card">
+        <label class="setting-label">Type</label>
+        <select id="logInteractionType" class="form-select form-select-sm">
+          <option value="call">📞 Call</option>
+          <option value="email">📧 Email</option>
+          <option value="sms">💬 SMS</option>
+          <option value="note">📝 Note</option>
+          <option value="meeting">🗓️ Meeting</option>
+          <option value="linkedin_message">in LinkedIn message</option>
+        </select>
+      </div>
+      <div class="card">
+        <label class="setting-label">Subject</label>
+        <input id="logInteractionSubject" type="text" class="form-control form-control-sm" placeholder="e.g. Initial outreach about Sr. Frontend role">
+      </div>
+      <div class="card">
+        <label class="setting-label">Notes / outcome</label>
+        <textarea id="logInteractionNotes" class="form-control" rows="4" placeholder="What did you discuss? Any follow-ups?"></textarea>
+      </div>
+      <div class="card">
+        <label class="setting-checkbox">
+          <input type="checkbox" id="logInteractionFollowUp">
+          <span>Requires follow-up</span>
+        </label>
+      </div>
+      <div class="d-flex gap-2">
+        <button id="saveLogInteractionButton" class="btn btn-primary btn-sm btn-block">Save activity</button>
+      </div>
+    </div>
   </div>
 
   <!-- ======================== CANDIDATE PICKER (for Share Job) ======================== -->

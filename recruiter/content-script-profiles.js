@@ -16,6 +16,7 @@
 // ---- Profile detection --------------------------------------------------
 
 let lastDetectedProfileKey = null;
+let lastDetectedListCount = 0;
 
 function detectProfileOnPage() {
   // Guard: only run on known profile hosts
@@ -73,12 +74,55 @@ function notifyProfileDetected(payload) {
     });
 }
 
+// Detect search-result list views (LinkedIn / Indeed / GitHub) and tell
+// the side panel how many candidate cards are visible — the bulk
+// "Capture all" affordance reads this. Gap #1358.
+function detectListViewOnPage() {
+  if (typeof findListProfileCards !== 'function') return;
+  const { host, cards } = findListProfileCards();
+  if (!host || cards.length === 0) {
+    if (lastDetectedListCount !== 0) {
+      lastDetectedListCount = 0;
+      chrome.runtime.sendMessage({ action: 'listViewCleared' }).catch(() => {});
+    }
+    return;
+  }
+  if (cards.length === lastDetectedListCount) return;
+  lastDetectedListCount = cards.length;
+  chrome.runtime
+    .sendMessage({
+      action: 'listViewDetected',
+      payload: { host, count: cards.length, sourceUrl: window.location.href },
+    })
+    .catch(() => {});
+}
+
+// Service-worker request: return outerHTML for every list card on the
+// page so the recruiter extension can batch-extract them.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.action !== 'getListCardsHTML') return false;
+  if (typeof findListProfileCards !== 'function') {
+    sendResponse({ cards: [], originUrl: window.location.href });
+    return false;
+  }
+  const { cards } = findListProfileCards();
+  const limit = Math.max(1, Math.min(msg.limit || 25, 50));
+  sendResponse({
+    cards: cards.slice(0, limit).map((el) => el.outerHTML),
+    originUrl: window.location.href,
+  });
+  return false;
+});
+
 // ---- Lifecycle ----------------------------------------------------------
 
 function scheduleProfileDetect() {
   setTimeout(detectProfileOnPage, 600);
   setTimeout(detectProfileOnPage, 1800);
   setTimeout(detectProfileOnPage, 3500);
+  setTimeout(detectListViewOnPage, 800);
+  setTimeout(detectListViewOnPage, 2000);
+  setTimeout(detectListViewOnPage, 4000);
 }
 scheduleProfileDetect();
 
@@ -88,6 +132,7 @@ const profileDetectObserver = new MutationObserver(() => {
   setTimeout(() => {
     profileDetectObserver._pending = false;
     detectProfileOnPage();
+    detectListViewOnPage();
   }, 2000);
 });
 profileDetectObserver.observe(document.documentElement, {

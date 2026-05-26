@@ -2580,6 +2580,55 @@ body.pro-unlocked .btn-upgrade-profile {
   background: var(--surface, #f0f0f0);
 }
 
+/* ---- Contact card (Loxo-parity profile capture) ------------------------ */
+
+.contact-card {
+  padding: 8px 10px;
+  background: var(--surface, #f7f7fa);
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e7eb);
+}
+
+.contact-card-label {
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.contact-card-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--background, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  font-size: 12px;
+  color: var(--foreground, #111);
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.contact-link:hover {
+  background: var(--surface, #f0f0f0);
+}
+
+.setting-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--foreground, #111);
+  cursor: pointer;
+}
+
 /* ---- Detection banner actions ------------------------------------------ */
 
 .detection-actions {
