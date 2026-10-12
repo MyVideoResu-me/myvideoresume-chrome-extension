@@ -3689,12 +3689,9 @@ function resetResults() {
  * same contract, same endpoint, same downstream AI parse.
  *
  * Server-side fallback (uploadFileToServer → /createfromfile multipart)
- * is implemented below but DELIBERATELY NOT CALLED. It's staged as a
- * safety net for a future change — e.g. when the API runs pdfjs and
- * can reliably parse PDFs the client-side extractor can't. Until then
- * the code must not auto-invoke it, because /createfromfile today uses
- * the same regex extractor as the extension and would produce the same
- * failure for the same file (misleading UX).
+ * runs when client-side extraction yields too little text (scanned PDFs
+ * with no text layer). /createfromfile unpacks embedded page images and
+ * OCRs them (#2308).
  */
 async function handleResumeUpload(event) {
   const file = event.target.files && event.target.files[0];
@@ -3714,9 +3711,16 @@ async function handleResumeUpload(event) {
   try {
     // Extract clean text client-side — binary formats (PDF, DOCX) need
     // special handling; raw file.text() on a PDF produces garbage.
-    const text = await extractTextFromUpload(file);
+    const text = await extractTextFromUpload(file).catch(() => "");
     if (!text || text.trim().length < 20) {
-      throw new Error('Could not extract text from this file. Try a .txt or .md file, or paste your resume on hired.video.');
+      status.textContent = `Uploading ${fileName} for server-side extraction…`;
+      const uploaded = await uploadFileToServer(file, jwtToken);
+      if (uploaded.tokenExpired) return handleTokenExpired();
+      if (!uploaded.ok) {
+        throw new Error(uploaded.errorMessage || 'Could not extract text from this file. Try a .txt or .md file, or paste your resume on hired.video.');
+      }
+      finishUploadSuccess(status, fileName, event);
+      return;
     }
 
     const title = fileName.replace(/\.[^.]+$/, '');
@@ -3775,15 +3779,9 @@ async function handleResumeUpload(event) {
 /**
  * POST a file as multipart/form-data to /api/resumes/createfromfile.
  *
- * ⚠️ STAGED-BUT-DORMANT FALLBACK. Not invoked by handleResumeUpload
- * today. Reserved for a future change where the server-side PDF
- * extractor is upgraded (e.g. pdfjs on the worker) and can succeed
- * on files the client-side extractor fails on. Keeping the plumbing
- * in place avoids the next contributor having to re-derive it.
- *
- * When wiring this in later, the call site in handleResumeUpload
- * should fall here only on PDF-specific extraction failure — other
- * formats that fail client-side will not fare better server-side.
+ * Fallback for scanned PDFs (no text layer). handleResumeUpload calls
+ * this when client-side extraction yields too little text; the API
+ * unpacks embedded page images and OCRs them (#2308).
  *
  * @returns {Promise<{ ok: boolean, tokenExpired?: boolean, errorMessage?: string }>}
  */
