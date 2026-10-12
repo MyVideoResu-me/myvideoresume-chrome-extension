@@ -1,0 +1,104 @@
+Required Notice: Copyright (C) 2024-2026 Sean Hogg (https://hired.video). All rights reserved except as expressly granted below.
+Required Notice: Based on hired.video by Sean Hogg (https://hired.video). This credit must be kept with every copy, part, change or new work based on this software.
+Required Notice: Commercial use of any kind is reserved to Sean Hogg. Any other commercial use requires a separate written license signed by Sean Hogg.
+Required Notice: Any AI model trained, fine-tuned, evaluated, distilled or prompted using this software is a Covered Work and must be published in full, including weights, under these same terms.
+
+# hired.video Noncommercial Share-Alike License 1.0
+
+## Acceptance
+
+In order to get any license under these terms, you must agree to them as both strict obligations and conditions to all your licenses. Copying, running, modifying, distributing or otherwise using the software in any way means you agree to these terms.
+
+## Licensor
+
+The licensor is Sean Hogg, the sole copyright owner of the software. These terms do not limit the licensor in any way. The licensor may use, license and sell the software, including for commercial purposes, on any terms.
+
+## Copyright License
+
+The licensor grants you a copyright license for the software to do everything you might do with the software that would otherwise infringe the licensor's copyright in it, but only for a [Noncommercial Purpose](#noncommercial-purposes), and only if you comply with every condition in these terms, including [Source Sharing](#source-sharing) and [Attribution](#attribution).
+
+## Patent License
+
+The licensor grants you a patent license for the software that covers patent claims the licensor can license, or becomes able to license, that you would infringe by using the software, but only for a Noncommercial Purpose and only on the same conditions as the copyright license.
+
+## Noncommercial Purposes
+
+A **Noncommercial Purpose** is any purpose that is not a Commercial Purpose.
+
+A **Commercial Purpose** is any use of the software, or of any Covered Work, that:
+
+1. is by, for, or on behalf of a business, a for-profit organization, or a person acting in a trade, business or profession, including internal use within such an organization;
+2. is in connection with any product, service, website, application or platform that charges money, sells subscriptions, shows advertising, collects fees or commissions, or otherwise earns revenue or other commercial advantage, directly or indirectly;
+3. offers the software, or any of its functionality, to others as a hosted, managed, embedded or white-label service; or
+4. is in competition with any product or service offered by the licensor.
+
+Personal study, private experimentation, and academic research or teaching that produce no revenue are Noncommercial Purposes, as long as all other conditions are met.
+
+No one other than the licensor may use the software for a Commercial Purpose without a separate written commercial license signed by the licensor.
+
+## AI and Machine Learning
+
+Using the software, or any part of it, as **AI Training Material** is a use of the software that requires your licenses and is subject to every condition in these terms, including [Noncommercial Purposes](#noncommercial-purposes), [Source Sharing](#source-sharing) and [Attribution](#attribution).
+
+**AI Training Material** means using the software or any part of it, in source, compiled, tokenized, embedded or any other form, for pre-training, training, fine-tuning, reinforcement learning, distillation, evaluation or benchmarking of, or as retrieval, indexing or context material for, any artificial-intelligence or machine-learning model, agent or system, or including it in any dataset used for any of those.
+
+Every **AI Model** that has used the software as AI Training Material is a Covered Work. An AI Model includes its weights and parameters, its architecture and configuration, its tokenizer, its training, fine-tuning and inference code, every dataset that contained the software, every model distilled, merged or fine-tuned from it, and every agent, product or service that runs it. Code, text or other output an AI Model produces that reproduces, adapts or is substantially based on the software is also a Covered Work.
+
+Using the software as AI Training Material for a model that is offered to anyone else, or that is used to earn revenue or commercial advantage, is a Commercial Purpose.
+
+## Source Sharing
+
+If you do any of the following:
+
+1. distribute, publish or give anyone a copy of the software or of any Covered Work, in source or compiled form; or
+2. make the software or any Covered Work, or any of its functionality, available for anyone other than you to interact with, use or receive output from, remotely over a network or otherwise,
+
+then you must make the complete Corresponding Source of the entire Covered Work publicly available, free of charge, under these same terms, for as long as you do so and for at least three years afterward. You must make it available no later than the first day you do either of those things, through a publicly accessible network location, and you must clearly tell everyone who receives or interacts with the Covered Work where to get it.
+
+A **Covered Work** is the software, any part of it, any change to it, any work derived from or based on it (including any translation, port or reimplementation substantially based on its source code), every AI Model and AI output described in [AI and Machine Learning](#ai-and-machine-learning), and any program, service, application, website or platform that includes, links to, imports, embeds, calls, wraps, depends on, or is offered together with any of those, as part of the same product or service.
+
+**Corresponding Source** means all source code, together with the build scripts, configuration, database schemas and migrations, deployment and infrastructure code, and any other programs or materials needed to build, install, run, operate and host the entire Covered Work, so that a recipient could run a complete, equivalent copy of it. This includes all management, user-interface, application-programming-interface, automation, monitoring, backup, storage and hosting software used to provide the Covered Work as a service. For any AI Model that is a Covered Work, Corresponding Source also includes its complete weights and parameters, architecture, configuration, tokenizer, training and inference code, and every dataset used to train, fine-tune or distill it, in a form someone else could use to reproduce and run it.
+
+You may not impose any further restriction on anyone's exercise of the rights in these terms, and you may not license any Covered Work under any other terms.
+
+## Attribution
+
+You must keep, unchanged, every `Required Notice:` line and every copyright, license and attribution notice in the software, in every copy and every Covered Work.
+
+Every Covered Work that has a user interface must display, in a place users can find from every screen (for example a footer, an "About" page, or a legal-notices page), the text "Based on hired.video by Sean Hogg" with a working link to https://hired.video. Every Covered Work without a user interface must include that text in its documentation and in any notices it outputs.
+
+You may not remove, hide or obscure that credit, and you may not suggest that the licensor endorses you or your Covered Work.
+
+## Distribution and Changes
+
+You may distribute the software and Covered Works, and make changes and new works based on the software, only for a Noncommercial Purpose and only in compliance with [Source Sharing](#source-sharing) and [Attribution](#attribution). Anyone who receives a copy from you must also receive a copy of these terms or the URL where they can be found, along with every `Required Notice:` line.
+
+You may not sublicense the software or any Covered Work.
+
+## Trademarks
+
+These terms grant no rights to use the licensor's names, trademarks, logos or trade dress, including "hired.video", except to give the credit required by [Attribution](#attribution).
+
+## Notices of Patent Claims
+
+If you make any written claim that the software infringes or contributes to infringement of any patent, your patent license for the software granted under these terms ends immediately. If your company makes such a claim, your patent license ends immediately for work on behalf of your company.
+
+## Violations and Termination
+
+If you violate any of these terms, or do anything with the software that these terms do not license, all of your licenses under these terms end immediately and automatically, without notice. Ending your license does not end any obligation you already owe under [Source Sharing](#source-sharing) for anything you already distributed or made available.
+
+Only the licensor can reinstate your licenses, and only in writing.
+
+## No Liability
+
+***As far as the law allows, the software comes as is, without any warranty or condition, and the licensor will not be liable to you for any damages arising out of these terms or the use or nature of the software, under any kind of legal claim.***
+
+## Definitions
+
+**You** refers to the individual or entity agreeing to these terms. If you act for a company or other organization, **you** also includes that organization and every organization that has control over, is under the control of, or is under common control with it. **Control** means ownership of substantially all the assets of an entity, or the power to direct its management and policies by vote, contract or otherwise. Control can be direct or indirect.
+
+**Your licenses** are all the licenses granted to you for the software under these terms.
+
+**Use** means anything you do with the software requiring one of your licenses.
+
+**The software** is the software the licensor makes available under these terms, in any version.

@@ -1,0 +1,2714 @@
+/* hired.video Chrome Extension Styles
+   Matching frontend branding: Primary Purple #7C3AED, Brand Blue #3B82F6 */
+
+:root {
+  /* Brand Colors */
+  --primary: #7C3AED;
+  --primary-light: #EDE9FE;
+  --primary-dark: #5B21B6;
+  --brand-blue: #3B82F6;
+  --brand-blue-light: #DBEAFE;
+
+  /* Semantic Colors */
+  --success: #16A34A;
+  --success-light: #DCFCE7;
+  --warning: #F59E0B;
+  --warning-light: #FEF3C7;
+  --error: #DC2626;
+  --error-light: #FEE2E2;
+
+  /* Neutral Colors */
+  --background: #FFFFFF;
+  --background-secondary: #F9FAFB;
+  --foreground: #1F2937;
+  --foreground-secondary: #6B7280;
+  --foreground-muted: #9CA3AF;
+
+  /* Border Colors */
+  --border: #E5E7EB;
+  --border-light: #F3F4F6;
+
+  /* Radius */
+  --radius-sm: 0.375rem;
+  --radius-md: 0.5rem;
+  --radius-lg: 0.75rem;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  padding: 16px;
+  min-height: 100%;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  color: var(--foreground);
+  background-color: var(--background);
+  line-height: 1.5;
+}
+
+h3 {
+  color: var(--foreground);
+  font-weight: 600;
+  margin-bottom: 16px;
+  font-size: 1.25rem;
+}
+
+h4 {
+  color: var(--foreground);
+  font-weight: 600;
+  margin-bottom: 12px;
+  font-size: 1rem;
+}
+
+p {
+  color: var(--foreground-secondary);
+  margin-bottom: 8px;
+}
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* Buttons */
+button, .btn {
+  margin-top: 10px;
+  width: 100%;
+  padding: 12px 16px;
+  font-weight: 500;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-size: 0.875rem;
+  border: none;
+}
+
+.btn-primary {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--brand-blue) 100%);
+  color: white;
+  border: none;
+}
+
+.btn-primary:hover:not(:disabled) {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.btn-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background-color: var(--background-secondary);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: var(--border-light);
+}
+
+.btn-success {
+  background-color: var(--success);
+  color: white;
+  border: none;
+}
+
+.btn-success:hover:not(:disabled) {
+  background-color: #15803D;
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+}
+
+.btn-outline:hover:not(:disabled) {
+  background-color: var(--primary-light);
+}
+
+.btn-sm {
+  padding: 8px 12px;
+  font-size: 0.75rem;
+}
+
+.btn-icon {
+  width: auto;
+  padding: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Form Elements */
+.form-control {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+.form-control:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+.form-label, .col-form-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground);
+  margin-bottom: 4px;
+}
+
+/* Select/Dropdown */
+.form-select {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 0.875rem;
+  background-color: var(--background);
+  color: var(--foreground);
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236B7280' d='M6 8.825L1.175 4h9.65L6 8.825z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+}
+
+.form-select:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-light);
+}
+
+/* Cards */
+.card {
+  background-color: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  margin-bottom: 12px;
+}
+
+.card-header {
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border-light);
+  margin-bottom: 12px;
+}
+
+.card-title {
+  font-weight: 600;
+  color: var(--foreground);
+  margin: 0;
+}
+
+.card-subtitle {
+  font-size: 0.75rem;
+  color: var(--foreground-muted);
+  margin-top: 4px;
+}
+
+/* Resume Card */
+.resume-card {
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  margin-bottom: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.resume-card:hover {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+}
+
+.resume-card.selected {
+  border-color: var(--primary);
+  background-color: var(--primary-light);
+  box-shadow: 0 0 0 2px var(--primary);
+}
+
+.resume-card.master {
+  border-left: 3px solid var(--primary);
+}
+
+.resume-card.variation {
+  margin-left: 16px;
+  border-left: 3px solid var(--brand-blue);
+}
+
+.resume-card-title {
+  font-weight: 500;
+  color: var(--foreground);
+  font-size: 0.875rem;
+  margin-bottom: 4px;
+}
+
+.resume-card-meta {
+  font-size: 0.75rem;
+  color: var(--foreground-muted);
+}
+
+/* Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  border-radius: 9999px;
+}
+
+.badge-primary {
+  background-color: var(--primary-light);
+  color: var(--primary);
+}
+
+.badge-success {
+  background-color: var(--success-light);
+  color: var(--success);
+}
+
+.badge-warning {
+  background-color: var(--warning-light);
+  color: var(--warning);
+}
+
+.badge-master {
+  background-color: var(--primary-light);
+  color: var(--primary);
+}
+
+.badge-variation {
+  background-color: var(--brand-blue-light);
+  color: var(--brand-blue);
+}
+
+.badge-active {
+  background-color: var(--success-light, #d1fae5);
+  color: var(--success);
+}
+
+/* Scores */
+.score-display {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-md);
+  font-weight: 600;
+}
+
+.score-high {
+  color: var(--success);
+}
+
+.score-medium {
+  color: var(--warning);
+}
+
+.score-low {
+  color: var(--error);
+}
+
+/* Layout Helpers */
+.float-right {
+  float: right;
+}
+
+.d-flex {
+  display: flex;
+}
+
+.align-items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.gap-2 {
+  gap: 8px;
+}
+
+.gap-3 {
+  gap: 12px;
+}
+
+.mt-2 {
+  margin-top: 8px;
+}
+
+.mt-3 {
+  margin-top: 12px;
+}
+
+.mt-4 {
+  margin-top: 16px;
+}
+
+.mb-2 {
+  margin-bottom: 8px;
+}
+
+.mb-3 {
+  margin-bottom: 12px;
+}
+
+.mb-4 {
+  margin-bottom: 16px;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-xs {
+  font-size: 0.75rem;
+}
+
+.text-muted {
+  color: var(--foreground-muted);
+}
+
+/* Content Boxes */
+.outline-fill {
+  margin-top: 12px;
+  padding: 12px;
+  border-radius: var(--radius-md);
+  min-height: 100%;
+  border: 1px solid var(--border);
+  background-color: var(--background-secondary);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.outline-fill.success {
+  border-color: var(--success);
+  background-color: var(--success-light);
+}
+
+/* Loading Spinner */
+.spinner-border {
+  display: inline-block;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinner-border 0.75s linear infinite;
+}
+
+@keyframes spinner-border {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-container {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  background-color: var(--background-secondary);
+  border-radius: var(--radius-md);
+  margin-top: 12px;
+}
+
+.loading-container .spinner-border {
+  color: var(--primary);
+}
+
+.row-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 0;
+  font-size: 12px;
+  color: var(--foreground-secondary);
+}
+
+.spinner-sm {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border: 2px solid var(--primary);
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: spinner-border 0.75s linear infinite;
+  flex-shrink: 0;
+}
+
+/* Inline spinner swapped into row-action icon buttons while an async
+   operation is in flight. The button's innerHTML is replaced with
+   ICON.spinner — this class spins the svg itself (so the stroke color
+   inherits from currentColor and matches the button's other icons). */
+.icon-btn-spinner {
+  animation: spinner-border 0.75s linear infinite;
+}
+
+.icon-btn.is-loading {
+  cursor: wait;
+  opacity: 0.7;
+  border-color: var(--primary);
+  color: var(--primary);
+  background: var(--primary-light);
+}
+
+/* Inline "Scanning…" pill shown next to a tracked-job row's action buttons
+   while a refresh is in flight. The per-button spinner alone is too
+   subtle (28px icon swap) — this pill gives the user an unmissable
+   confirmation that the click registered and the operation is running. */
+.tracked-job-row-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: var(--primary-light);
+  color: var(--primary);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.tracked-job-row-busy .spinner-sm {
+  width: 12px;
+  height: 12px;
+  border-width: 1.5px;
+}
+
+.tracked-job-row.is-refreshing {
+  opacity: 0.85;
+}
+
+/* Global loading toast — sticky at the top of the side panel so any
+   async op (refresh, tailor, score, etc.) has unmissable feedback even
+   when the per-row busy pill is scrolled out of view or the active-page
+   banner is hidden. Uses the same primary-light palette as the row pill
+   for visual consistency. */
+.global-loading-toast {
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 12px 0;
+  padding: 10px 14px;
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.global-loading-toast.hidden {
+  display: none;
+}
+
+.global-loading-toast .spinner-sm {
+  border-color: var(--primary);
+  border-right-color: transparent;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 16px;
+}
+
+.tab {
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--foreground-secondary);
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.tab:hover {
+  color: var(--foreground);
+}
+
+.tab.active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* Section Divider */
+.section-divider {
+  height: 1px;
+  background-color: var(--border);
+  margin: 16px 0;
+}
+
+/* Alert/Notice */
+.alert {
+  padding: 12px;
+  border-radius: var(--radius-md);
+  margin-bottom: 12px;
+  font-size: 0.875rem;
+}
+
+.alert-info {
+  background-color: var(--brand-blue-light);
+  color: var(--brand-blue);
+  border: 1px solid var(--brand-blue);
+}
+
+.alert-success {
+  background-color: var(--success-light);
+  color: var(--success);
+  border: 1px solid var(--success);
+}
+
+.alert-warning {
+  background-color: var(--warning-light);
+  color: var(--warning);
+  border: 1px solid var(--warning);
+}
+
+.alert-error {
+  background-color: var(--error-light);
+  color: var(--error);
+  border: 1px solid var(--error);
+}
+
+/* Download Section */
+.download-section {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.download-section .btn {
+  flex: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+/* Resume Selection */
+.resume-selection-container {
+  max-height: 250px;
+  overflow-y: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: 8px;
+  margin-bottom: 12px;
+}
+
+/* Edit-mode toggles (both the Resume Manager header pencil AND the
+   profile card's Active Resume pencil) light up purple while edit mode
+   is on — they're bound to the same handler, so the state always
+   matches between them. */
+.icon-btn[aria-pressed="true"] {
+  background: var(--primary-light);
+  color: var(--primary);
+  border-color: var(--primary);
+}
+
+/* In read-only (default) mode, hide destructive / promotion actions on
+   each resume row. They reappear as soon as edit-mode is toggled on. */
+.resume-manager-card:not(.resume-manager-edit-mode) .resume-selection-container [data-resume-action="set-active"],
+.resume-manager-card:not(.resume-manager-edit-mode) .resume-selection-container [data-resume-action="set-master"],
+.resume-manager-card:not(.resume-manager-edit-mode) .resume-selection-container [data-resume-action="delete"],
+.resume-manager-card:not(.resume-manager-edit-mode) .resume-selection-container [data-resume-action="edit"] {
+  display: none;
+}
+
+.resume-group {
+  margin-bottom: 12px;
+}
+
+.resume-group:last-child {
+  margin-bottom: 0;
+}
+
+/* Disclaimer */
+#disclaimer {
+  margin-top: 16px;
+  padding: 12px;
+  background-color: var(--warning-light);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--warning);
+}
+
+#disclaimer p {
+  color: var(--warning);
+  font-size: 0.75rem;
+  margin: 0;
+}
+
+/* Footer */
+.fixed-bottom {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 16px;
+  background: linear-gradient(to top, var(--background), transparent);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.version-footer {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+  text-decoration: none;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.7;
+}
+
+.version-footer:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--background-secondary);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--foreground-muted);
+}
+
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal-content {
+  background-color: var(--background);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.modal-title {
+  font-weight: 600;
+  font-size: 1.125rem;
+  color: var(--foreground);
+}
+
+.modal-close {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: var(--foreground-muted);
+  cursor: pointer;
+  padding: 0;
+  width: auto;
+  margin: 0;
+}
+
+.modal-close:hover {
+  color: var(--foreground);
+}
+
+/* Hide utility */
+.hidden {
+  display: none !important;
+}
+
+/* Actions row */
+.actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.actions-row .btn {
+  margin-top: 0;
+}
+
+/* Password input with show/hide toggle */
+.password-input-wrap {
+  position: relative;
+}
+
+.password-input-wrap .form-control {
+  padding-right: 36px;
+}
+
+.password-toggle {
+  position: absolute;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
+  width: 28px;
+  min-width: 28px;
+  max-width: 28px;
+  height: 28px;
+  margin: 0;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--foreground-secondary);
+  border-radius: var(--radius-sm, 4px);
+}
+
+.password-toggle:hover {
+  background: var(--background-secondary);
+}
+
+/* Signed-out banner */
+.signed-out-banner {
+  border-left: 4px solid var(--primary);
+  background: var(--primary-light);
+}
+
+.signed-out-banner .signed-out-title {
+  font-weight: 600;
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.signed-out-banner .signed-out-sub {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+  margin-top: 2px;
+}
+
+/* Use .btn-compact for constrained inline buttons */
+.signed-out-banner .btn {
+  /* Inherits from .btn-compact applied on the element */
+}
+
+/* ==========================================================
+   Tab strip
+   ========================================================== */
+.tab-strip {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 12px 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.tab-button {
+  flex: 1 1 0;
+  width: auto;
+  margin: 0;
+  padding: 10px 12px;
+  background: transparent;
+  color: var(--foreground-secondary);
+  border: none;
+  border-bottom: 2px solid transparent;
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.tab-button:hover:not(.tab-active) {
+  color: var(--foreground);
+  background: var(--background-secondary);
+}
+
+.tab-button.tab-active {
+  color: var(--primary);
+  border-bottom-color: var(--primary);
+}
+
+/* Small pill for the tracked-job count that lives inside the Jobs tab
+   button. Hidden when zero so the tab reads just "💼 Jobs" by default. */
+.tab-count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 5px;
+  margin-left: 2px;
+  border-radius: 9999px;
+  background: var(--border-light);
+  color: var(--foreground-secondary);
+  font-size: 10px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  vertical-align: middle;
+}
+
+.tab-button.tab-active .tab-count {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+/* Inline action icon embedded inside a tab button (e.g. the refresh
+   icon on the Jobs tab). Hidden on inactive tabs so the strip stays
+   uncluttered — appears only when the tab is selected. */
+.tab-inline-icon {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  margin-left: 4px;
+  padding: 0;
+  border-radius: 4px;
+  color: var(--foreground-secondary);
+  cursor: pointer;
+  vertical-align: middle;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tab-button.tab-active .tab-inline-icon {
+  display: inline-flex;
+  color: var(--primary);
+}
+
+.tab-inline-icon:hover {
+  background: var(--primary-light);
+}
+
+.tab-inline-icon:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.tab-pane {
+  display: none;
+}
+
+.tab-pane.tab-pane-active {
+  display: block;
+}
+
+/* ==========================================================
+   Compact button variant — used in cards/headers/banners
+   ========================================================== */
+.btn-compact {
+  flex: 0 0 auto;
+  width: auto;
+  margin: 0;
+  padding: 6px 12px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  height: auto;
+  min-height: 0;
+  white-space: nowrap;
+}
+
+/* ==========================================================
+   Active page banner (auto-detected job)
+   ========================================================== */
+.active-page-banner {
+  border-left: 4px solid var(--success);
+  background: var(--success-light);
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+
+/* Vendor Sync banner — surfaces in the jobseeker side panel only when
+   the active tab is on a supported vendor profile page (LinkedIn,
+   Indeed, Glassdoor, ZipRecruiter, Monster). Self-gated in JS — no
+   parent-driven visibility flag. */
+.vendor-sync-banner {
+  border-left: 4px solid var(--primary, #3b82f6);
+  background: var(--primary-light, rgba(59, 130, 246, 0.08));
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  margin-bottom: 10px;
+}
+.vendor-sync-banner.hidden { display: none; }
+.vendor-sync-banner .vendor-sync-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+.vendor-sync-banner .vendor-sync-text {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+/* When the banner is hidden (no job detected) collapse its bottom margin
+   so the tracked-jobs-header-actions row sits flush with the card top. */
+.active-page-banner.hidden {
+  margin-bottom: 0;
+}
+
+/* Track button in the banner header shares vertical metrics with the
+   adjacent 28px rescan icon-btn so the two sit flush on the baseline. */
+.active-page-banner #quickTrackButton.btn-compact {
+  height: 28px;
+  padding: 0 12px;
+  font-size: 12px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+}
+
+.active-page-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--success);
+  margin-bottom: 4px;
+}
+
+.active-page-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--foreground);
+  line-height: 1.2;
+}
+
+.banner-actions-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px;
+}
+
+.active-page-meta {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+  margin-top: 2px;
+}
+
+/* Empty state when no job detected on the active tab */
+.empty-state-card {
+  border: 1px dashed var(--border);
+  background: var(--background-secondary);
+}
+
+.empty-state-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--foreground-secondary);
+  margin-bottom: 4px;
+}
+
+.empty-state-text {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+  line-height: 1.4;
+}
+
+/* ==========================================================
+   Active resume row inside the profile card
+   ========================================================== */
+.profile-resume-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border-light);
+}
+
+.profile-resume-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.profile-resume-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--foreground-secondary);
+  margin-bottom: 1px;
+}
+
+.profile-resume-name {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+
+a.profile-resume-name:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+/* ==========================================================
+   Tracked jobs table
+   ========================================================== */
+
+.tracked-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tracked-job-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.tracked-job-row:hover {
+  border-color: var(--primary);
+  box-shadow: 0 2px 8px rgba(124, 58, 237, 0.08);
+}
+
+/* Active row — the tracked job that matches the current page URL */
+.tracked-job-row-active {
+  border-left: 4px solid var(--success);
+  background: var(--success-light);
+  box-shadow: 0 2px 8px rgba(22, 163, 74, 0.15);
+}
+
+/* Hide the Open button on the active row — the user is already on the
+   job's page (or its apply page), so re-opening it is redundant. */
+.tracked-job-row-active .tracked-job-actions [data-action="open"] {
+  display: none;
+}
+
+/* ---- Autofill review panel (inside #autofillDetail) --------------- */
+.autofill-review {
+  font-size: 12px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  background: var(--background);
+}
+
+.autofill-review-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+  font-size: 12px;
+}
+
+.autofill-review-ats {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--foreground-secondary);
+  letter-spacing: 0.05em;
+}
+
+.autofill-group {
+  margin-top: 6px;
+}
+
+.autofill-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--foreground-secondary);
+  margin-bottom: 3px;
+}
+
+.autofill-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.autofill-row {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  padding: 3px 4px;
+  border-radius: 4px;
+  line-height: 1.4;
+}
+
+.autofill-row-icon {
+  flex: 0 0 auto;
+  width: 14px;
+  font-size: 11px;
+}
+
+.autofill-row-label {
+  flex: 0 0 auto;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.autofill-row-value {
+  flex: 1 1 auto;
+  color: var(--foreground-secondary);
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, monospace);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.autofill-row-filled    { background: rgba(16, 185, 129, 0.06); }
+.autofill-row-skipped   { background: rgba(245, 158, 11, 0.06); }
+.autofill-row-error     { background: rgba(239, 68, 68, 0.06); }
+.autofill-row-unmatched { color: var(--foreground-secondary); }
+
+.tracked-job-title {
+  display: block;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+
+a.tracked-job-title:hover {
+  color: var(--primary);
+  text-decoration: underline;
+}
+
+.tracked-job-title-icon {
+  display: inline-flex;
+  vertical-align: middle;
+  margin-left: 6px;
+  color: var(--foreground-secondary);
+  transition: color 0.15s;
+}
+
+a.tracked-job-title:hover .tracked-job-title-icon {
+  color: var(--primary);
+}
+
+/* Step number badge prepended to the action buttons (#1 Score, #2 Tailor, #3 Apply) */
+.tracked-job-actions .btn .step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 14px;
+  height: 14px;
+  padding: 0 3px;
+  margin-right: 5px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.08);
+  color: inherit;
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.tracked-job-actions .btn-primary .step-num {
+  background: rgba(255, 255, 255, 0.25);
+  color: #fff;
+}
+
+.tracked-job-actions .btn-primary .step-num::before { content: '#'; }
+.tracked-job-actions .btn-outline .step-num::before { content: '#'; }
+
+.tracked-job-meta {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tracked-job-actions {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tracked-job-actions .btn {
+  width: auto;
+  margin: 0;
+  padding: 4px 8px;
+  font-size: 11px;
+  min-height: 0;
+  height: auto;
+}
+
+.tracked-job-row .row-status {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+}
+
+.tracked-job-row .row-score {
+  font-weight: 700;
+  color: var(--primary);
+}
+
+/* Row header — title block + trailing badge/trash row */
+.tracked-job-row-header {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.tracked-job-info {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.tracked-job-row-trailing {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 0 0 auto;
+}
+
+/* Inline score badge with optional ⓘ details trigger */
+.row-score-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  background: var(--background-secondary);
+  color: var(--foreground);
+  border: 1px solid var(--border);
+}
+
+.row-score-badge.score-high {
+  background: var(--success-light);
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.row-score-badge.score-medium {
+  background: var(--warning-light);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.row-score-badge.score-low {
+  background: var(--error-light);
+  color: var(--error);
+  border-color: var(--error);
+}
+
+.row-score-info {
+  width: auto;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  cursor: pointer;
+  line-height: 1;
+  height: auto;
+  min-height: 0;
+}
+
+.row-score-info:hover {
+  opacity: 0.7;
+}
+
+/* Score button with inline number */
+.btn-scored.score-high { color: var(--success); border-color: var(--success); }
+.btn-scored.score-medium { color: var(--warning); border-color: var(--warning); }
+.btn-scored.score-low { color: var(--error); border-color: var(--error); }
+
+/* Tailored button — subtle success accent */
+.btn-tailored { color: var(--success); border-color: var(--success); }
+
+/* Resume row — shows tailored variation name with download/view icons */
+.tracked-job-resume-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  margin-top: 2px;
+  background: var(--surface-secondary);
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--foreground-secondary);
+}
+
+/* Chevron toggle on the tailored-resume row — rotates based on whether
+   the score/tailor summary panel below is expanded. */
+.tailor-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  background: transparent;
+  color: var(--foreground-secondary);
+  cursor: pointer;
+  flex-shrink: 0;
+  border-radius: 4px;
+  transition: background 0.15s, color 0.15s;
+}
+
+.tailor-toggle:hover {
+  background: var(--border-light);
+  color: var(--primary);
+}
+
+.tailor-toggle-chevron {
+  transition: transform 0.2s ease;
+}
+
+.tailor-toggle[aria-expanded="true"] .tailor-toggle-chevron {
+  transform: rotate(90deg);
+}
+
+.resume-row-info {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  flex: 1;
+}
+
+.resume-row-name {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.resume-row-actions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+/* "from Master Resume" suffix in the resume row */
+.resume-row-source {
+  color: var(--foreground-secondary);
+  font-style: italic;
+}
+
+/* "Scored with: ..." label in the score detail panel */
+.score-detail-resume-label {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+  margin-bottom: 6px;
+}
+
+/* Trash button — inherits icon-btn base via class, override hover to red */
+.row-delete.icon-btn:hover {
+  color: var(--error);
+  background: var(--error-light);
+}
+
+/* Rescan icon is only meaningful on the row that matches the user's
+   current page — hide it everywhere else so other rows stay clean. */
+.row-rescan.icon-btn {
+  display: none;
+}
+
+.tracked-job-row-active .row-rescan.icon-btn {
+  display: inline-flex;
+}
+
+/* Why-this-score inline panel inside the quickStatus alert */
+.why-score-heading {
+  font-weight: 700;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.why-score-heading em {
+  font-weight: 400;
+  font-style: normal;
+  color: var(--foreground-secondary);
+}
+
+.why-score-body {
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.why-score-body p {
+  margin: 4px 0;
+}
+
+.why-score-body ul,
+.why-score-body ol {
+  margin: 4px 0 4px 16px;
+  padding: 0;
+}
+
+/* ==========================================================
+   Score pill — clickable badge on tracked job rows
+   ========================================================== */
+.row-score-pill {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 3px 8px;
+  border-radius: 12px;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  transition: filter 0.15s, transform 0.1s;
+  line-height: 1;
+}
+
+.row-score-pill:hover {
+  filter: brightness(1.15);
+  transform: scale(1.05);
+}
+
+.row-score-pill.score-high { background: var(--success); }
+.row-score-pill.score-medium { background: var(--warning); color: #1a1a1a; }
+.row-score-pill.score-low { background: var(--error); }
+
+/* ==========================================================
+   Score detail — inline expandable panel inside job cards
+   ========================================================== */
+.tracked-job-score-detail {
+  border-top: 1px solid var(--border);
+  margin-top: 8px;
+  padding-top: 8px;
+  animation: slideDown 0.15s ease-out;
+}
+
+/* Row-scoped feedback slot — rendered inline below the action buttons of
+ * the row the user clicked, NOT in the top quickStatus banner. The
+ * banner sits inside "JOB DETECTED ON THIS PAGE" and is the wrong place
+ * for messages on a specific tracked row (gaps #879, #881). Palette
+ * mirrors `.alert-success` / `.alert-warning` / `.alert-info` /
+ * `.alert-error` so success and warning toasts match the global banner. */
+.tracked-job-row-error {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background-color: var(--error-light);
+  color: var(--error);
+  border: 1px solid var(--error);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  line-height: 1.4;
+  animation: slideDown 0.15s ease-out;
+}
+
+.tracked-job-row-error.is-success {
+  background-color: var(--success-light);
+  color: var(--success);
+  border-color: var(--success);
+}
+
+.tracked-job-row-error.is-warning {
+  background-color: var(--warning-light);
+  color: var(--warning);
+  border-color: var(--warning);
+}
+
+.tracked-job-row-error.is-info {
+  background-color: var(--brand-blue-light);
+  color: var(--brand-blue);
+  border-color: var(--brand-blue);
+}
+
+.tracked-job-row-error.is-error {
+  background-color: var(--error-light);
+  color: var(--error);
+  border-color: var(--error);
+}
+
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; }
+  to { opacity: 1; max-height: 500px; }
+}
+
+.score-detail-content {
+  font-size: 12px;
+}
+
+.score-detail-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.score-detail-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--foreground-secondary);
+}
+
+.score-detail-recommendations {
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--foreground-secondary);
+}
+
+.score-detail-recommendations p { margin: 4px 0; }
+
+.score-detail-recommendations ul,
+.score-detail-recommendations ol {
+  margin: 4px 0 4px 16px;
+  padding: 0;
+}
+
+.score-detail-recommendations li { margin-bottom: 4px; }
+
+.score-detail-actions {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+}
+
+/* ==========================================================
+   Pipeline status pill (clickable → dropdown)
+   ========================================================== */
+.status-pill-wrapper {
+  display: inline-flex;
+  align-items: center;
+}
+
+.pipeline-status-pill {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+  text-transform: capitalize;
+  letter-spacing: 0.3px;
+  line-height: 1.4;
+  transition: filter 0.15s;
+  white-space: nowrap;
+}
+
+.pipeline-status-pill:hover { filter: brightness(0.92); }
+
+.status-tracked     { background: var(--border); color: var(--foreground-secondary); }
+.status-applied     { background: var(--brand-blue-light); color: #1e40af; }
+.status-interviewing { background: #f3e8ff; color: #7c3aed; }
+.status-offered     { background: var(--warning-light); color: #92400e; }
+.status-accepted    { background: var(--success-light); color: #166534; }
+.status-rejected    { background: var(--error-light); color: #991b1b; }
+.status-cancelled   { background: #f3f4f6; color: #6b7280; }
+.status-withdrawn   { background: #f3f4f6; color: #6b7280; }
+.status-declined    { background: var(--error-light); color: #991b1b; }
+
+.status-dropdown {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 4px;
+  border-radius: 6px;
+  border: 2px solid var(--primary);
+  background: var(--background);
+  color: var(--foreground-primary);
+  cursor: pointer;
+  outline: none;
+  max-width: 110px;
+}
+
+/* ==========================================================
+   Analytics tab
+   ========================================================== */
+.analytics-snapshot {
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--brand-blue-light) 100%);
+}
+
+.analytics-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--foreground-secondary);
+  margin-bottom: 8px;
+}
+
+.analytics-row {
+  display: flex;
+  justify-content: space-around;
+  gap: 8px;
+}
+
+.analytics-stat {
+  text-align: center;
+  flex: 1;
+}
+
+.analytics-stat-value {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--foreground-primary);
+  line-height: 1.2;
+}
+
+.analytics-stat-label {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+}
+
+.analytics-stat-sub {
+  font-size: 10px;
+  color: var(--foreground-tertiary, #999);
+}
+
+.analytics-stat-delta {
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.delta-up { color: var(--success); }
+.delta-down { color: var(--error); }
+
+.analytics-mini-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex: 1;
+}
+
+.analytics-mini-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.analytics-mini-label {
+  font-size: 10px;
+  color: var(--foreground-secondary);
+}
+
+/* Funnel bars */
+.funnel-bars { display: flex; flex-direction: column; gap: 6px; }
+
+.funnel-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.funnel-label {
+  font-size: 11px;
+  width: 72px;
+  text-align: right;
+  color: var(--foreground-secondary);
+  flex-shrink: 0;
+}
+
+.funnel-bar-track {
+  flex: 1;
+  height: 14px;
+  background: var(--background-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.funnel-bar-fill {
+  height: 100%;
+  border-radius: 4px;
+  transition: width 0.4s ease-out;
+}
+
+.funnel-count {
+  font-size: 12px;
+  font-weight: 700;
+  width: 28px;
+  text-align: right;
+  color: var(--foreground-primary);
+}
+
+/* Weekly trend */
+.weekly-trend { display: flex; flex-direction: column; gap: 4px; }
+
+.trend-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.trend-label {
+  font-size: 10px;
+  width: 60px;
+  text-align: right;
+  color: var(--foreground-secondary);
+  flex-shrink: 0;
+}
+
+.trend-bars {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.trend-bar {
+  height: 8px;
+  border-radius: 3px;
+  transition: width 0.4s ease-out;
+}
+
+.trend-bar-tracked { background: var(--foreground-secondary); opacity: 0.4; }
+.trend-bar-applied { background: var(--brand-blue); }
+
+.trend-count {
+  font-size: 10px;
+  width: 36px;
+  color: var(--foreground-secondary);
+}
+
+.trend-legend {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--foreground-secondary);
+  margin-top: 4px;
+  justify-content: center;
+}
+
+.trend-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.trend-dot-tracked { background: var(--foreground-secondary); opacity: 0.4; }
+.trend-dot-applied { background: var(--brand-blue); }
+
+/* ==========================================================
+   Wizard mode banner
+   ========================================================== */
+.wizard-banner {
+  background: var(--primary-light);
+  border-left: 4px solid var(--primary);
+}
+
+/* ==========================================================
+   Settings — toggles & locked features
+   ========================================================== */
+.settings-toggle {
+  display: flex;
+  gap: 10px;
+  padding: 10px 0;
+  border-bottom: 1px solid var(--border-light);
+  cursor: pointer;
+}
+
+.settings-toggle:last-child {
+  border-bottom: none;
+}
+
+.settings-toggle input[type="checkbox"] {
+  width: 18px;
+  height: 18px;
+  margin: 2px 0 0 0;
+  flex: 0 0 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
+
+.settings-toggle-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.settings-toggle-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.settings-toggle-desc {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+  line-height: 1.4;
+}
+
+.settings-toggle-locked {
+  opacity: 0.7;
+}
+
+.settings-toggle-locked:hover {
+  opacity: 1;
+}
+
+.paid-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--brand-blue) 100%);
+  color: white;
+  border-radius: 4px;
+  text-transform: uppercase;
+}
+
+.settings-locked {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.paid-hint {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+  margin-top: 4px;
+}
+
+/* When the user is premium, .pro-unlocked is set on body and locked
+   controls become interactive again. */
+body.pro-unlocked .settings-toggle-locked {
+  opacity: 1;
+}
+
+body.pro-unlocked .settings-toggle-locked input[type="checkbox"] {
+  pointer-events: auto;
+}
+
+body.pro-unlocked .settings-locked {
+  opacity: 1;
+  cursor: pointer;
+}
+
+body.pro-unlocked .paid-badge {
+  background: var(--success);
+}
+
+body.pro-unlocked .paid-hint {
+  display: none;
+}
+
+/* Settings sync hint card — links to hired.video/settings */
+.settings-sync-hint {
+  background: var(--background-secondary);
+  border: 1px dashed var(--border);
+}
+
+.settings-sync-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.settings-sync-desc {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+  margin-top: 2px;
+}
+
+/* ==========================================================
+   Upgrade card
+   ========================================================== */
+.upgrade-card {
+  background: linear-gradient(135deg, var(--primary-light) 0%, var(--brand-blue-light) 100%);
+  border: 1px solid var(--primary);
+}
+
+.upgrade-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--primary);
+}
+
+.upgrade-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--foreground);
+  margin-top: 4px;
+  line-height: 1.3;
+}
+
+.upgrade-bullets {
+  margin: 8px 0 12px 16px;
+  padding: 0;
+  font-size: 12px;
+  color: var(--foreground);
+}
+
+.upgrade-bullets li {
+  margin-bottom: 4px;
+}
+
+body.pro-unlocked .upgrade-card {
+  display: none;
+}
+
+/* App header (title + inline upgrade CTA) */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.app-header .app-title {
+  margin: 0;
+  flex: 1 1 auto;
+}
+
+/* Upgrade CTA — sits inside the profile card under the role pill so it's
+ * always next to the user info instead of competing for header real estate. */
+.btn-upgrade-profile {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  color: #fff;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--brand-blue) 100%);
+  border: none;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1.2;
+  transition: opacity 0.15s ease;
+}
+
+.btn-upgrade-profile:hover {
+  opacity: 0.85;
+}
+
+/* Hidden when user is already premium */
+body.pro-unlocked .btn-upgrade-profile {
+  display: none;
+}
+
+/* Role badge in profile chip */
+.role-badge {
+  display: inline-block;
+  padding: 1px 6px;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  border-radius: 4px;
+  background: var(--background-secondary);
+  color: var(--foreground-secondary);
+  border: 1px solid var(--border);
+}
+
+.role-badge.role-premium {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--brand-blue) 100%);
+  color: white;
+  border-color: transparent;
+}
+
+.role-badge.role-admin,
+.role-badge.role-superadmin {
+  background: var(--success);
+  color: white;
+  border-color: transparent;
+}
+
+/* Usage-limit exceeded CTA */
+.usage-limit-alert {
+  padding: 12px;
+  background: var(--warning-light);
+  border: 1px solid var(--warning);
+  border-radius: var(--radius-md);
+  font-size: 12px;
+  color: var(--foreground);
+}
+
+.usage-limit-alert strong {
+  display: block;
+  margin-bottom: 4px;
+  color: var(--foreground);
+}
+
+.usage-limit-alert .usage-limit-bar {
+  display: flex;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--border-light);
+  overflow: hidden;
+  margin: 6px 0;
+}
+
+.usage-limit-alert .usage-limit-bar-fill {
+  background: var(--warning);
+  border-radius: 3px;
+}
+
+.usage-limit-alert .btn {
+  width: auto;
+  margin: 6px 0 0 0;
+  padding: 6px 14px;
+  font-size: 12px;
+  height: auto;
+  min-height: 0;
+}
+
+/* Dedup candidates list inside the modal */
+.dedup-candidates-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 10px 0;
+}
+
+.dedup-candidate {
+  padding: 8px 10px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+
+.dedup-candidate:hover,
+.dedup-candidate.dedup-selected {
+  border-color: var(--primary);
+  box-shadow: 0 1px 4px rgba(124, 58, 237, 0.1);
+}
+
+.dedup-candidate-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--foreground);
+}
+
+.dedup-candidate-meta {
+  font-size: 11px;
+  color: var(--foreground-secondary);
+}
+
+/* Profile chip */
+.profile-card .profile-name {
+  font-weight: 600;
+  color: var(--foreground);
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.profile-card .profile-email {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+}
+
+.profile-card-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr) auto;
+  align-items: center;
+  gap: 10px;
+}
+
+.profile-card-info {
+  min-width: 0;
+}
+
+.profile-card-icons {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+/* AI token pill — center column of the profile card's 3-column grid. */
+.token-pill {
+  display: block;
+  min-width: 0;
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: rgba(249, 250, 251, 0.5);
+  text-decoration: none;
+  color: var(--foreground);
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.token-pill.hidden {
+  display: none !important;
+}
+
+.token-pill:hover {
+  background: var(--background-secondary);
+  text-decoration: none;
+}
+
+.token-pill.token-pill-warning {
+  background: var(--warning-light);
+  border-color: var(--warning);
+}
+
+.token-pill.token-pill-warning:hover {
+  background: #FDE8B0;
+}
+
+.token-pill.token-pill-exhausted {
+  background: var(--error-light);
+  border-color: var(--error);
+}
+
+.token-pill.token-pill-exhausted:hover {
+  background: #FCCACA;
+}
+
+.token-pill-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-bottom: 4px;
+  min-width: 0;
+}
+
+.token-pill-top .token-pill-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.token-pill-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--foreground);
+}
+
+.token-pill-label svg {
+  color: var(--primary);
+}
+
+.token-pill-warning .token-pill-label svg { color: var(--warning); }
+.token-pill-exhausted .token-pill-label svg { color: var(--error); }
+
+.token-pill-remaining {
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground-secondary);
+}
+
+.token-pill-exhausted .token-pill-remaining {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.token-pill-bar {
+  height: 6px;
+  background: var(--border-light);
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.token-pill-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--primary);
+  border-radius: 9999px;
+  transition: width 0.3s ease, background 0.15s;
+}
+
+.token-pill-warning .token-pill-fill { background: var(--warning); }
+.token-pill-exhausted .token-pill-fill { background: var(--error); }
+
+.token-pill-bottom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  margin-top: 4px;
+  font-size: 10px;
+  font-variant-numeric: tabular-nums;
+  color: var(--foreground-secondary);
+  min-width: 0;
+}
+
+.token-pill-bottom > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.token-pill-exhausted .token-pill-bottom #tokenPillReset {
+  color: var(--error);
+  font-weight: 600;
+}
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--foreground-secondary);
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+  padding: 0;
+  text-decoration: none;
+}
+
+.icon-btn:hover {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+/* Studio quick-launch card hosts the absolutely-positioned dismiss (X)
+   in its top-right corner. Same markup is used in both extensions.
+   The X keeps the standard .icon-btn border + white background so it
+   reads as a clearly tappable control against the gradient button. */
+.studio-quick-launch {
+  position: relative;
+}
+
+.studio-quick-launch-dismiss {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 22px;
+  height: 22px;
+}
+
+/* Stats card (tracked job count) */
+.stats-card .stats-label {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.stats-card .stats-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--primary);
+  line-height: 1.1;
+}
+
+.stats-card .btn {
+  /* Inherits from .btn-compact applied on the element */
+}
+
+/* Tracked job summary block */
+.job-summary {
+  padding: 10px 12px;
+  background: var(--background-secondary);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.job-summary-title {
+  font-weight: 600;
+  color: var(--foreground);
+  font-size: 14px;
+  margin-bottom: 2px;
+}
+
+.job-summary-meta {
+  font-size: 12px;
+  color: var(--foreground-secondary);
+  margin-bottom: 4px;
+}
+
+/* Resume row inline action button. Sits as a second row inside the
+   card so it never overflows the panel width when several actions
+   (icon-btns + btn-link "Set Active" / "Set Master") are visible at
+   once in edit mode. */
+.resume-card .resume-card-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 8px;
+}
+
+.btn-link,
+.resume-card .btn-link {
+  background: none;
+  border: none;
+  color: var(--primary);
+  font-size: 12px;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.btn-link:hover,
+.resume-card .btn-link:hover {
+  text-decoration: underline;
+}
+
+/* Footer brand mark */
+.brand-footer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--foreground-secondary);
+}
+
+.brand-footer .brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.brand-footer .brand-link:hover .brand-name {
+  text-decoration: underline;
+}
+
+.brand-footer .brand-mark {
+  display: block;
+  border-radius: 4px;
+}
+
+/* ---- Message thread ---------------------------------------------------- */
+
+.message-thread {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 120px;
+  max-height: calc(100vh - 280px);
+}
+
+.message-row {
+  display: flex;
+  flex-direction: column;
+  max-width: 85%;
+}
+
+.message-sent {
+  align-self: flex-end;
+  align-items: flex-end;
+}
+
+.message-received {
+  align-self: flex-start;
+  align-items: flex-start;
+}
+
+.message-bubble {
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.message-out {
+  background: var(--primary, #6c5ce7);
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.message-in {
+  background: var(--surface, #f0f0f0);
+  color: var(--foreground, #1a1a2e);
+  border-bottom-left-radius: 4px;
+}
+
+.message-time {
+  font-size: 10px;
+  margin-top: 2px;
+  padding: 0 4px;
+}
+
+/* ---- Message compose --------------------------------------------------- */
+
+.message-compose {
+  padding: 8px;
+  border-top: 1px solid var(--border, #e2e2e2);
+}
+
+.message-compose textarea {
+  resize: none;
+  font-size: 13px;
+}
+
+.message-compose-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+
+/* ---- Message attachment preview ---------------------------------------- */
+
+.message-attachment {
+  margin-bottom: 6px;
+}
+
+.attachment-preview {
+  position: relative;
+  background: var(--surface-elevated, #f5f5f5);
+  border: 1px solid var(--border, #e2e2e2);
+  border-radius: 8px;
+  padding: 8px 28px 8px 10px;
+}
+
+.attachment-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--foreground-secondary, #888);
+  margin-bottom: 2px;
+}
+
+.attachment-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.attachment-sub {
+  font-size: 12px;
+  color: var(--foreground-secondary, #888);
+}
+
+.attachment-remove {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  cursor: pointer;
+  color: var(--foreground-secondary, #888);
+  padding: 2px 4px;
+  line-height: 1;
+}
+
+.attachment-remove:hover {
+  color: var(--danger, #e74c3c);
+}
+
+/* ---- Shared job card (inside messages) --------------------------------- */
+
+.shared-job-card {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.message-in .shared-job-card {
+  background: rgba(0, 0, 0, 0.05);
+}
+
+.shared-job-icon {
+  font-size: 18px;
+  flex-shrink: 0;
+}
+
+.shared-job-title {
+  font-weight: 600;
+  font-size: 13px;
+}
+
+.shared-job-company {
+  font-size: 12px;
+  opacity: 0.85;
+}
+
+.shared-job-link {
+  font-size: 12px;
+  color: inherit;
+  opacity: 0.9;
+  text-decoration: underline;
+}
+
+.message-in .shared-job-link {
+  color: var(--primary, #6c5ce7);
+}
+
+/* ---- Share job preview in picker --------------------------------------- */
+
+.share-job-preview {
+  margin-bottom: 8px;
+}
+
+/* ---- Candidate picker -------------------------------------------------- */
+
+.candidate-picker-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-top: 8px;
+  max-height: calc(100vh - 300px);
+  overflow-y: auto;
+}
+
+.candidate-picker-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.candidate-picker-item:hover {
+  background: var(--surface, #f0f0f0);
+}
+
+/* ---- Tracked jobs list (recruiter parity, gap #677) -------------------- */
+
+.tracked-jobs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tracked-job-card {
+  padding: 8px 10px;
+}
+
+.badge.badge-inline {
+  display: inline-flex;
+  margin-left: 4px;
+  padding: 0 6px;
+  height: 16px;
+  border-radius: 8px;
+  background: var(--brand-purple, #7c3aed);
+  color: #fff;
+  font-size: 10px;
+  line-height: 16px;
+}
+
+/* ---- Contact card (Loxo-parity profile capture) ------------------------ */
+
+.contact-card {
+  padding: 8px 10px;
+  background: var(--surface, #f7f7fa);
+  border-radius: 8px;
+  border: 1px solid var(--border, #e5e7eb);
+}
+
+.contact-card-label {
+  margin-bottom: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.contact-card-rows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.contact-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: var(--background, #fff);
+  border: 1px solid var(--border, #e5e7eb);
+  font-size: 12px;
+  color: var(--foreground, #111);
+  text-decoration: none;
+  transition: background 0.15s;
+}
+
+.contact-link:hover {
+  background: var(--surface, #f0f0f0);
+}
+
+.setting-checkbox {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--foreground, #111);
+  cursor: pointer;
+}
+
+/* ---- Detection banner actions ------------------------------------------ */
+
+.detection-actions {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}

@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>hired.video — Recruiter Dashboard</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+
+<body>
+
+  <!-- Header -->
+  <div class="app-header">
+    <h3 class="app-title">🎯 Recruiter Dashboard</h3>
+  </div>
+
+  <!-- Signed-out banner -->
+  <div id="signedOutBanner" class="card signed-out-banner hidden">
+    <div class="d-flex align-items-center justify-between gap-2">
+      <div>
+        <div class="signed-out-title">Sign in to start recruiting</div>
+        <div class="signed-out-sub">Source candidates, extract profiles, and match them to jobs.</div>
+      </div>
+      <button id="loginButton" class="btn btn-primary btn-sm">Sign in</button>
+    </div>
+  </div>
+
+  <!-- Profile chip -->
+  <div id="profileCard" class="card profile-card hidden">
+    <div class="d-flex align-items-center justify-between">
+      <div class="profile-id">
+        <div class="d-flex align-items-center gap-2">
+          <span id="profileName" class="profile-name">Signed in</span>
+          <span id="profileRole" class="role-badge hidden"></span>
+        </div>
+        <div id="profileEmail" class="profile-email"></div>
+        <button id="profileUpgradeButton" class="btn-upgrade-profile hidden">⭐ Upgrade</button>
+      </div>
+      <div class="d-flex gap-2">
+        <a id="openProfileLink" href="#" class="btn btn-outline btn-sm">Profile</a>
+        <button id="signOutButton" class="btn btn-outline btn-sm">Sign out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Studio quick-launch — opens the web Studio in a new tab pre-armed
+       for one-scene promo capture. Click handler + dismiss persistence
+       live in shared capture-launcher.js (self-gated by element ids). -->
+  <div id="studioQuickLaunch" class="card studio-quick-launch">
+    <button id="dismissPromoCaptureButton" class="icon-btn studio-quick-launch-dismiss" type="button" title="Hide this panel" aria-label="Hide promo recorder">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <button id="launchPromoCaptureButton" class="btn btn-primary btn-block" type="button" title="Open Studio with screen capture pre-armed">
+      🎬 Record promo video
+    </button>
+  </div>
+
+  <!-- Tab strip -->
+  <div class="tab-strip" role="tablist">
+    <button id="tabNowButton" class="tab-button tab-active" role="tab" aria-selected="true" data-tab="now">
+      ⚡ Now
+    </button>
+    <button id="tabPipelineButton" class="tab-button" role="tab" aria-selected="false" data-tab="pipeline">
+      📋 Pipeline
+    </button>
+    <button id="tabTrackedButton" class="tab-button" role="tab" aria-selected="false" data-tab="tracked">
+      🔖 Tracked <span id="trackedJobsCountBadge" class="badge badge-inline hidden">0</span>
+    </button>
+    <button id="tabCandidatesButton" class="tab-button" role="tab" aria-selected="false" data-tab="candidates">
+      👤 Candidates
+    </button>
+    <button id="tabCompaniesButton" class="tab-button" role="tab" aria-selected="false" data-tab="companies">
+      🏢 Companies
+    </button>
+    <button id="tabSettingsButton" class="tab-button" role="tab" aria-selected="false" data-tab="settings">
+      ⚙️ Settings
+    </button>
+  </div>
+
+  <!-- ======================== NOW TAB ======================== -->
+  <div id="tabNow" class="tab-content tab-visible" role="tabpanel">
+
+    <!-- Job detected banner -->
+    <div id="jobDetectedBanner" class="card detection-banner hidden">
+      <div class="detection-icon">📌</div>
+      <div class="detection-info">
+        <div id="jobDetectedTitle" class="detection-title">Job detected</div>
+        <div id="jobDetectedCompany" class="detection-sub"></div>
+      </div>
+      <div class="detection-actions">
+        <button id="extractJobButton" class="btn btn-primary btn-sm">Extract Job</button>
+        <button id="shareJobButton" class="btn btn-outline btn-sm">📤 Share</button>
+      </div>
+    </div>
+
+    <!-- List view detected — bulk capture (gap #1358) -->
+    <div id="listViewDetectedBanner" class="card detection-banner hidden">
+      <div class="detection-icon">📋</div>
+      <div class="detection-info">
+        <div id="listViewDetectedTitle" class="detection-title">Search results detected</div>
+        <div id="listViewDetectedSub" class="detection-sub"></div>
+      </div>
+      <button id="bulkCaptureButton" class="btn btn-primary btn-sm">Capture all</button>
+    </div>
+
+    <!-- Profile detected banner -->
+    <div id="profileDetectedBanner" class="card detection-banner hidden">
+      <div class="detection-icon">👤</div>
+      <div class="detection-info">
+        <div id="profileDetectedName" class="detection-title">Profile detected</div>
+        <div id="profileDetectedTitle" class="detection-sub"></div>
+      </div>
+      <button id="extractProfileButton" class="btn btn-primary btn-sm">Extract Profile</button>
+    </div>
+
+    <!-- Company detected banner -->
+    <div id="companyDetectedBanner" class="card detection-banner hidden">
+      <div class="detection-icon">🏢</div>
+      <div class="detection-info">
+        <div id="companyDetectedName" class="detection-title">Company detected</div>
+        <div id="companyDetectedIndustry" class="detection-sub"></div>
+      </div>
+      <button id="extractCompanyButton" class="btn btn-primary btn-sm">Extract Company</button>
+    </div>
+
+    <!-- Pro gate for auto-detect -->
+    <div id="autoDetectUpgrade" class="card hidden">
+      <div class="d-flex align-items-center gap-2">
+        <span>⭐</span>
+        <div>
+          <div class="text-sm font-medium">Auto-detect profiles & companies</div>
+          <div class="text-xs text-muted">Upgrade to automatically detect candidates and companies as you browse.</div>
+        </div>
+        <button id="upgradeAutoDetectButton" class="btn btn-outline btn-sm">Upgrade</button>
+      </div>
+    </div>
+
+    <!-- Manual scan + interactive picker (gap #946).
+         Three picker variants — the recruiter chooses which surface (job /
+         profile / company) they're trying to capture from. Each opens the
+         same shared content-script-picker in the matching mode. -->
+    <div class="card">
+      <button id="scanPageButton" class="btn btn-outline btn-block">🔍 Scan this page</button>
+      <div class="d-flex gap-1 mt-2">
+        <button id="openPickerButton" class="btn btn-outline btn-xs" data-picker-mode="job" title="Open in-page picker for a job posting">🪄 Pick job</button>
+        <button id="openPickerProfileButton" class="btn btn-outline btn-xs" data-picker-mode="profile" title="Open in-page picker for a candidate profile">🪄 Pick profile</button>
+        <button id="openPickerCompanyButton" class="btn btn-outline btn-xs" data-picker-mode="company" title="Open in-page picker for a company page">🪄 Pick company</button>
+      </div>
+    </div>
+
+    <!-- Extraction result -->
+    <div id="extractionResult" class="card hidden">
+      <div id="extractionResultContent"></div>
+    </div>
+
+    <!-- Loading indicator -->
+    <div id="extractionLoading" class="card hidden">
+      <div class="d-flex align-items-center justify-center gap-2">
+        <div class="spinner"></div>
+        <span id="extractionLoadingText">Extracting...</span>
+      </div>
+    </div>
+
+    <!-- Recent activity feed -->
+    <div class="card">
+      <h4 class="card-title">Recent Activity</h4>
+      <div id="recentActivity">
+        <div class="text-muted text-sm">No recent activity. Start by extracting a job or profile from the current page.</div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ======================== PIPELINE TAB ======================== -->
+  <div id="tabPipeline" class="tab-content" role="tabpanel">
+
+    <div class="card">
+      <div class="d-flex align-items-center justify-between">
+        <h4 class="card-title">Candidate Pipeline</h4>
+        <div class="d-flex gap-2">
+          <select id="pipelineJobFilter" class="form-select form-select-sm">
+            <option value="">All Jobs</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- Pipeline columns -->
+    <div id="pipelineBoard" class="pipeline-board">
+      <div class="pipeline-column" data-stage="sourced">
+        <div class="pipeline-header">
+          <span class="pipeline-stage-name">Sourced</span>
+          <span id="countSourced" class="pipeline-count">0</span>
+        </div>
+        <div id="stageSourced" class="pipeline-cards"></div>
+      </div>
+      <div class="pipeline-column" data-stage="contacted">
+        <div class="pipeline-header">
+          <span class="pipeline-stage-name">Contacted</span>
+          <span id="countContacted" class="pipeline-count">0</span>
+        </div>
+        <div id="stageContacted" class="pipeline-cards"></div>
+      </div>
+      <div class="pipeline-column" data-stage="screening">
+        <div class="pipeline-header">
+          <span class="pipeline-stage-name">Screening</span>
+          <span id="countScreening" class="pipeline-count">0</span>
+        </div>
+        <div id="stageScreening" class="pipeline-cards"></div>
+      </div>
+      <div class="pipeline-column" data-stage="interview">
+        <div class="pipeline-header">
+          <span class="pipeline-stage-name">Interview</span>
+          <span id="countInterview" class="pipeline-count">0</span>
+        </div>
+        <div id="stageInterview" class="pipeline-cards"></div>
+      </div>
+      <div class="pipeline-column" data-stage="offer">
+        <div class="pipeline-header">
+          <span class="pipeline-stage-name">Offer</span>
+          <span id="countOffer" class="pipeline-count">0</span>
+        </div>
+        <div id="stageOffer" class="pipeline-cards"></div>
+      </div>
+      <div class="pipeline-column" data-stage="placed">
+        <div class="pipeline-header">
+          <span class="pipeline-stage-name">Placed</span>
+          <span id="countPlaced" class="pipeline-count">0</span>
+        </div>
+        <div id="stagePlaced" class="pipeline-cards"></div>
+      </div>
+    </div>
+
+    <div id="pipelineLoading" class="card hidden">
+      <div class="d-flex align-items-center justify-center gap-2">
+        <div class="spinner"></div>
+        <span>Loading pipeline...</span>
+      </div>
+    </div>
+
+    <div id="pipelineEmpty" class="card hidden">
+      <div class="text-muted text-sm text-center">No candidates in pipeline yet. Extract a profile to get started.</div>
+    </div>
+
+  </div>
+
+  <!-- ======================== TRACKED JOBS TAB (gap #677) ====================
+       Recruiter-side parity with the jobseeker tracked-jobs surface.
+       Reads /api/jobs/saved, listens for `tracked-job-changed` so saving
+       a job from the web reflects here. Per-row actions are recruiter-
+       relevant only: open source URL, share with a candidate (existing
+       flow), and score candidates against the job. -->
+  <div id="tabTracked" class="tab-content" role="tabpanel">
+    <div class="card">
+      <div class="d-flex align-items-center justify-between">
+        <h4 class="card-title">Tracked jobs</h4>
+        <input id="trackedJobsSearch" type="text" class="form-control form-control-sm" placeholder="Search…" style="max-width:140px">
+      </div>
+    </div>
+
+    <div id="trackedJobsList" class="tracked-jobs-list"></div>
+
+    <div id="trackedJobsLoading" class="card hidden">
+      <div class="d-flex align-items-center justify-center gap-2">
+        <div class="spinner"></div>
+        <span>Loading tracked jobs...</span>
+      </div>
+    </div>
+
+    <div id="trackedJobsEmpty" class="card hidden">
+      <div class="text-muted text-sm text-center">No tracked jobs yet. Click the 🔖 Save icon on any job at hired.video to track it here.</div>
+    </div>
+  </div>
+
+  <!-- ======================== CANDIDATES TAB ======================== -->
+  <div id="tabCandidates" class="tab-content" role="tabpanel">
+
+    <div class="card">
+      <div class="d-flex align-items-center justify-between">
+        <h4 class="card-title">Talent Pool</h4>
+        <span id="candidateCount" class="badge">0</span>
+      </div>
+      <input id="candidateSearch" type="text" class="form-control form-control-sm" placeholder="Search candidates...">
+    </div>
+
+    <div id="candidateList" class="candidate-list"></div>
+
+    <div id="candidatesLoading" class="card hidden">
+      <div class="d-flex align-items-center justify-center gap-2">
+        <div class="spinner"></div>
+        <span>Loading candidates...</span>
+      </div>
+    </div>
+
+    <div id="candidatesEmpty" class="card hidden">
+      <div class="text-muted text-sm text-center">No candidates yet. Browse to a LinkedIn profile and extract it.</div>
+    </div>
+
+    <!-- Candidate detail slide-out -->
+    <div id="candidateDetail" class="slide-panel hidden">
+      <div class="slide-panel-header">
+        <button id="closeCandidateDetail" class="btn btn-outline btn-sm">← Back</button>
+        <h4 id="candidateDetailName" class="card-title"></h4>
+      </div>
+      <div id="candidateDetailContent" class="slide-panel-content"></div>
+    </div>
+
+  </div>
+
+  <!-- ======================== COMPANIES TAB ======================== -->
+  <div id="tabCompanies" class="tab-content" role="tabpanel">
+
+    <div class="card">
+      <div class="d-flex align-items-center justify-between">
+        <h4 class="card-title">Companies</h4>
+        <span id="companyCount" class="badge">0</span>
+      </div>
+      <input id="companySearch" type="text" class="form-control form-control-sm" placeholder="Search companies...">
+    </div>
+
+    <div id="companyList" class="company-list"></div>
+
+    <div id="companiesLoading" class="card hidden">
+      <div class="d-flex align-items-center justify-center gap-2">
+        <div class="spinner"></div>
+        <span>Loading companies...</span>
+      </div>
+    </div>
+
+    <div id="companiesEmpty" class="card hidden">
+      <div class="text-muted text-sm text-center">No companies yet. Browse to a LinkedIn company page and extract it.</div>
+    </div>
+
+  </div>
+
+  <!-- ======================== SETTINGS TAB ======================== -->
+  <div id="tabSettings" class="tab-content" role="tabpanel">
+
+    <div class="card settings-sync-card">
+      <div class="d-flex align-items-center justify-between gap-2">
+        <div>
+          <div class="card-title">🔗 Synced with hired.video/settings</div>
+          <div class="card-subtitle">
+            These preferences live alongside the rest of your account settings
+            on hired.video. Changes sync both ways.
+          </div>
+        </div>
+        <a id="openWebSettingsLink" href="#" class="btn btn-outline btn-sm" target="_blank" rel="noopener noreferrer">
+          Manage on web ↗
+        </a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4 class="card-title">Detection Settings</h4>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Auto-detect jobs <span class="badge badge-premium">PRO</span></div>
+          <div class="setting-desc">Show a banner when a job posting is detected on the page.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settingAutoDetectJobs">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Auto-detect profiles <span class="badge badge-premium">PRO</span></div>
+          <div class="setting-desc">Automatically detect candidate profiles on LinkedIn, Indeed, etc.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settingAutoDetectProfiles">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Auto-detect companies <span class="badge badge-premium">PRO</span></div>
+          <div class="setting-desc">Automatically detect company pages on LinkedIn, Glassdoor, etc.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settingAutoDetectCompanies">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Auto-score matches <span class="badge badge-premium">PRO</span></div>
+          <div class="setting-desc">Automatically score candidates against jobs when extracted.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settingAutoScore">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4 class="card-title">Voice calls</h4>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Call via hired.video <span class="badge badge-premium">PRO</span></div>
+          <div class="setting-desc">Route phone clicks through your hired.video business number so calls are recorded and logged automatically. Falls back to the OS dialer when off.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settingCallViaHiredVideo">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+      <div id="callerIdRow" class="setting-row hidden">
+        <div class="setting-info">
+          <div class="setting-label">Caller ID</div>
+          <div class="setting-desc">Which of your provisioned numbers to dial from.</div>
+        </div>
+        <select id="settingCallerIdNumber" class="form-select form-select-sm"></select>
+      </div>
+    </div>
+
+    <!-- Privacy — telemetry opt-out. The toggle lives in chrome.storage.local
+         under `recruiterSettings.telemetryOptOut` AND syncs to the server's
+         `recruiter.telemetryOptOut` slice. The shared extension-telemetry.js
+         consults this flag before `record()`; flipping it stops all event
+         emission immediately. Mirrors the jobseeker's privacy toggle so
+         both extensions have parity on data-collection consent. -->
+    <div class="card">
+      <h4 class="card-title">Privacy</h4>
+      <div class="setting-row">
+        <div class="setting-info">
+          <div class="setting-label">Don't share anonymous usage</div>
+          <div class="setting-desc">By default we collect anonymous detection-failure events + manual picker captures so we can teach the extension to auto-detect more sites. Tick this to opt out — no telemetry events will be sent.</div>
+        </div>
+        <label class="toggle">
+          <input type="checkbox" id="settingTelemetryOptOut">
+          <span class="toggle-slider"></span>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h4 class="card-title">Account</h4>
+      <div class="d-flex gap-2">
+        <a id="settingsProfileLink" href="#" class="btn btn-outline btn-sm btn-block">Open hired.video</a>
+        <button id="settingsSignOutButton" class="btn btn-outline btn-sm btn-block">Sign out</button>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- ======================== UNIVERSAL TARGET PICKER ========================
+       Single picker used by every "where do you want to put this candidate?"
+       flow: add-to-job (gap shipped earlier), add-to-list (#1360), add-to-
+       call-queue (#1360), enroll-in-sequence (#1357). The opener fills in
+       its own title, item list, and submit handler so we don't have N
+       copies of the same picker DOM. -->
+  <div id="targetPickerPanel" class="slide-panel hidden">
+    <div class="slide-panel-header">
+      <button id="closeTargetPickerPanel" class="btn btn-outline btn-sm">← Back</button>
+      <h4 id="targetPickerTitle" class="card-title">Add candidate</h4>
+    </div>
+    <div class="slide-panel-content">
+      <div id="targetPickerCandidatePreview" class="card share-job-preview"></div>
+      <input id="targetPickerSearch" type="text" class="form-control form-control-sm" placeholder="Filter…">
+      <div id="targetPickerList" class="candidate-picker-list"></div>
+      <div id="targetPickerEmpty" class="text-muted text-sm text-center p-2 hidden"></div>
+      <div id="targetPickerLoading" class="d-flex align-items-center justify-center gap-2 p-2 hidden">
+        <div class="spinner"></div>
+        <span class="text-sm text-muted">Loading…</span>
+      </div>
+      <div id="targetPickerCreate" class="card hidden">
+        <label class="setting-label" id="targetPickerCreateLabel">Or create new</label>
+        <div class="d-flex gap-1">
+          <input id="targetPickerCreateName" type="text" class="form-control form-control-sm" placeholder="Name">
+          <button id="targetPickerCreateButton" class="btn btn-primary btn-sm">+ Create</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== LOG INTERACTION PANEL ========================
+       Manual activity logging (call / email / SMS / note / meeting) — the
+       extension auto-logs extraction + share events too. -->
+  <div id="logInteractionPanel" class="slide-panel hidden">
+    <div class="slide-panel-header">
+      <button id="closeLogInteractionPanel" class="btn btn-outline btn-sm">← Back</button>
+      <h4 id="logInteractionTitle" class="card-title">Log activity</h4>
+    </div>
+    <div class="slide-panel-content">
+      <div class="card">
+        <label class="setting-label">Type</label>
+        <select id="logInteractionType" class="form-select form-select-sm">
+          <option value="call">📞 Call</option>
+          <option value="email">📧 Email</option>
+          <option value="sms">💬 SMS</option>
+          <option value="note">📝 Note</option>
+          <option value="meeting">🗓️ Meeting</option>
+          <option value="linkedin_message">in LinkedIn message</option>
+        </select>
+      </div>
+      <div class="card">
+        <label class="setting-label">Subject</label>
+        <input id="logInteractionSubject" type="text" class="form-control form-control-sm" placeholder="e.g. Initial outreach about Sr. Frontend role">
+      </div>
+      <div class="card">
+        <label class="setting-label">Notes / outcome</label>
+        <textarea id="logInteractionNotes" class="form-control" rows="4" placeholder="What did you discuss? Any follow-ups?"></textarea>
+      </div>
+      <div class="card">
+        <label class="setting-checkbox">
+          <input type="checkbox" id="logInteractionFollowUp">
+          <span>Requires follow-up</span>
+        </label>
+      </div>
+      <div class="d-flex gap-2">
+        <button id="saveLogInteractionButton" class="btn btn-primary btn-sm btn-block">Save activity</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== CANDIDATE PICKER (for Share Job) ======================== -->
+  <div id="candidatePickerPanel" class="slide-panel hidden">
+    <div class="slide-panel-header">
+      <button id="closeCandidatePicker" class="btn btn-outline btn-sm">← Back</button>
+      <h4 class="card-title">Share Job with Candidate</h4>
+    </div>
+    <div class="slide-panel-content">
+      <div id="shareJobPreview" class="card share-job-preview"></div>
+      <input id="candidatePickerSearch" type="text" class="form-control form-control-sm" placeholder="Search candidates...">
+      <div id="candidatePickerList" class="candidate-picker-list"></div>
+      <div id="candidatePickerEmpty" class="text-muted text-sm text-center p-2 hidden">
+        No candidates in your talent pool yet. Extract a profile first.
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================== MESSAGE SLIDE-OUT ======================== -->
+  <div id="messagePanel" class="slide-panel hidden">
+    <div class="slide-panel-header">
+      <button id="closeMessagePanel" class="btn btn-outline btn-sm">← Back</button>
+      <h4 id="messagePanelTitle" class="card-title">Message</h4>
+    </div>
+    <div id="messagePanelContent" class="slide-panel-content">
+      <div id="messageThreadLoading" class="d-flex align-items-center justify-center gap-2 p-2 hidden">
+        <div class="spinner"></div>
+        <span class="text-sm text-muted">Loading messages...</span>
+      </div>
+      <div id="messageThread" class="message-thread"></div>
+      <div id="messageCompose" class="message-compose">
+        <div id="messageAttachment" class="message-attachment hidden"></div>
+        <textarea id="messageInput" class="form-control" rows="3" placeholder="Type a message..."></textarea>
+        <div class="message-compose-actions">
+          <button id="personalizeMessageButton" class="btn btn-outline btn-xs" title="AI-personalize this message">✨ Personalize</button>
+          <button id="sendMessageButton" class="btn btn-primary btn-sm">Send</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Footer -->
+  <div class="fixed-bottom">
+    <a id="versionFooter" class="version-footer" target="_blank" rel="noopener" title="View on Chrome Web Store" href="#"></a>
+    <div class="brand-footer">
+      Powered by
+      <a rel="noopener" href="https://hired.video" target="_blank" title="hired.video" class="brand-link">
+        <img src="imgs/brand-mark.png" alt="" height="20" width="20" class="brand-mark">
+        <span class="brand-name">hired.video</span>
+      </a>
+    </div>
+  </div>
+
+  <script src="libs/showdown.min.js"></script>
+  <script src="libs/jwt-decode.min.js"></script>
+  <script src="constants.js"></script>
+  <script src="constants-recruiter.js"></script>
+  <script src="utils.js"></script>
+  <script src="extension-telemetry.js"></script>
+  <script src="capture-launcher.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+
+</html>
