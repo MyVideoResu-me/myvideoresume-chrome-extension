@@ -19,7 +19,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { execSync } = require('child_process');
+const { execSync, execFileSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(ROOT, 'dist');
@@ -33,10 +33,12 @@ function zipDir(srcDir, zipPath) {
     execSync(`zip -qr '${zipPath}' .`, { cwd: srcDir, stdio: 'inherit' });
     return;
   }
-  // PowerShell's Compress-Archive places the contents (not the parent
-  // folder) at the ZIP root when the source pattern ends in /*.
-  const ps = `Compress-Archive -Path '${srcDir}\\*' -DestinationPath '${zipPath}' -Force`;
-  execSync(`powershell -NoProfile -Command "${ps}"`, { stdio: 'inherit' });
+  // Windows: the built-in bsdtar (System32, not Git Bash's GNU tar) writes
+  // "/" separators. PowerShell's Compress-Archive writes "\", which the
+  // Chrome Web Store rejects. Top-level names are passed so entries have
+  // no "./" prefix and manifest.json sits at the ZIP root.
+  const tar = path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'tar.exe');
+  execFileSync(tar, ['-a', '-cf', zipPath, '-C', srcDir, ...fs.readdirSync(srcDir)], { stdio: 'inherit' });
 }
 
 function release(target) {
