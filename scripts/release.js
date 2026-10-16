@@ -13,7 +13,8 @@
  *   node scripts/release.js --build      # build then zip both
  *
  * Output:
- *   dist/app.zip   (manifest.json at root — uploadable to CWS)
+ *   dist/jobseeker.zip   (the `app` target; manifest.json at root — uploaded
+ *                         to the existing Job Seeker CWS item under its old name)
  *   dist/recruiter.zip
  */
 
@@ -24,6 +25,9 @@ const { execSync, execFileSync } = require('child_process');
 const ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(ROOT, 'dist');
 const TARGETS = ['app', 'recruiter'];
+// The unified `app` ships as the existing Job Seeker store item, so its ZIP
+// keeps that listing's file name.
+const ZIP_NAME = { app: 'jobseeker', recruiter: 'recruiter' };
 
 function zipDir(srcDir, zipPath) {
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
@@ -43,7 +47,7 @@ function zipDir(srcDir, zipPath) {
 
 function release(target) {
   const srcDir = path.join(DIST_DIR, target);
-  const zipPath = path.join(DIST_DIR, `${target}.zip`);
+  const zipPath = path.join(DIST_DIR, `${ZIP_NAME[target]}.zip`);
   const manifestPath = path.join(srcDir, 'manifest.json');
 
   if (!fs.existsSync(manifestPath)) {
@@ -52,13 +56,13 @@ function release(target) {
   }
 
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf-8'));
-  console.log(`\nPacking ${target} v${manifest.version} → dist/${target}.zip`);
+  console.log(`\nPacking ${target} v${manifest.version} → dist/${ZIP_NAME[target]}.zip`);
 
   zipDir(srcDir, zipPath);
 
   const stat = fs.statSync(zipPath);
   const sizeKB = (stat.size / 1024).toFixed(1);
-  console.log(`  Created: dist/${target}.zip (${sizeKB} KB)`);
+  console.log(`  Created: dist/${ZIP_NAME[target]}.zip (${sizeKB} KB)`);
 }
 
 // ---- Main ---------------------------------------------------------------

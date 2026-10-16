@@ -75,7 +75,8 @@ jobs:
 
       - name: Build packages
         # `release.js` runs the Node build pipeline for each target and
-        # produces `dist/<target>.zip` with manifest.json at the ZIP root.
+        # produces dist/jobseeker.zip (the `app` target, named for the existing
+        # Job Seeker store item) and dist/recruiter.zip, manifest.json at the root.
         run: node scripts/release.js --build
 
       - name: Unit tests
@@ -83,14 +84,14 @@ jobs:
 
       - name: Verify packages exist
         run: |
-          ls -la dist/app.zip
+          ls -la dist/jobseeker.zip
           ls -la dist/recruiter.zip
 
       - name: Upload app artifact
         uses: actions/upload-artifact@v4
         with:
           name: chrome-extension-app-${{ steps.versions.outputs.app_version }}-${{ github.sha }}
-          path: dist/app.zip
+          path: dist/jobseeker.zip
           retention-days: 30
 
       - name: Upload recruiter artifact
@@ -112,9 +113,11 @@ jobs:
         run: |
           if [[ "${GITHUB_REF}" == refs/tags/chrome-ext-app-v* ]]; then
             echo "name=app" >> "$GITHUB_OUTPUT"
+            echo "zip=jobseeker" >> "$GITHUB_OUTPUT"
             echo "version=${{ needs.build.outputs.app_version }}" >> "$GITHUB_OUTPUT"
           else
             echo "name=recruiter" >> "$GITHUB_OUTPUT"
+            echo "zip=recruiter" >> "$GITHUB_OUTPUT"
             echo "version=${{ needs.build.outputs.recruiter_version }}" >> "$GITHUB_OUTPUT"
           fi
 
@@ -126,7 +129,7 @@ jobs:
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: ${{ steps.target.outputs.name }}.zip
+          files: ${{ steps.target.outputs.zip }}.zip
           generate_release_notes: true
 
   # The unified app publishes to the EXISTING job-seeker store item, so
@@ -156,7 +159,7 @@ jobs:
       - name: Upload package to Chrome Web Store
         run: |
           chrome-webstore-upload upload \
-            --source app.zip \
+            --source jobseeker.zip \
             --extension-id "${{ secrets.CHROME_EXTENSION_ID_JOBSEEKER }}" \
             --client-id "${{ secrets.CHROME_CLIENT_ID }}" \
             --client-secret "${{ secrets.CHROME_CLIENT_SECRET }}" \

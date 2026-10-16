@@ -48,6 +48,15 @@ describe("app locale catalogs", () => {
     });
   }
 
+  // Chrome Web Store upload limits for the localized manifest fields.
+  for (const lang of LANGS) {
+    it(`${lang}: manifest name ≤ 75 and description ≤ 132 characters`, () => {
+      const cat = read(lang);
+      assert.ok(cat.extName.message.length <= 75, `${lang}.extName is ${cat.extName.message.length}`);
+      assert.ok(cat.extDescription.message.length <= 132, `${lang}.extDescription is ${cat.extDescription.message.length}`);
+    });
+  }
+
   it("manifest messages exist", () => {
     const manifest = fs.readFileSync(path.join(APP, "manifest.json"), "utf8");
     for (const m of manifest.matchAll(/__MSG_(\w+)__/g)) assert.ok(en[m[1]], `manifest key ${m[1]}`);
