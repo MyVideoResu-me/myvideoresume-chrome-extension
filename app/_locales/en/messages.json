@@ -90,7 +90,7 @@
     "message": "Prospects + posts: pitch videos, video replies"
   },
   "lens_footnote": {
-    "message": "Starts from your account role. Switch any time."
+    "message": "Lens follows your account role. Switch any time."
   },
   "account_menu": {
     "message": "Account"
@@ -106,9 +106,6 @@
   },
   "menu_resumes": {
     "message": "My résumés"
-  },
-  "menu_showPill": {
-    "message": "Show the pill on pages"
   },
   "menu_openSite": {
     "message": "Open hired.video"
@@ -204,7 +201,7 @@
     "message": "Tailor my résumé"
   },
   "action_strengthen_hint": {
-    "message": "Fit it to this job"
+    "message": "Rewrite for this JD"
   },
   "action_coverLetter": {
     "message": "Cover letter"
@@ -222,7 +219,7 @@
     "message": "“Why I fit” video"
   },
   "action_promoteFit_hint": {
-    "message": "Promote it on social"
+    "message": "Promote to social"
   },
   "action_promoteResume": {
     "message": "Résumé video"
@@ -271,9 +268,6 @@
   },
   "job_tracked": {
     "message": "Tracked"
-  },
-  "job_inPipeline": {
-    "message": "In your pipeline"
   },
   "job_next": {
     "message": "Strengthen my résumé for this job"
@@ -371,12 +365,6 @@
   "strengthen_tabs": {
     "message": "Review"
   },
-  "strengthen_tabChanges": {
-    "message": "Changes · {count}"
-  },
-  "strengthen_tabQuestions": {
-    "message": "Questions · {count}"
-  },
   "strengthen_keepChange": {
     "message": "Keep this change"
   },
@@ -392,26 +380,17 @@
   "strengthen_gapExperience": {
     "message": "Answer this one in Studio."
   },
-  "strengthen_noQuestions": {
-    "message": "No open questions."
-  },
   "strengthen_addingSkills": {
     "message": "Adding: {skills}"
   },
   "strengthen_savesAs": {
-    "message": "Saves as a new version. Your master stays untouched."
-  },
-  "strengthen_save": {
-    "message": "Save version with {count} changes"
+    "message": "Saves as a new version: {title}. Master stays untouched."
   },
   "strengthen_saved": {
     "message": "Saved as “{title}”."
   },
   "strengthen_next": {
-    "message": "Next: cover letter"
-  },
-  "section_basics": {
-    "message": "Summary"
+    "message": "Next: target this job"
   },
   "section_work": {
     "message": "Experience"
@@ -449,9 +428,6 @@
   "cover_title": {
     "message": "Cover letter"
   },
-  "cover_resume": {
-    "message": "Using {resume}"
-  },
   "cover_intro_title": {
     "message": "A letter for this job"
   },
@@ -471,7 +447,7 @@
     "message": "Your letter"
   },
   "cover_regenerate": {
-    "message": "Write again"
+    "message": "Regenerate"
   },
   "cover_next": {
     "message": "Next: apply"
@@ -479,20 +455,11 @@
   "tone_warm": {
     "message": "Warm"
   },
-  "tone_confident": {
-    "message": "Confident"
-  },
   "tone_formal": {
     "message": "Formal"
   },
-  "tone_brief": {
-    "message": "Brief"
-  },
   "apply_title": {
     "message": "Apply"
-  },
-  "apply_intro": {
-    "message": "Open the application form on this page. We fill what your résumé covers; you check it and submit."
   },
   "apply_usesResume": {
     "message": "Résumé: {resume}"
@@ -507,16 +474,7 @@
     "message": "Application form"
   },
   "apply_ready": {
-    "message": "{ready} of {total} filled"
-  },
-  "apply_rowFilled": {
-    "message": "Filled"
-  },
-  "apply_rowSkipped": {
-    "message": "Left as is"
-  },
-  "apply_rowYours": {
-    "message": "Yours to answer"
+    "message": "{ready} of {total} ready"
   },
   "apply_rowError": {
     "message": "Couldn’t fill"
@@ -531,10 +489,7 @@
     "message": "Fill again"
   },
   "apply_youSubmit": {
-    "message": "You review and press Submit — we never submit for you."
-  },
-  "apply_markApplied": {
-    "message": "I submitted it — mark Applied"
+    "message": "You review and press Submit. We mark the job Applied when you do."
   },
   "apply_marked": {
     "message": "Marked as applied."
@@ -557,9 +512,6 @@
   "video_rewrite": {
     "message": "Write it again"
   },
-  "video_renderInStudio": {
-    "message": "Open it in Studio to render — it only takes a minute."
-  },
   "video_openStudio": {
     "message": "Render in Studio"
   },
@@ -573,7 +525,7 @@
     "message": "Waiting for the video…"
   },
   "video_rendersInBrowser": {
-    "message": "Videos render in your browser on hired.video."
+    "message": "Renders in your browser on hired.video."
   },
   "video_ready": {
     "message": "Your video is ready."
@@ -653,9 +605,6 @@
   "outreach_needPair": {
     "message": "Save a candidate and pick a job first."
   },
-  "outreach_context": {
-    "message": "Share the {job} role at {company} ({location}). Their skills: {skills}. Their background: {summary}. Be specific about why their experience fits; keep it short and human."
-  },
   "outreach_logSubject": {
     "message": "Intro: {job}"
   },
@@ -702,7 +651,7 @@
     "message": "Unlisted: only people with the link can watch. Name and employers shown."
   },
   "candidateVideo_anonymizedHint": {
-    "message": "Unlisted, and the name and employer names are left out — for a blind shortlist."
+    "message": "Unlisted. Hides the name, photo and employer names for a blind shortlist."
   },
   "candidateVideo_name": {
     "message": "{name} for {job}"
@@ -734,9 +683,6 @@
   "message_count": {
     "message": "{count} / {max}"
   },
-  "message_fillBox": {
-    "message": "Put it in the message box"
-  },
   "message_fillReply": {
     "message": "Put it in the reply box"
   },
@@ -756,10 +702,10 @@
     "message": "Email"
   },
   "channel_linkedinNote": {
-    "message": "Connection note"
+    "message": "LinkedIn note"
   },
   "channel_linkedinMessage": {
-    "message": "Message"
+    "message": "InMail"
   },
   "channel_reply": {
     "message": "Reply"
@@ -774,7 +720,7 @@
     "message": "Open the person’s profile first."
   },
   "prospect_skills": {
-    "message": "Skills to feature"
+    "message": "Skills to feature · from your résumé"
   },
   "prospect_noSkills": {
     "message": "Your résumé lists no skills yet."
@@ -783,13 +729,10 @@
     "message": "For {name}"
   },
   "prospect_prompt": {
-    "message": "A 40-second personal video for {name} ({title}, {company}): how my skills in {skills} solve problems someone in their role has. Address them by name, stay specific, end with a light ask for a short call."
+    "message": "A 40-second personal video for {name} ({title}, {company}): how my skills in {skills} solve problems someone in their role has. Speak to what their profile shows: {signals}. Address them by name, stay specific, end with a light ask for a short call."
   },
   "prospect_context": {
-    "message": "I made a short video for them about how my skills in {skills} help a {title} at {company}. One personal, specific message — no hard sell."
-  },
-  "prospect_sentToday": {
-    "message": "Sent today: {count}. One person at a time, by hand."
+    "message": "I made a short video for them about how my skills in {skills} help a {title} at {company}. From their profile: {signals}. One personal, specific message — no hard sell."
   },
   "reply_title": {
     "message": "Video reply"
@@ -904,5 +847,875 @@
   },
   "pill_dismiss": {
     "message": "Hide on this page"
+  },
+  "action_profileImprove": {
+    "message": "Improve my résumé from this profile"
+  },
+  "action_profileImprove_hint": {
+    "message": "Ideas from their profile — you confirm each"
+  },
+  "action_profileImportOwn": {
+    "message": "Import my profile"
+  },
+  "action_profileImportOwn_hint": {
+    "message": "Bring it into your master résumé"
+  },
+  "candidate_pick": {
+    "message": "Pick on the page"
+  },
+  "candidate_fitLabel": {
+    "message": "{score}% fit"
+  },
+  "candidate_moreJobs": {
+    "message": "Show {count} more"
+  },
+  "candidate_otherTab": {
+    "message": "Use job from another tab"
+  },
+  "candidate_otherTabNone": {
+    "message": "None of your other tabs shows a job posting."
+  },
+  "candidate_scoring": {
+    "message": "Scoring fit…"
+  },
+  "candidate_tailorResume": {
+    "message": "Tailor résumé"
+  },
+  "candidateVideo_copyLink": {
+    "message": "Copy link for hiring manager"
+  },
+  "candidateVideo_view": {
+    "message": "View"
+  },
+  "candidateVideo_diff": {
+    "message": "Diff"
+  },
+  "candidateVideo_script": {
+    "message": "Script"
+  },
+  "candidateVideo_makePublic": {
+    "message": "Make it public"
+  },
+  "candidateVideo_public": {
+    "message": "Public post"
+  },
+  "candidateVideo_publicHint": {
+    "message": "Sends {name} an approval request first. Posts only after yes."
+  },
+  "candidateVideo_publicAfterRender": {
+    "message": "It’s public. Once the video has rendered, post it from here."
+  },
+  "candidateVideo_tailoredCount": {
+    "message": "Tailored to the job · {count} changes"
+  },
+  "candidateVideo_videoStep": {
+    "message": "Video · {seconds}s"
+  },
+  "consent_pending": {
+    "message": "Pending"
+  },
+  "consent_approved": {
+    "message": "Approved"
+  },
+  "consent_declined": {
+    "message": "Declined"
+  },
+  "consent_expired": {
+    "message": "Expired"
+  },
+  "consent_revoked": {
+    "message": "Withdrawn"
+  },
+  "consent_approvedHint": {
+    "message": "{name} said yes. You can make it public and post it."
+  },
+  "consent_email": {
+    "message": "Candidate’s email"
+  },
+  "consent_explain": {
+    "message": "{name} gets an email to approve this video before it’s posted. Nothing goes public until they say yes."
+  },
+  "consent_needProject": {
+    "message": "Write the script and open it in Studio first — the request links to the video."
+  },
+  "consent_note": {
+    "message": "Note to the candidate (optional)"
+  },
+  "consent_resend": {
+    "message": "Resend"
+  },
+  "consent_send": {
+    "message": "Ask for approval"
+  },
+  "consent_sentTo": {
+    "message": "Asked {email}"
+  },
+  "chain_writing": {
+    "message": "Writing the video and message…"
+  },
+  "chain_saving": {
+    "message": "Opening Studio to render…"
+  },
+  "chain_rendering": {
+    "message": "Rendering in Studio…"
+  },
+  "chain_backToPage": {
+    "message": "Go back to the page — we’ll fill the box there"
+  },
+  "chain_filling": {
+    "message": "Filling the box…"
+  },
+  "render_none": {
+    "message": "Not written yet"
+  },
+  "render_script": {
+    "message": "Script ready"
+  },
+  "render_rendering": {
+    "message": "Rendering in Studio"
+  },
+  "render_ready": {
+    "message": "Ready"
+  },
+  "render_watch": {
+    "message": "Watch the video"
+  },
+  "videoMeta_square": {
+    "message": "Square"
+  },
+  "videoMeta_vertical": {
+    "message": "Vertical"
+  },
+  "videoMeta_landscape": {
+    "message": "Landscape"
+  },
+  "videoMeta_seconds": {
+    "message": "{seconds}s"
+  },
+  "videoMeta_captions": {
+    "message": "captions on"
+  },
+  "message_fillLinkedIn": {
+    "message": "Put it in LinkedIn’s message box"
+  },
+  "message_noteCap": {
+    "message": "Connection notes cap at {max} characters"
+  },
+  "message_capReached": {
+    "message": "You’ve reached today’s limit. Pick this up tomorrow — one person at a time keeps it personal."
+  },
+  "outreach_contextBase": {
+    "message": "Share the {job} role at {company} ({location}). Be specific about why their experience fits; keep it short and human."
+  },
+  "outreach_contextFacts": {
+    "message": "Personalize it with: {facts}."
+  },
+  "outreach_personalizedFrom": {
+    "message": "Personalized from"
+  },
+  "outreach_attachCandidateVideo": {
+    "message": "Their candidate-for-job video"
+  },
+  "outreach_attachJobPage": {
+    "message": "Job page"
+  },
+  "outreach_attachNone": {
+    "message": "No link"
+  },
+  "outreach_attachChange": {
+    "message": "Change"
+  },
+  "outreach_attachChangeLabel": {
+    "message": "Change attachment"
+  },
+  "prospect_badge": {
+    "message": "Prospect"
+  },
+  "prospect_signals": {
+    "message": "From their profile"
+  },
+  "prospect_reading": {
+    "message": "Reading their profile…"
+  },
+  "prospect_sentOfCap": {
+    "message": "Sent today: {count} of your {cap}. One person at a time, by hand."
+  },
+  "prospect_renderAndFill": {
+    "message": "Render video & fill LinkedIn message"
+  },
+  "prospect_youSend": {
+    "message": "You read it and press Send. Replies land in your inbox."
+  },
+  "reply_opensWith": {
+    "message": "Opens with {author}’s question on screen"
+  },
+  "reply_renderAndFill": {
+    "message": "Render & fill the reply box"
+  },
+  "reply_text": {
+    "message": "Reply text"
+  },
+  "reply_youSend": {
+    "message": "You press Reply. The link shows the video with a preview card."
+  },
+  "field_name": {
+    "message": "Name"
+  },
+  "field_label": {
+    "message": "Headline"
+  },
+  "field_email": {
+    "message": "Email"
+  },
+  "field_phone": {
+    "message": "Phone"
+  },
+  "field_url": {
+    "message": "Link"
+  },
+  "field_summary": {
+    "message": "Summary"
+  },
+  "field_location": {
+    "message": "Location"
+  },
+  "field_position": {
+    "message": "Title"
+  },
+  "field_startDate": {
+    "message": "Start date"
+  },
+  "field_endDate": {
+    "message": "End date"
+  },
+  "field_institution": {
+    "message": "School"
+  },
+  "field_area": {
+    "message": "Field of study"
+  },
+  "field_studyType": {
+    "message": "Degree"
+  },
+  "field_other": {
+    "message": "Other details"
+  },
+  "import_into": {
+    "message": "Into {title}"
+  },
+  "import_needProfile": {
+    "message": "Open a profile page first."
+  },
+  "import_whose": {
+    "message": "Whose profile is this?"
+  },
+  "import_whoseMine": {
+    "message": "Mine"
+  },
+  "import_whoseTheirs": {
+    "message": "Someone else’s"
+  },
+  "import_ownIntro": {
+    "message": "We read your profile and show what’s new or different from your master. Nothing changes until you save."
+  },
+  "import_read": {
+    "message": "Read my profile"
+  },
+  "import_unsupported": {
+    "message": "We can’t import from this site yet."
+  },
+  "import_nothingNew": {
+    "message": "Your résumé already has everything on this profile."
+  },
+  "import_newItems": {
+    "message": "New on your profile · {count}"
+  },
+  "import_untitled": {
+    "message": "Untitled entry"
+  },
+  "import_maybeMisplaced": {
+    "message": "This may belong in another section — off by default."
+  },
+  "import_conflicts": {
+    "message": "Different on your profile · {count}"
+  },
+  "import_differs": {
+    "message": "Differs: {fields}"
+  },
+  "import_differsBullets": {
+    "message": "The bullets differ"
+  },
+  "import_conflictChoice": {
+    "message": "Which to keep"
+  },
+  "import_choiceCombine": {
+    "message": "Combine"
+  },
+  "import_keepMine": {
+    "message": "Keep mine"
+  },
+  "import_useProfile": {
+    "message": "Use profile"
+  },
+  "import_basics": {
+    "message": "Your details"
+  },
+  "import_mine": {
+    "message": "Mine"
+  },
+  "import_profile": {
+    "message": "Profile"
+  },
+  "import_saveAs": {
+    "message": "Save to"
+  },
+  "import_asVersion": {
+    "message": "Save as a new version"
+  },
+  "import_asVersionHint": {
+    "message": "Your master stays untouched."
+  },
+  "import_asMaster": {
+    "message": "Update my master"
+  },
+  "import_asMasterHint": {
+    "message": "Changes “{title}” itself."
+  },
+  "import_confirmMaster": {
+    "message": "I understand this changes “{title}”"
+  },
+  "import_versionName": {
+    "message": "Version name"
+  },
+  "import_versionTitle": {
+    "message": "From my {source} profile"
+  },
+  "import_saveVersion": {
+    "message": "Save new version"
+  },
+  "import_saveMaster": {
+    "message": "Update my master"
+  },
+  "import_saved": {
+    "message": "Saved as “{title}”."
+  },
+  "compare_intro": {
+    "message": "We read {name}’s profile and compare it with your master résumé. You get suggestions — nothing of theirs is copied."
+  },
+  "compare_read": {
+    "message": "Compare with my résumé"
+  },
+  "compare_neverCopy": {
+    "message": "Suggestions only. Their employers, titles, dates and bullets never go into your résumé."
+  },
+  "compare_nothing": {
+    "message": "Your résumé already covers what {name}’s profile does."
+  },
+  "compare_skills": {
+    "message": "Skills they list that you don’t · {count}"
+  },
+  "compare_haveSkill": {
+    "message": "I have this skill"
+  },
+  "compare_headline": {
+    "message": "Headline"
+  },
+  "compare_theirHeadline": {
+    "message": "Theirs"
+  },
+  "compare_myHeadline": {
+    "message": "Your headline"
+  },
+  "compare_headlineHint": {
+    "message": "Use theirs as inspiration only — write yours in your own words."
+  },
+  "compare_noSummary": {
+    "message": "Their profile opens with a summary; yours has none. Add one in Studio."
+  },
+  "compare_sections": {
+    "message": "Sections they have and you don’t"
+  },
+  "compare_addSection": {
+    "message": "Add a {section} section with your own entries"
+  },
+  "compare_addInStudio": {
+    "message": "Add in Studio"
+  },
+  "compare_numbers": {
+    "message": "Add numbers to your bullets"
+  },
+  "compare_numbersHint": {
+    "message": "{theirs}% of their bullets carry a number; {mine}% of yours do. Results with numbers read stronger."
+  },
+  "compare_versionTitle": {
+    "message": "Ideas from {name}’s profile"
+  },
+  "compare_save": {
+    "message": "Save as a new version"
+  },
+  "compare_saveHint": {
+    "message": "Only what you confirmed. Your master stays untouched."
+  },
+  "analytics_title": {
+    "message": "My progress"
+  },
+  "analytics_thisWeek": {
+    "message": "This week"
+  },
+  "analytics_tracked": {
+    "message": "Jobs tracked"
+  },
+  "analytics_applied": {
+    "message": "Applications"
+  },
+  "analytics_streak": {
+    "message": "Day streak"
+  },
+  "analytics_delta": {
+    "message": "{delta} vs last week"
+  },
+  "analytics_funnel": {
+    "message": "Your funnel"
+  },
+  "analytics_stageLabel": {
+    "message": "{stage}: {count}"
+  },
+  "analytics_conversion": {
+    "message": "Conversion"
+  },
+  "analytics_applyRate": {
+    "message": "Saved → applied"
+  },
+  "analytics_interviewRate": {
+    "message": "Applied → interview"
+  },
+  "analytics_offerRate": {
+    "message": "Interview → offer"
+  },
+  "analytics_weekly": {
+    "message": "Week by week"
+  },
+  "analytics_weekRow": {
+    "message": "{tracked} tracked · {applied} applied"
+  },
+  "analytics_ghostRate": {
+    "message": "Went quiet"
+  },
+  "analytics_totalApplied": {
+    "message": "Applications in total"
+  },
+  "analytics_totalOffers": {
+    "message": "Offers"
+  },
+  "settings_title": {
+    "message": "Settings"
+  },
+  "settings_subtitle": {
+    "message": "The same settings as on hired.video"
+  },
+  "settings_autoDetect": {
+    "message": "Detect jobs, profiles and posts"
+  },
+  "settings_autoDetect_hint": {
+    "message": "Reads each page you open so the panel knows what’s on it."
+  },
+  "settings_showPill": {
+    "message": "Show the pill on pages"
+  },
+  "settings_showPill_hint": {
+    "message": "A small bar on the page when something is detected."
+  },
+  "settings_autoScore": {
+    "message": "Check my fit right away"
+  },
+  "settings_autoScore_hint": {
+    "message": "Scores your résumé against a job as soon as you open it."
+  },
+  "settings_autoTailor": {
+    "message": "Start tailoring right away"
+  },
+  "settings_autoTailor_hint": {
+    "message": "Tailors your résumé as soon as you open Strengthen."
+  },
+  "settings_telemetryOptOut": {
+    "message": "Don’t share usage data"
+  },
+  "settings_telemetryOptOut_hint": {
+    "message": "Usage data helps us fix pages the panel reads wrong."
+  },
+  "settings_downloadFormat": {
+    "message": "Download format"
+  },
+  "settings_downloadFormat_hint": {
+    "message": "How “Download” saves your résumé. PDF is free."
+  },
+  "format_pdf": {
+    "message": "PDF"
+  },
+  "format_docx": {
+    "message": "Word (.docx)"
+  },
+  "format_md": {
+    "message": "Markdown (.md)"
+  },
+  "format_txt": {
+    "message": "Plain text (.txt)"
+  },
+  "menu_analytics": {
+    "message": "My progress"
+  },
+  "menu_settings": {
+    "message": "Settings"
+  },
+  "resumes_download": {
+    "message": "Download {format}"
+  },
+  "home_pickJob": {
+    "message": "Pick the job on the page"
+  },
+  "picker_scanning": {
+    "message": "Scanning the page for {field}…"
+  },
+  "picker_guess": {
+    "message": "My guess"
+  },
+  "picker_confirm": {
+    "message": "Yes, that’s right"
+  },
+  "picker_reject": {
+    "message": "Pick it myself"
+  },
+  "picker_skip": {
+    "message": "Skip"
+  },
+  "picker_step": {
+    "message": "Step {n} of {total}"
+  },
+  "picker_back": {
+    "message": "Back"
+  },
+  "picker_cancel": {
+    "message": "Cancel (Esc)"
+  },
+  "picker_job_title_label": {
+    "message": "Job title"
+  },
+  "picker_job_title_hint": {
+    "message": "Click the job title heading on the page."
+  },
+  "picker_job_company_label": {
+    "message": "Company"
+  },
+  "picker_job_company_hint": {
+    "message": "Click the company name."
+  },
+  "picker_job_location_label": {
+    "message": "Location"
+  },
+  "picker_job_location_hint": {
+    "message": "Click the location (city or remote)."
+  },
+  "picker_job_description_label": {
+    "message": "Description"
+  },
+  "picker_job_description_hint": {
+    "message": "Click anywhere inside the job description."
+  },
+  "picker_job_applyUrl_label": {
+    "message": "Apply button"
+  },
+  "picker_job_applyUrl_hint": {
+    "message": "Click the apply button or link. (Optional — Skip is OK.)"
+  },
+  "picker_profile_name_label": {
+    "message": "Name"
+  },
+  "picker_profile_name_hint": {
+    "message": "Click the person’s name heading."
+  },
+  "picker_profile_title_label": {
+    "message": "Headline / title"
+  },
+  "picker_profile_title_hint": {
+    "message": "Click the headline or current title."
+  },
+  "picker_profile_company_label": {
+    "message": "Current company"
+  },
+  "picker_profile_company_hint": {
+    "message": "Click the current employer’s name. (Optional — Skip is OK.)"
+  },
+  "picker_profile_location_label": {
+    "message": "Location"
+  },
+  "picker_profile_location_hint": {
+    "message": "Click the city or region. (Optional — Skip is OK.)"
+  },
+  "picker_company_name_label": {
+    "message": "Company name"
+  },
+  "picker_company_name_hint": {
+    "message": "Click the company name heading."
+  },
+  "picker_company_industry_label": {
+    "message": "Industry"
+  },
+  "picker_company_industry_hint": {
+    "message": "Click the industry label. (Optional — Skip is OK.)"
+  },
+  "picker_company_size_label": {
+    "message": "Employee count"
+  },
+  "picker_company_size_hint": {
+    "message": "Click the employee count or size. (Optional — Skip is OK.)"
+  },
+  "picker_company_location_label": {
+    "message": "Headquarters"
+  },
+  "picker_company_location_hint": {
+    "message": "Click the headquarters or main location. (Optional — Skip is OK.)"
+  },
+  "header_home": {
+    "message": "hired.video home"
+  },
+  "common_cancel": {
+    "message": "Cancel"
+  },
+  "common_save": {
+    "message": "Save"
+  },
+  "common_edit": {
+    "message": "Edit"
+  },
+  "common_close": {
+    "message": "Close"
+  },
+  "job_detected": {
+    "message": "Detected on this page"
+  },
+  "job_fixDetails": {
+    "message": "Fix details"
+  },
+  "job_fieldTitle": {
+    "message": "Job title"
+  },
+  "job_fieldCompany": {
+    "message": "Company"
+  },
+  "job_fieldLocation": {
+    "message": "Location"
+  },
+  "job_remote": {
+    "message": "Remote"
+  },
+  "job_hybrid": {
+    "message": "Hybrid"
+  },
+  "job_addedToday": {
+    "message": "Added today"
+  },
+  "fit_skills": {
+    "message": "You show {matched} of {total} required skills."
+  },
+  "fit_missing": {
+    "message": "Missing from your résumé:"
+  },
+  "remind_label": {
+    "message": "Remind me to apply"
+  },
+  "remind_off": {
+    "message": "No reminder"
+  },
+  "remind_due": {
+    "message": "Due"
+  },
+  "strengthen_fitCaption": {
+    "message": "With the {count} fixes you’ve accepted"
+  },
+  "strengthen_tabFixes": {
+    "message": "Fixes · {count}"
+  },
+  "strengthen_tabKeywords": {
+    "message": "Keywords"
+  },
+  "strengthen_tabTools": {
+    "message": "Résumé tools"
+  },
+  "strengthen_kindRewrite": {
+    "message": "Rewrite"
+  },
+  "strengthen_kindAdded": {
+    "message": "Added"
+  },
+  "strengthen_alwaysApplied": {
+    "message": "Always applied"
+  },
+  "strengthen_requiredInJd": {
+    "message": "required in JD"
+  },
+  "strengthen_bulletLabel": {
+    "message": "{entry} · bullet {n}"
+  },
+  "strengthen_keywordsPresent": {
+    "message": "On your résumé · {count}"
+  },
+  "strengthen_keywordsMissing": {
+    "message": "Still missing · {count}"
+  },
+  "strengthen_keywordsNone": {
+    "message": "None of the job’s keywords show yet."
+  },
+  "strengthen_keywordsAllPresent": {
+    "message": "Every keyword the job asks for is there."
+  },
+  "strengthen_preview": {
+    "message": "Preview"
+  },
+  "strengthen_saveContinue": {
+    "message": "Save version & continue"
+  },
+  "target_title": {
+    "message": "Target this job"
+  },
+  "target_tabResume": {
+    "message": "Résumé"
+  },
+  "target_resumeTailored": {
+    "message": "Tailored"
+  },
+  "target_resumeNotTailored": {
+    "message": "Not tailored"
+  },
+  "target_resumeTailoredHint": {
+    "message": "This version was tailored to this job. It goes with your letter and application."
+  },
+  "target_resumeNotTailoredHint": {
+    "message": "You’re using your résumé as it is. Tailor it to this job first for a stronger fit."
+  },
+  "target_nextLetter": {
+    "message": "Next: cover letter"
+  },
+  "tone_direct": {
+    "message": "Direct"
+  },
+  "cover_saveToJob": {
+    "message": "Save to job"
+  },
+  "cover_savedToJob": {
+    "message": "Saved"
+  },
+  "cover_saveNeedsVersion": {
+    "message": "Tailor your résumé to this job first — the letter is saved with that version."
+  },
+  "apply_reading": {
+    "message": "Reading the form…"
+  },
+  "apply_answer": {
+    "message": "Answer"
+  },
+  "apply_resumeTailored": {
+    "message": "Résumé PDF · tailored version"
+  },
+  "apply_resumeFile": {
+    "message": "Résumé PDF · {resume}"
+  },
+  "apply_attached": {
+    "message": "attached"
+  },
+  "apply_writeLetter": {
+    "message": "Write it"
+  },
+  "video_previewTime": {
+    "message": "0:00 / {time}"
+  },
+  "video_optTemplate": {
+    "message": "Template"
+  },
+  "video_optLength": {
+    "message": "Length"
+  },
+  "video_optLook": {
+    "message": "Look"
+  },
+  "video_lookMinimal": {
+    "message": "Minimal"
+  },
+  "video_lookModerate": {
+    "message": "Clean · some motion"
+  },
+  "video_lookCinematic": {
+    "message": "Cinematic"
+  },
+  "video_beatHook": {
+    "message": "Hook"
+  },
+  "video_beatProof": {
+    "message": "Proof"
+  },
+  "video_beatFit": {
+    "message": "Fit"
+  },
+  "video_beatAsk": {
+    "message": "Ask"
+  },
+  "promote_templateFit": {
+    "message": "Why I fit · 9:16"
+  },
+  "promote_templateResume": {
+    "message": "Résumé video · 9:16"
+  },
+  "promote_fromResumeJd": {
+    "message": "from résumé + JD"
+  },
+  "promote_resumePage": {
+    "message": "Résumé page"
+  },
+  "promote_finishInStudio": {
+    "message": "Finish {platform} in Studio"
+  },
+  "promote_footnote": {
+    "message": "Renders in your browser. We post to each place you ticked once it’s ready."
+  },
+  "promote_renderPost": {
+    "message": "Render & post to {count}"
+  },
+  "message_overLimit": {
+    "message": "This message is over the character limit. Shorten it before filling the box."
+  },
+  "consent_askAgain": {
+    "message": "Ask again"
+  },
+  "consent_askAgainInvalid": {
+    "message": "Consent no longer valid — ask again."
+  },
+  "consent_askAgainChanged": {
+    "message": "The video changed since they approved — ask again."
+  },
+  "consent_emailFromPool": {
+    "message": "From your talent pool — the request can only go to this address."
+  },
+  "error_consentEmailMismatch": {
+    "message": "That isn’t the email saved for this candidate. The request can only go to the address in your talent pool."
+  },
+  "error_consentEmailNotAllowed": {
+    "message": "The candidate has to approve it themselves — use their email, not yours or one at your company."
+  },
+  "candidateVideo_saveFirst": {
+    "message": "Save {name} to your talent pool first: open their profile and tap Save, then try again."
+  },
+  "candidateVideo_linkAfterSave": {
+    "message": "The link to share appears once you open the script in Studio."
+  },
+  "import_claimMine": {
+    "message": "This is my profile"
+  },
+  "import_claimMineHint": {
+    "message": "it doesn’t match your name, so it saves only as a new version."
+  },
+  "import_versionOnly": {
+    "message": "Saved as a new version. Your master is only updated from a profile we know is yours."
+  },
+  "section_basics": {
+    "message": "Summary"
   }
 }

@@ -1,0 +1,79 @@
+/* ==== Job-seeker flows + shell (design-review fixes, 2026-10-16) ==== */
+.grow { flex: 1; min-width: 0; }
+.push-right { margin-left: auto; }
+.gap-6 { gap: 6px; }
+.align-start { align-items: flex-start; }
+.text-3 { color: var(--text-3); }
+.text-strong { color: var(--text); font-weight: 600; }
+
+/* Header: the logo is the way home; flow screens opened from the page keep the stepper under it. */
+.brand-home {
+  display: inline-flex; align-items: center; gap: 8px; margin-right: auto; padding: 0;
+  border: 0; background: transparent; border-radius: var(--radius-sm);
+}
+.brand-home .brand { margin-right: 0; }
+.view-header-steps { padding-top: 0; }
+.view-header-steps .steps { margin-top: 10px; }
+.view-header-row .account { margin-left: 4px; }
+
+.toggle:disabled { opacity: 0.6; }
+
+/* Job */
+.company-tile {
+  width: 44px; height: 44px; flex: none; border-radius: 10px; display: grid; place-items: center;
+  background: var(--primary-soft); color: var(--primary-ink); font: 700 17px var(--font-display);
+}
+.detected-title-lg { font-size: 16px; line-height: 1.25; letter-spacing: -0.01em; }
+.input {
+  width: 100%; min-height: 36px; border: 1px solid var(--border-strong); border-radius: 8px;
+  background: var(--surface); padding: 0 10px; font-size: 12.5px;
+}
+
+/* Apply readiness */
+.fill-list li { border-top-color: var(--line-soft); }
+.fill-list li > .btn { margin-left: auto; min-height: 28px; }
+.fill-edit { padding-top: 0; }
+.fill-edit form { align-items: flex-end; }
+
+/* Read-only preview sheet */
+.sheet-backdrop {
+  position: fixed; inset: 0; z-index: 30; display: flex; align-items: flex-end;
+  background: var(--backdrop);
+}
+.sheet {
+  width: 100%; max-height: 85vh; display: flex; flex-direction: column;
+  background: var(--surface-raised); border-radius: 14px 14px 0 0; box-shadow: var(--shadow);
+}
+.sheet-head { display: flex; align-items: center; gap: 8px; padding: 10px 12px; border-bottom: 1px solid var(--border); }
+.sheet-body { overflow: auto; padding: 12px; }
+.doc-preview { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12.5px; line-height: 1.55; color: var(--text-2); }
+
+/* Promote: 9:16 preview + option tiles + destinations */
+.preview-row { display: flex; gap: 12px; align-items: stretch; }
+/* The 9:16 preview beside the option tiles (RenderPreview shape="vertical"). */
+.preview-row .render-vertical { width: 132px; flex: none; padding: 10px; }
+.render-vertical .render-title { font-size: 13px; }
+.render-vertical .render-chip { top: 10px; left: 10px; }
+.opt-tiles { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.opt {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 8px 10px; text-align: left;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface); font-size: 12px; color: var(--text-3);
+}
+.opt b { color: var(--text); font-size: 12.5px; }
+button.opt:hover { border-color: var(--border-strong); }
+.dest-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+.dest {
+  display: flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 10px; min-width: 0;
+  border: 1px solid var(--border); border-radius: 8px; background: var(--surface);
+  font-size: 12px; font-weight: 500; color: var(--text); cursor: pointer; text-align: left;
+}
+.dest.on { border-color: var(--promote); background: var(--promote-soft); }
+.dest input { margin: 0; width: 14px; height: 14px; accent-color: var(--promote); }
+.dest-connect { color: var(--text-muted); border-style: dashed; }
+.dest-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+fieldset.stack-sm legend { padding: 0 0 6px; }
+
+@media (max-width: 360px) {
+  .dest-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .preview-row .render-vertical { width: 108px; }
+}

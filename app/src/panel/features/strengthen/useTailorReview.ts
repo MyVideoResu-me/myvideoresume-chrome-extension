@@ -5,7 +5,7 @@
  */
 import { useMemo, useState } from "preact/hooks";
 import type { ResumeContent } from "@shared/resume";
-import type { JobGap } from "@shared/resume-tailor";
+import type { JobGap, TailorChange } from "@shared/resume-tailor";
 import { previewTailor, type TailorPreview } from "../../api/match";
 import { saveVersion, type ResumeSummary } from "../../api/resumes";
 import type { Job } from "../../api/jobs";
@@ -19,6 +19,19 @@ export type Review = {
   original: ResumeContent;
   preview: TailorPreview;
 };
+
+/**
+ * A change without a path can't be put back on its own
+ * (applyReviewedTailor), so it is always applied — its toggle must not
+ * pretend otherwise.
+ */
+export const isRevertible = (change: TailorChange): boolean => !!change.path;
+
+/** The fit if the person keeps `kept` of `total` changes: the API's before → after, in proportion. */
+export function predictedScore(oldScore: number, newScore: number, kept: number, total: number): number {
+  if (!total) return newScore;
+  return Math.round(oldScore + ((newScore - oldScore) * kept) / total);
+}
 
 export function useTailorReview(resume: ResumeSummary | null, getJob: () => Promise<Job>) {
   const [review, setReview] = useState<Review | null>(null);
@@ -38,35 +51,46 @@ export function useTailorReview(resume: ResumeSummary | null, getJob: () => Prom
     setSaved(null);
   });
 
-  const toggleChange = (index: number) =>
+  const toggleChange = (index: number) => {
+    const change = review?.preview.changes[index];
+    if (!change || !isRevertible(change)) return;
     setReverted((prev) => {
       const next = new Set(prev);
       if (next.has(index)) next.delete(index);
       else next.add(index);
       return next;
     });
+  };
 
   const answerGap = (gap: JobGap, has: boolean) => {
     if (has && gap.skill) setConfirmed((prev) => (prev.includes(gap.skill!) ? prev : [...prev, gap.skill!]));
     setDismissed((prev) => new Set(prev).add(gap.id));
   };
 
-  const keptCount = review ? review.preview.changes.length - reverted.size : 0;
+  const total = review?.preview.changes.length ?? 0;
+  const keptCount = total - reverted.size;
+  const score = review
+    ? predictedScore(review.preview.oldScore, review.preview.newScore, keptCount, total)
+    : 0;
+  const versionTitle = review
+    ? review.preview.variationTitle || [review.job.company, review.job.title].filter(Boolean).join(" — ")
+    : "";
 
-  const save = useAction(async () => {
-    if (!review || !resume) return;
-    const content = applyReviewedTailor(
-      review.original,
-      review.preview.tailoredResume,
-      review.preview.changes,
-      reverted,
-      confirmed,
-    );
-    const title = review.preview.variationTitle || `${review.job.company} — ${review.job.title}`.trim();
-    const out = await saveVersion(resume.masterId, { content, title });
+  /** The version as it will be saved (what Preview shows). */
+  const draft = (): ResumeContent | null =>
+    review
+      ? applyReviewedTailor(review.original, review.preview.tailoredResume, review.preview.changes, reverted, confirmed)
+      : null;
+
+  const save = useAction(async (): Promise<boolean> => {
+    const content = draft();
+    if (!review || !resume || !content) return false;
+    // A NEW version under the master — the master itself is never written.
+    const out = await saveVersion(resume.masterId, { content, title: versionTitle });
     setSaved({ resumeId: out.resumeId, title: out.title });
     setTailoredVersion({ jobId: review.job.id, resumeId: out.resumeId, title: out.title });
     void loadResumes(true);
+    return true;
   });
 
   const openGaps = useMemo(
@@ -74,5 +98,19 @@ export function useTailorReview(resume: ResumeSummary | null, getJob: () => Prom
     [review, dismissed],
   );
 
-  return { review, start, reverted, toggleChange, openGaps, answerGap, confirmed, keptCount, save, saved };
+  return {
+    review,
+    start,
+    reverted,
+    toggleChange,
+    openGaps,
+    answerGap,
+    confirmed,
+    keptCount,
+    score,
+    versionTitle,
+    draft,
+    save,
+    saved,
+  };
 }

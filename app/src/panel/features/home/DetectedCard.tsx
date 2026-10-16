@@ -1,17 +1,19 @@
 /** "On this page" — the detected job / profile / post, or how to give us one. */
 import { useState } from "preact/hooks";
 import type { PageEntity } from "../../domain/entities";
-import { navigate } from "../../state/nav";
+import { trackAndOpen } from "../../state/intents";
 import { scanPage, takeSelectionAsPost } from "../../state/page";
 import { launchPicker } from "../../platform/picker";
 import { t } from "../../platform/i18n";
 import { Button, Card } from "../../ui/controls";
+import { ErrorNotice } from "../../ui/ErrorNotice";
 import { Icon } from "../../ui/Icon";
 import { useAction } from "../../ui/useAction";
 import { useTrackedJobFor } from "../job/useTrackedJob";
 
 function JobCard({ entity }: { entity: Extract<PageEntity, { kind: "job" }> }) {
   const tracked = useTrackedJobFor(entity.sourceUrl);
+  const track = useAction(() => trackAndOpen(entity));
   return (
     <Card class="detected">
       <div class="detected-row">
@@ -22,10 +24,17 @@ function JobCard({ entity }: { entity: Extract<PageEntity, { kind: "job" }> }) {
           <div class="detected-title">{entity.title}</div>
           <div class="muted small">{[entity.company, entity.location].filter(Boolean).join(" · ")}</div>
         </div>
-        <Button variant={tracked ? "secondary" : "primary"} size="sm" icon={tracked ? "check" : "bookmark"} onClick={() => navigate("job")}>
+        <Button
+          variant={tracked ? "secondary" : "primary"}
+          size="sm"
+          icon={tracked ? "check" : "bookmark"}
+          busy={track.busy}
+          onClick={() => void track.run()}
+        >
           {tracked ? t("job_tracked") : t("job_track")}
         </Button>
       </div>
+      <ErrorNotice error={track.error} fallback="error_readPage" />
     </Card>
   );
 }

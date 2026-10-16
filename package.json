@@ -3,7 +3,7 @@
   "private": true,
   "version": "2.0.0",
   "license": "SEE LICENSE IN LICENSE",
-  "description": "Chrome extensions for the hired.video platform: the unified app (job seeker / recruiter / sales & social lenses \u2014 ships as the job-seeker Web Store item) plus the legacy Recruiter build.",
+  "description": "Chrome extensions for the hired.video platform: the unified app (job seeker / recruiter / sales & social lenses — ships as the job-seeker Web Store item) plus the legacy Recruiter build.",
   "scripts": {
     "build": "node scripts/build.js",
     "build:app": "node scripts/build.js app",
@@ -25,6 +25,8 @@
     "test": "node scripts/run-tests.js"
   },
   "devDependencies": {
+    "@fontsource-variable/bricolage-grotesque": "^5.3.0",
+    "@fontsource-variable/geist": "^5.3.0",
     "@types/chrome": "^0.1.0",
     "concurrently": "^9.2.1",
     "crx3": "^2.0.0",

@@ -55,6 +55,11 @@ export function activeResume(state: ResumesState): ResumeSummary | null {
 /** Résumé documents are read often (letter, video, tailor) — keep one copy per id. */
 const contentCache = new Map<string, Promise<ResumeContent>>();
 
+/** After the panel itself saved a document, keep the cached copy in step. */
+export function cacheResumeContent(id: string, content: ResumeContent): void {
+  contentCache.set(id, Promise.resolve(content));
+}
+
 export function resumeContent(id: string): Promise<ResumeContent> {
   let hit = contentCache.get(id);
   if (!hit) {

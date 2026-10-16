@@ -90,7 +90,7 @@
     "message": "Prospectos + publicaciones: videos de presentación, respuestas en video"
   },
   "lens_footnote": {
-    "message": "Empieza según tu rol. Cámbialo cuando quieras."
+    "message": "La vista sigue el rol de tu cuenta. Cámbiala cuando quieras."
   },
   "account_menu": {
     "message": "Cuenta"
@@ -106,9 +106,6 @@
   },
   "menu_resumes": {
     "message": "Mis currículums"
-  },
-  "menu_showPill": {
-    "message": "Mostrar la píldora en las páginas"
   },
   "menu_openSite": {
     "message": "Abrir hired.video"
@@ -204,7 +201,7 @@
     "message": "Adaptar mi currículum"
   },
   "action_strengthen_hint": {
-    "message": "Ajústalo a este empleo"
+    "message": "Reescríbelo para esta oferta"
   },
   "action_coverLetter": {
     "message": "Carta de presentación"
@@ -222,7 +219,7 @@
     "message": "Video “Por qué encajo”"
   },
   "action_promoteFit_hint": {
-    "message": "Promociónalo en redes"
+    "message": "Promociónate en redes"
   },
   "action_promoteResume": {
     "message": "Video de currículum"
@@ -271,9 +268,6 @@
   },
   "job_tracked": {
     "message": "Seguido"
-  },
-  "job_inPipeline": {
-    "message": "En tus postulaciones"
   },
   "job_next": {
     "message": "Mejorar mi currículum para este empleo"
@@ -371,12 +365,6 @@
   "strengthen_tabs": {
     "message": "Revisar"
   },
-  "strengthen_tabChanges": {
-    "message": "Cambios · {count}"
-  },
-  "strengthen_tabQuestions": {
-    "message": "Preguntas · {count}"
-  },
   "strengthen_keepChange": {
     "message": "Conservar este cambio"
   },
@@ -392,26 +380,17 @@
   "strengthen_gapExperience": {
     "message": "Responde esta en Studio."
   },
-  "strengthen_noQuestions": {
-    "message": "No hay preguntas pendientes."
-  },
   "strengthen_addingSkills": {
     "message": "Agregando: {skills}"
   },
   "strengthen_savesAs": {
-    "message": "Se guarda como una versión nueva. Tu original no cambia."
-  },
-  "strengthen_save": {
-    "message": "Guardar versión con {count} cambios"
+    "message": "Se guarda como una versión nueva: {title}. Tu original no cambia."
   },
   "strengthen_saved": {
     "message": "Guardado como “{title}”."
   },
   "strengthen_next": {
-    "message": "Siguiente: carta"
-  },
-  "section_basics": {
-    "message": "Resumen"
+    "message": "Siguiente: dirigir a este empleo"
   },
   "section_work": {
     "message": "Experiencia"
@@ -449,9 +428,6 @@
   "cover_title": {
     "message": "Carta de presentación"
   },
-  "cover_resume": {
-    "message": "Usando {resume}"
-  },
   "cover_intro_title": {
     "message": "Una carta para este empleo"
   },
@@ -471,7 +447,7 @@
     "message": "Tu carta"
   },
   "cover_regenerate": {
-    "message": "Volver a escribir"
+    "message": "Regenerar"
   },
   "cover_next": {
     "message": "Siguiente: postular"
@@ -479,20 +455,11 @@
   "tone_warm": {
     "message": "Cercano"
   },
-  "tone_confident": {
-    "message": "Seguro"
-  },
   "tone_formal": {
     "message": "Formal"
   },
-  "tone_brief": {
-    "message": "Breve"
-  },
   "apply_title": {
     "message": "Postular"
-  },
-  "apply_intro": {
-    "message": "Abre el formulario de postulación en esta página. Completamos lo que cubre tu currículum; tú lo revisas y lo envías."
   },
   "apply_usesResume": {
     "message": "Currículum: {resume}"
@@ -507,16 +474,7 @@
     "message": "Formulario de postulación"
   },
   "apply_ready": {
-    "message": "{ready} de {total} completados"
-  },
-  "apply_rowFilled": {
-    "message": "Completado"
-  },
-  "apply_rowSkipped": {
-    "message": "Sin cambios"
-  },
-  "apply_rowYours": {
-    "message": "Te toca responder"
+    "message": "{ready} de {total} listos"
   },
   "apply_rowError": {
     "message": "No se pudo completar"
@@ -531,10 +489,7 @@
     "message": "Completar de nuevo"
   },
   "apply_youSubmit": {
-    "message": "Tú revisas y pulsas Enviar: nunca enviamos por ti."
-  },
-  "apply_markApplied": {
-    "message": "Ya la envié: marcar como Postulado"
+    "message": "Tú revisas y pulsas Enviar. Marcamos el empleo como Postulado cuando lo hagas."
   },
   "apply_marked": {
     "message": "Marcado como postulado."
@@ -557,9 +512,6 @@
   "video_rewrite": {
     "message": "Volver a escribirlo"
   },
-  "video_renderInStudio": {
-    "message": "Ábrelo en Studio para renderizarlo: solo toma un minuto."
-  },
   "video_openStudio": {
     "message": "Renderizar en Studio"
   },
@@ -573,7 +525,7 @@
     "message": "Esperando el video…"
   },
   "video_rendersInBrowser": {
-    "message": "Los videos se renderizan en tu navegador en hired.video."
+    "message": "Se renderiza en tu navegador en hired.video."
   },
   "video_ready": {
     "message": "Tu video está listo."
@@ -653,9 +605,6 @@
   "outreach_needPair": {
     "message": "Primero guarda un candidato y elige un empleo."
   },
-  "outreach_context": {
-    "message": "Comparte el puesto de {job} en {company} ({location}). Sus habilidades: {skills}. Su perfil: {summary}. Sé concreto sobre por qué su experiencia encaja; breve y cercano."
-  },
   "outreach_logSubject": {
     "message": "Presentación: {job}"
   },
@@ -702,7 +651,7 @@
     "message": "No listado: solo quien tenga el enlace puede verlo. Muestra nombre y empleadores."
   },
   "candidateVideo_anonymizedHint": {
-    "message": "No listado y sin nombre ni empleadores: para una preselección anónima."
+    "message": "No listado. Oculta el nombre, la foto y los empleadores para una preselección anónima."
   },
   "candidateVideo_name": {
     "message": "{name} para {job}"
@@ -734,9 +683,6 @@
   "message_count": {
     "message": "{count} / {max}"
   },
-  "message_fillBox": {
-    "message": "Ponerlo en el cuadro de mensaje"
-  },
   "message_fillReply": {
     "message": "Ponerlo en el cuadro de respuesta"
   },
@@ -756,10 +702,10 @@
     "message": "Correo"
   },
   "channel_linkedinNote": {
-    "message": "Nota de conexión"
+    "message": "Nota de LinkedIn"
   },
   "channel_linkedinMessage": {
-    "message": "Mensaje"
+    "message": "InMail"
   },
   "channel_reply": {
     "message": "Respuesta"
@@ -774,7 +720,7 @@
     "message": "Primero abre el perfil de la persona."
   },
   "prospect_skills": {
-    "message": "Habilidades a destacar"
+    "message": "Habilidades a destacar · de tu currículum"
   },
   "prospect_noSkills": {
     "message": "Tu currículum aún no tiene habilidades."
@@ -783,13 +729,10 @@
     "message": "Para {name}"
   },
   "prospect_prompt": {
-    "message": "Un video personal de 40 segundos para {name} ({title}, {company}): cómo mis habilidades en {skills} resuelven problemas de alguien en su puesto. Llámale por su nombre, sé concreto y termina pidiendo con suavidad una llamada corta."
+    "message": "Un video personal de 40 segundos para {name} ({title}, {company}): cómo mis habilidades en {skills} resuelven problemas de alguien en su puesto. Habla de lo que muestra su perfil: {signals}. Llámale por su nombre, sé concreto y termina pidiendo con suavidad una llamada corta."
   },
   "prospect_context": {
-    "message": "Hice un video corto para esta persona sobre cómo mis habilidades en {skills} ayudan a alguien en el puesto de {title} en {company}. Un mensaje personal y concreto, sin presión."
-  },
-  "prospect_sentToday": {
-    "message": "Enviados hoy: {count}. Una persona a la vez, a mano."
+    "message": "Hice un video corto para esta persona sobre cómo mis habilidades en {skills} ayudan a alguien en el puesto de {title} en {company}. De su perfil: {signals}. Un mensaje personal y concreto, sin presión."
   },
   "reply_title": {
     "message": "Respuesta en video"
@@ -904,5 +847,875 @@
   },
   "pill_dismiss": {
     "message": "Ocultar en esta página"
+  },
+  "action_profileImprove": {
+    "message": "Mejorar mi currículum con este perfil"
+  },
+  "action_profileImprove_hint": {
+    "message": "Ideas de su perfil: tú confirmas cada una"
+  },
+  "action_profileImportOwn": {
+    "message": "Importar mi perfil"
+  },
+  "action_profileImportOwn_hint": {
+    "message": "Llévalo a tu currículum principal"
+  },
+  "candidate_pick": {
+    "message": "Elegir en la página"
+  },
+  "candidate_fitLabel": {
+    "message": "{score} % de encaje"
+  },
+  "candidate_moreJobs": {
+    "message": "Mostrar {count} más"
+  },
+  "candidate_otherTab": {
+    "message": "Usar el empleo de otra pestaña"
+  },
+  "candidate_otherTabNone": {
+    "message": "Ninguna de tus otras pestañas muestra una oferta de empleo."
+  },
+  "candidate_scoring": {
+    "message": "Calculando el encaje…"
+  },
+  "candidate_tailorResume": {
+    "message": "Adaptar currículum"
+  },
+  "candidateVideo_copyLink": {
+    "message": "Copiar enlace para quien contrata"
+  },
+  "candidateVideo_view": {
+    "message": "Ver"
+  },
+  "candidateVideo_diff": {
+    "message": "Cambios"
+  },
+  "candidateVideo_script": {
+    "message": "Guion"
+  },
+  "candidateVideo_makePublic": {
+    "message": "Hacerlo público"
+  },
+  "candidateVideo_public": {
+    "message": "Publicación pública"
+  },
+  "candidateVideo_publicHint": {
+    "message": "Primero envía a {name} una solicitud de aprobación. Solo se publica si acepta."
+  },
+  "candidateVideo_publicAfterRender": {
+    "message": "Ya es público. Cuando el video esté renderizado, publícalo desde aquí."
+  },
+  "candidateVideo_tailoredCount": {
+    "message": "Adaptado al puesto · {count} cambios"
+  },
+  "candidateVideo_videoStep": {
+    "message": "Video · {seconds} s"
+  },
+  "consent_pending": {
+    "message": "Pendiente"
+  },
+  "consent_approved": {
+    "message": "Aprobado"
+  },
+  "consent_declined": {
+    "message": "Rechazado"
+  },
+  "consent_expired": {
+    "message": "Caducado"
+  },
+  "consent_revoked": {
+    "message": "Retirado"
+  },
+  "consent_approvedHint": {
+    "message": "{name} dijo que sí. Puedes hacerlo público y publicarlo."
+  },
+  "consent_email": {
+    "message": "Correo del candidato"
+  },
+  "consent_explain": {
+    "message": "{name} recibirá un correo para aprobar este video antes de publicarlo. Nada se hace público hasta que acepte."
+  },
+  "consent_needProject": {
+    "message": "Primero escribe el guion y ábrelo en Studio: la solicitud enlaza al video."
+  },
+  "consent_note": {
+    "message": "Nota para el candidato (opcional)"
+  },
+  "consent_resend": {
+    "message": "Reenviar"
+  },
+  "consent_send": {
+    "message": "Pedir aprobación"
+  },
+  "consent_sentTo": {
+    "message": "Solicitado a {email}"
+  },
+  "chain_writing": {
+    "message": "Escribiendo el video y el mensaje…"
+  },
+  "chain_saving": {
+    "message": "Abriendo Studio para renderizar…"
+  },
+  "chain_rendering": {
+    "message": "Renderizando en Studio…"
+  },
+  "chain_backToPage": {
+    "message": "Vuelve a la página: rellenaremos el cuadro allí"
+  },
+  "chain_filling": {
+    "message": "Rellenando el cuadro…"
+  },
+  "render_none": {
+    "message": "Aún sin escribir"
+  },
+  "render_script": {
+    "message": "Guion listo"
+  },
+  "render_rendering": {
+    "message": "Renderizando en Studio"
+  },
+  "render_ready": {
+    "message": "Listo"
+  },
+  "render_watch": {
+    "message": "Ver el video"
+  },
+  "videoMeta_square": {
+    "message": "Cuadrado"
+  },
+  "videoMeta_vertical": {
+    "message": "Vertical"
+  },
+  "videoMeta_landscape": {
+    "message": "Horizontal"
+  },
+  "videoMeta_seconds": {
+    "message": "{seconds} s"
+  },
+  "videoMeta_captions": {
+    "message": "subtítulos activados"
+  },
+  "message_fillLinkedIn": {
+    "message": "Ponerlo en el cuadro de mensaje de LinkedIn"
+  },
+  "message_noteCap": {
+    "message": "Las notas de conexión admiten como máximo {max} caracteres"
+  },
+  "message_capReached": {
+    "message": "Llegaste al límite de hoy. Sigue mañana: una persona cada vez lo mantiene personal."
+  },
+  "outreach_contextBase": {
+    "message": "Comparte el puesto de {job} en {company} ({location}). Sé concreto sobre por qué encaja su experiencia; breve y humano."
+  },
+  "outreach_contextFacts": {
+    "message": "Personalízalo con: {facts}."
+  },
+  "outreach_personalizedFrom": {
+    "message": "Personalizado a partir de"
+  },
+  "outreach_attachCandidateVideo": {
+    "message": "Su video de candidato para el puesto"
+  },
+  "outreach_attachJobPage": {
+    "message": "Página del empleo"
+  },
+  "outreach_attachNone": {
+    "message": "Sin enlace"
+  },
+  "outreach_attachChange": {
+    "message": "Cambiar"
+  },
+  "outreach_attachChangeLabel": {
+    "message": "Cambiar adjunto"
+  },
+  "prospect_badge": {
+    "message": "Prospecto"
+  },
+  "prospect_signals": {
+    "message": "De su perfil"
+  },
+  "prospect_reading": {
+    "message": "Leyendo su perfil…"
+  },
+  "prospect_sentOfCap": {
+    "message": "Enviados hoy: {count} de tus {cap}. Una persona cada vez, a mano."
+  },
+  "prospect_renderAndFill": {
+    "message": "Renderizar video y rellenar mensaje de LinkedIn"
+  },
+  "prospect_youSend": {
+    "message": "Lo lees y pulsas Enviar. Las respuestas llegan a tu bandeja de entrada."
+  },
+  "reply_opensWith": {
+    "message": "Empieza con la pregunta de {author} en pantalla"
+  },
+  "reply_renderAndFill": {
+    "message": "Renderizar y rellenar la respuesta"
+  },
+  "reply_text": {
+    "message": "Texto de la respuesta"
+  },
+  "reply_youSend": {
+    "message": "Tú pulsas Responder. El enlace muestra el video con una tarjeta de vista previa."
+  },
+  "field_name": {
+    "message": "Nombre"
+  },
+  "field_label": {
+    "message": "Titular"
+  },
+  "field_email": {
+    "message": "Correo"
+  },
+  "field_phone": {
+    "message": "Teléfono"
+  },
+  "field_url": {
+    "message": "Enlace"
+  },
+  "field_summary": {
+    "message": "Resumen"
+  },
+  "field_location": {
+    "message": "Ubicación"
+  },
+  "field_position": {
+    "message": "Cargo"
+  },
+  "field_startDate": {
+    "message": "Fecha de inicio"
+  },
+  "field_endDate": {
+    "message": "Fecha de fin"
+  },
+  "field_institution": {
+    "message": "Institución"
+  },
+  "field_area": {
+    "message": "Área de estudio"
+  },
+  "field_studyType": {
+    "message": "Título"
+  },
+  "field_other": {
+    "message": "Otros datos"
+  },
+  "import_into": {
+    "message": "En {title}"
+  },
+  "import_needProfile": {
+    "message": "Primero abre una página de perfil."
+  },
+  "import_whose": {
+    "message": "¿De quién es este perfil?"
+  },
+  "import_whoseMine": {
+    "message": "Mío"
+  },
+  "import_whoseTheirs": {
+    "message": "De otra persona"
+  },
+  "import_ownIntro": {
+    "message": "Leemos tu perfil y te mostramos lo nuevo o distinto respecto a tu currículum principal. Nada cambia hasta que guardes."
+  },
+  "import_read": {
+    "message": "Leer mi perfil"
+  },
+  "import_unsupported": {
+    "message": "Aún no podemos importar desde este sitio."
+  },
+  "import_nothingNew": {
+    "message": "Tu currículum ya tiene todo lo de este perfil."
+  },
+  "import_newItems": {
+    "message": "Nuevo en tu perfil · {count}"
+  },
+  "import_untitled": {
+    "message": "Entrada sin título"
+  },
+  "import_maybeMisplaced": {
+    "message": "Puede que pertenezca a otra sección: desactivado por defecto."
+  },
+  "import_conflicts": {
+    "message": "Distinto en tu perfil · {count}"
+  },
+  "import_differs": {
+    "message": "Difiere: {fields}"
+  },
+  "import_differsBullets": {
+    "message": "Los logros difieren"
+  },
+  "import_conflictChoice": {
+    "message": "Qué conservar"
+  },
+  "import_choiceCombine": {
+    "message": "Combinar"
+  },
+  "import_keepMine": {
+    "message": "Conservar el mío"
+  },
+  "import_useProfile": {
+    "message": "Usar el perfil"
+  },
+  "import_basics": {
+    "message": "Tus datos"
+  },
+  "import_mine": {
+    "message": "El mío"
+  },
+  "import_profile": {
+    "message": "Perfil"
+  },
+  "import_saveAs": {
+    "message": "Guardar en"
+  },
+  "import_asVersion": {
+    "message": "Guardar como nueva versión"
+  },
+  "import_asVersionHint": {
+    "message": "Tu currículum principal no cambia."
+  },
+  "import_asMaster": {
+    "message": "Actualizar mi currículum principal"
+  },
+  "import_asMasterHint": {
+    "message": "Cambia “{title}” directamente."
+  },
+  "import_confirmMaster": {
+    "message": "Entiendo que esto cambia “{title}”"
+  },
+  "import_versionName": {
+    "message": "Nombre de la versión"
+  },
+  "import_versionTitle": {
+    "message": "Desde mi perfil de {source}"
+  },
+  "import_saveVersion": {
+    "message": "Guardar nueva versión"
+  },
+  "import_saveMaster": {
+    "message": "Actualizar mi currículum principal"
+  },
+  "import_saved": {
+    "message": "Guardado como “{title}”."
+  },
+  "compare_intro": {
+    "message": "Leemos el perfil de {name} y lo comparamos con tu currículum principal. Recibes sugerencias: no se copia nada suyo."
+  },
+  "compare_read": {
+    "message": "Comparar con mi currículum"
+  },
+  "compare_neverCopy": {
+    "message": "Solo sugerencias. Sus empleadores, cargos, fechas y logros nunca pasan a tu currículum."
+  },
+  "compare_nothing": {
+    "message": "Tu currículum ya cubre lo que muestra el perfil de {name}."
+  },
+  "compare_skills": {
+    "message": "Habilidades que menciona y tú no · {count}"
+  },
+  "compare_haveSkill": {
+    "message": "Tengo esta habilidad"
+  },
+  "compare_headline": {
+    "message": "Titular"
+  },
+  "compare_theirHeadline": {
+    "message": "El suyo"
+  },
+  "compare_myHeadline": {
+    "message": "Tu titular"
+  },
+  "compare_headlineHint": {
+    "message": "Usa el suyo solo como inspiración: escribe el tuyo con tus palabras."
+  },
+  "compare_noSummary": {
+    "message": "Su perfil empieza con un resumen; el tuyo no tiene. Añade uno en Studio."
+  },
+  "compare_sections": {
+    "message": "Secciones que tiene y tú no"
+  },
+  "compare_addSection": {
+    "message": "Añade una sección de {section} con tus propias entradas"
+  },
+  "compare_addInStudio": {
+    "message": "Añadir en Studio"
+  },
+  "compare_numbers": {
+    "message": "Añade cifras a tus logros"
+  },
+  "compare_numbersHint": {
+    "message": "El {theirs} % de sus logros incluye una cifra; de los tuyos, el {mine} %. Los resultados con cifras convencen más."
+  },
+  "compare_versionTitle": {
+    "message": "Ideas del perfil de {name}"
+  },
+  "compare_save": {
+    "message": "Guardar como nueva versión"
+  },
+  "compare_saveHint": {
+    "message": "Solo lo que confirmaste. Tu currículum principal no cambia."
+  },
+  "analytics_title": {
+    "message": "Mi progreso"
+  },
+  "analytics_thisWeek": {
+    "message": "Esta semana"
+  },
+  "analytics_tracked": {
+    "message": "Empleos guardados"
+  },
+  "analytics_applied": {
+    "message": "Postulaciones"
+  },
+  "analytics_streak": {
+    "message": "Días seguidos"
+  },
+  "analytics_delta": {
+    "message": "{delta} frente a la semana pasada"
+  },
+  "analytics_funnel": {
+    "message": "Tu embudo"
+  },
+  "analytics_stageLabel": {
+    "message": "{stage}: {count}"
+  },
+  "analytics_conversion": {
+    "message": "Conversión"
+  },
+  "analytics_applyRate": {
+    "message": "Guardado → postulado"
+  },
+  "analytics_interviewRate": {
+    "message": "Postulado → entrevista"
+  },
+  "analytics_offerRate": {
+    "message": "Entrevista → oferta"
+  },
+  "analytics_weekly": {
+    "message": "Semana a semana"
+  },
+  "analytics_weekRow": {
+    "message": "{tracked} guardados · {applied} postulaciones"
+  },
+  "analytics_ghostRate": {
+    "message": "Sin respuesta"
+  },
+  "analytics_totalApplied": {
+    "message": "Postulaciones en total"
+  },
+  "analytics_totalOffers": {
+    "message": "Ofertas"
+  },
+  "settings_title": {
+    "message": "Ajustes"
+  },
+  "settings_subtitle": {
+    "message": "Los mismos ajustes que en hired.video"
+  },
+  "settings_autoDetect": {
+    "message": "Detectar empleos, perfiles y publicaciones"
+  },
+  "settings_autoDetect_hint": {
+    "message": "Lee cada página que abres para que el panel sepa qué hay en ella."
+  },
+  "settings_showPill": {
+    "message": "Mostrar la pastilla en las páginas"
+  },
+  "settings_showPill_hint": {
+    "message": "Una pequeña barra en la página cuando se detecta algo."
+  },
+  "settings_autoScore": {
+    "message": "Revisar mi encaje al momento"
+  },
+  "settings_autoScore_hint": {
+    "message": "Compara tu currículum con el empleo en cuanto lo abres."
+  },
+  "settings_autoTailor": {
+    "message": "Empezar a adaptar al momento"
+  },
+  "settings_autoTailor_hint": {
+    "message": "Adapta tu currículum en cuanto abres Mejorar."
+  },
+  "settings_telemetryOptOut": {
+    "message": "No compartir datos de uso"
+  },
+  "settings_telemetryOptOut_hint": {
+    "message": "Los datos de uso nos ayudan a corregir páginas que el panel lee mal."
+  },
+  "settings_downloadFormat": {
+    "message": "Formato de descarga"
+  },
+  "settings_downloadFormat_hint": {
+    "message": "Cómo guarda tu currículum “Descargar”. PDF es gratis."
+  },
+  "format_pdf": {
+    "message": "PDF"
+  },
+  "format_docx": {
+    "message": "Word (.docx)"
+  },
+  "format_md": {
+    "message": "Markdown (.md)"
+  },
+  "format_txt": {
+    "message": "Texto sin formato (.txt)"
+  },
+  "menu_analytics": {
+    "message": "Mi progreso"
+  },
+  "menu_settings": {
+    "message": "Ajustes"
+  },
+  "resumes_download": {
+    "message": "Descargar {format}"
+  },
+  "home_pickJob": {
+    "message": "Elegir el empleo en la página"
+  },
+  "picker_scanning": {
+    "message": "Buscando {field} en la página…"
+  },
+  "picker_guess": {
+    "message": "Mi suposición"
+  },
+  "picker_confirm": {
+    "message": "Sí, es correcto"
+  },
+  "picker_reject": {
+    "message": "Elegirlo yo"
+  },
+  "picker_skip": {
+    "message": "Omitir"
+  },
+  "picker_step": {
+    "message": "Paso {n} de {total}"
+  },
+  "picker_back": {
+    "message": "Atrás"
+  },
+  "picker_cancel": {
+    "message": "Cancelar (Esc)"
+  },
+  "picker_job_title_label": {
+    "message": "Puesto"
+  },
+  "picker_job_title_hint": {
+    "message": "Haz clic en el título del puesto en la página."
+  },
+  "picker_job_company_label": {
+    "message": "Empresa"
+  },
+  "picker_job_company_hint": {
+    "message": "Haz clic en el nombre de la empresa."
+  },
+  "picker_job_location_label": {
+    "message": "Ubicación"
+  },
+  "picker_job_location_hint": {
+    "message": "Haz clic en la ubicación (ciudad o remoto)."
+  },
+  "picker_job_description_label": {
+    "message": "Descripción"
+  },
+  "picker_job_description_hint": {
+    "message": "Haz clic en cualquier parte de la descripción del puesto."
+  },
+  "picker_job_applyUrl_label": {
+    "message": "Botón de postular"
+  },
+  "picker_job_applyUrl_hint": {
+    "message": "Haz clic en el botón o enlace para postular. (Opcional: puedes omitirlo.)"
+  },
+  "picker_profile_name_label": {
+    "message": "Nombre"
+  },
+  "picker_profile_name_hint": {
+    "message": "Haz clic en el nombre de la persona."
+  },
+  "picker_profile_title_label": {
+    "message": "Titular / puesto"
+  },
+  "picker_profile_title_hint": {
+    "message": "Haz clic en el titular o el puesto actual."
+  },
+  "picker_profile_company_label": {
+    "message": "Empresa actual"
+  },
+  "picker_profile_company_hint": {
+    "message": "Haz clic en el nombre de la empresa actual. (Opcional: puedes omitirlo.)"
+  },
+  "picker_profile_location_label": {
+    "message": "Ubicación"
+  },
+  "picker_profile_location_hint": {
+    "message": "Haz clic en la ciudad o región. (Opcional: puedes omitirlo.)"
+  },
+  "picker_company_name_label": {
+    "message": "Nombre de la empresa"
+  },
+  "picker_company_name_hint": {
+    "message": "Haz clic en el nombre de la empresa."
+  },
+  "picker_company_industry_label": {
+    "message": "Sector"
+  },
+  "picker_company_industry_hint": {
+    "message": "Haz clic en el sector. (Opcional: puedes omitirlo.)"
+  },
+  "picker_company_size_label": {
+    "message": "Número de empleados"
+  },
+  "picker_company_size_hint": {
+    "message": "Haz clic en el número de empleados o el tamaño. (Opcional: puedes omitirlo.)"
+  },
+  "picker_company_location_label": {
+    "message": "Sede"
+  },
+  "picker_company_location_hint": {
+    "message": "Haz clic en la sede o la ubicación principal. (Opcional: puedes omitirlo.)"
+  },
+  "header_home": {
+    "message": "Inicio de hired.video"
+  },
+  "common_cancel": {
+    "message": "Cancelar"
+  },
+  "common_save": {
+    "message": "Guardar"
+  },
+  "common_edit": {
+    "message": "Editar"
+  },
+  "common_close": {
+    "message": "Cerrar"
+  },
+  "job_detected": {
+    "message": "Detectado en esta página"
+  },
+  "job_fixDetails": {
+    "message": "Corregir datos"
+  },
+  "job_fieldTitle": {
+    "message": "Puesto"
+  },
+  "job_fieldCompany": {
+    "message": "Empresa"
+  },
+  "job_fieldLocation": {
+    "message": "Ubicación"
+  },
+  "job_remote": {
+    "message": "Remoto"
+  },
+  "job_hybrid": {
+    "message": "Híbrido"
+  },
+  "job_addedToday": {
+    "message": "Añadido hoy"
+  },
+  "fit_skills": {
+    "message": "Muestras {matched} de {total} habilidades requeridas."
+  },
+  "fit_missing": {
+    "message": "Faltan en tu currículum:"
+  },
+  "remind_label": {
+    "message": "Recordarme postular"
+  },
+  "remind_off": {
+    "message": "Sin recordatorio"
+  },
+  "remind_due": {
+    "message": "Hoy"
+  },
+  "strengthen_fitCaption": {
+    "message": "Con las {count} mejoras que aceptaste"
+  },
+  "strengthen_tabFixes": {
+    "message": "Mejoras · {count}"
+  },
+  "strengthen_tabKeywords": {
+    "message": "Palabras clave"
+  },
+  "strengthen_tabTools": {
+    "message": "Herramientas"
+  },
+  "strengthen_kindRewrite": {
+    "message": "Reescritura"
+  },
+  "strengthen_kindAdded": {
+    "message": "Añadido"
+  },
+  "strengthen_alwaysApplied": {
+    "message": "Siempre aplicado"
+  },
+  "strengthen_requiredInJd": {
+    "message": "requerido en la oferta"
+  },
+  "strengthen_bulletLabel": {
+    "message": "{entry} · punto {n}"
+  },
+  "strengthen_keywordsPresent": {
+    "message": "En tu currículum · {count}"
+  },
+  "strengthen_keywordsMissing": {
+    "message": "Aún faltan · {count}"
+  },
+  "strengthen_keywordsNone": {
+    "message": "Aún no aparece ninguna palabra clave de la oferta."
+  },
+  "strengthen_keywordsAllPresent": {
+    "message": "Están todas las palabras clave que pide la oferta."
+  },
+  "strengthen_preview": {
+    "message": "Vista previa"
+  },
+  "strengthen_saveContinue": {
+    "message": "Guardar versión y seguir"
+  },
+  "target_title": {
+    "message": "Dirigir a este empleo"
+  },
+  "target_tabResume": {
+    "message": "Currículum"
+  },
+  "target_resumeTailored": {
+    "message": "Adaptado"
+  },
+  "target_resumeNotTailored": {
+    "message": "Sin adaptar"
+  },
+  "target_resumeTailoredHint": {
+    "message": "Esta versión se adaptó a este empleo. Va con tu carta y tu postulación."
+  },
+  "target_resumeNotTailoredHint": {
+    "message": "Usas tu currículum tal cual. Adáptalo antes a este empleo para encajar mejor."
+  },
+  "target_nextLetter": {
+    "message": "Siguiente: carta de presentación"
+  },
+  "tone_direct": {
+    "message": "Directo"
+  },
+  "cover_saveToJob": {
+    "message": "Guardar en el empleo"
+  },
+  "cover_savedToJob": {
+    "message": "Guardada"
+  },
+  "cover_saveNeedsVersion": {
+    "message": "Adapta antes tu currículum a este empleo: la carta se guarda con esa versión."
+  },
+  "apply_reading": {
+    "message": "Leyendo el formulario…"
+  },
+  "apply_answer": {
+    "message": "Responder"
+  },
+  "apply_resumeTailored": {
+    "message": "Currículum en PDF · versión adaptada"
+  },
+  "apply_resumeFile": {
+    "message": "Currículum en PDF · {resume}"
+  },
+  "apply_attached": {
+    "message": "adjunto"
+  },
+  "apply_writeLetter": {
+    "message": "Escribirla"
+  },
+  "video_previewTime": {
+    "message": "0:00 / {time}"
+  },
+  "video_optTemplate": {
+    "message": "Plantilla"
+  },
+  "video_optLength": {
+    "message": "Duración"
+  },
+  "video_optLook": {
+    "message": "Estilo"
+  },
+  "video_lookMinimal": {
+    "message": "Mínimo"
+  },
+  "video_lookModerate": {
+    "message": "Limpio · algo de movimiento"
+  },
+  "video_lookCinematic": {
+    "message": "Cinematográfico"
+  },
+  "video_beatHook": {
+    "message": "Gancho"
+  },
+  "video_beatProof": {
+    "message": "Prueba"
+  },
+  "video_beatFit": {
+    "message": "Encaje"
+  },
+  "video_beatAsk": {
+    "message": "Petición"
+  },
+  "promote_templateFit": {
+    "message": "Por qué encajo · 9:16"
+  },
+  "promote_templateResume": {
+    "message": "Video del currículum · 9:16"
+  },
+  "promote_fromResumeJd": {
+    "message": "del currículum + la oferta"
+  },
+  "promote_resumePage": {
+    "message": "Página del currículum"
+  },
+  "promote_finishInStudio": {
+    "message": "Terminar {platform} en Studio"
+  },
+  "promote_footnote": {
+    "message": "Se renderiza en tu navegador. Lo publicamos en cada sitio que marcaste cuando esté listo."
+  },
+  "promote_renderPost": {
+    "message": "Renderizar y publicar en {count}"
+  },
+  "message_overLimit": {
+    "message": "Este mensaje supera el límite de caracteres. Acórtalo antes de rellenar el cuadro."
+  },
+  "consent_askAgain": {
+    "message": "Volver a pedir"
+  },
+  "consent_askAgainInvalid": {
+    "message": "El consentimiento ya no es válido: vuelve a pedirlo."
+  },
+  "consent_askAgainChanged": {
+    "message": "El video cambió desde que lo aprobó: vuelve a pedirlo."
+  },
+  "consent_emailFromPool": {
+    "message": "De tu banco de talento: la solicitud solo puede enviarse a esta dirección."
+  },
+  "error_consentEmailMismatch": {
+    "message": "Ese no es el correo guardado para este candidato. La solicitud solo puede enviarse a la dirección de tu banco de talento."
+  },
+  "error_consentEmailNotAllowed": {
+    "message": "El candidato debe aprobarlo en persona: usa su correo, no el tuyo ni uno de tu empresa."
+  },
+  "candidateVideo_saveFirst": {
+    "message": "Primero guarda a {name} en tu banco de talento: abre su perfil, pulsa Guardar y vuelve a intentarlo."
+  },
+  "candidateVideo_linkAfterSave": {
+    "message": "El enlace para compartir aparece cuando abres el guion en Studio."
+  },
+  "import_claimMine": {
+    "message": "Este es mi perfil"
+  },
+  "import_claimMineHint": {
+    "message": "no coincide con tu nombre, así que solo se guarda como una nueva versión."
+  },
+  "import_versionOnly": {
+    "message": "Se guarda como una nueva versión. Tu currículum principal solo se actualiza desde un perfil que sabemos que es tuyo."
+  },
+  "section_basics": {
+    "message": "Resumen"
   }
 }

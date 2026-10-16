@@ -3,9 +3,9 @@
  * which actions it offers for each kind of page entity, and who may use
  * it. Adding a lens = adding an entry here.
  *
- * The recruiter lens follows the product's hiring switch
- * (HIRING_PERSONAS_ENABLED in hired.video/shared/user-roles.ts): while the
- * hiring side is off, it is not offered — one switch, no extension flag.
+ * The recruiter lens is for hiring roles (recruiter, employer) and admins,
+ * and follows the product's hiring switch (HIRING_PERSONAS_ENABLED in
+ * hired.video/shared/user-roles.ts) — one switch, no extension flag.
  */
 import { HIRING_PERSONAS_ENABLED, USER_ROLES, isHiringRole } from "@shared/user-roles";
 import type { MessageKey } from "../platform/i18n";
@@ -40,7 +40,7 @@ export const LENSES: readonly LensDef[] = [
     icon: "user",
     actions: {
       job: ["strengthen", "coverLetter", "apply", "promoteFit"],
-      profile: ["pitch"],
+      profile: ["profileImport", "pitch"],
       post: ["postReply"],
       none: ["promoteResume"],
     },

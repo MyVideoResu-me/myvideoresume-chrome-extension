@@ -46,6 +46,12 @@ export async function scanPage(): Promise<void> {
   accept(entity);
 }
 
+/** The person corrected what the detector read ("Fix details" before tracking). */
+export function correctDetectedJob(details: { title: string; company: string; location: string }): void {
+  const entity = pageStore.get().entity;
+  if (entity?.kind === "job") pageStore.set({ entity: { ...entity, ...details } });
+}
+
 /** Fallback for posts we can't detect: the text the person selected. */
 export async function takeSelectionAsPost(): Promise<boolean> {
   const sel = await sendToWorker<{ ok: boolean; text?: string; url?: string }>({ action: "readSelection" });

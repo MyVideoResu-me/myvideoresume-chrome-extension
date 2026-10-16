@@ -4,11 +4,36 @@ import { useState } from "preact/hooks";
 import { activeResume, resumesStore } from "../../state/resumes";
 import { useStore } from "../../state/store";
 import { t } from "../../platform/i18n";
-import { Button, Card, Meter } from "../../ui/controls";
+import { Button, Card, Chip, Meter } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
 import { useAction } from "../../ui/useAction";
 import { useAutoRun } from "../../ui/useAutoRun";
 import { settingsStore } from "../../state/settings";
+
+/** "You show 8 of 11 required skills. Missing: …" — only when the API names the skills. */
+function SkillsLine({ fit }: { fit: FitResult }) {
+  const matched = fit.matchedSkills;
+  const missing = fit.missingSkills;
+  const total = matched.length + missing.length;
+  if (!total) return null;
+  return (
+    <>
+      <p class="small text-3">
+        {t("fit_skills", { matched: matched.length, total })}
+        {missing.length ? ` ${t("fit_missing")}` : ""}
+      </p>
+      {missing.length ? (
+        <div class="row wrap gap-6">
+          {missing.map((skill) => (
+            <Chip key={skill} tone="warn">
+              {skill}
+            </Chip>
+          ))}
+        </div>
+      ) : null}
+    </>
+  );
+}
 
 export function FitCard({ jobId }: { jobId: string }) {
   const resume = useStore(resumesStore, activeResume);
@@ -29,7 +54,8 @@ export function FitCard({ jobId }: { jobId: string }) {
       {fit ? (
         <>
           <Meter value={fit.score} label={t("fit_meterLabel", { score: fit.score })} />
-          {fit.summary ? <p class="muted small pre-line">{fit.summary}</p> : null}
+          <SkillsLine fit={fit} />
+          {fit.summary && !fit.missingSkills.length ? <p class="muted small pre-line">{fit.summary}</p> : null}
         </>
       ) : (
         <Button size="sm" icon="target" busy={check.busy} onClick={() => void check.run()}>

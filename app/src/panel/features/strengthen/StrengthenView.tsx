@@ -1,10 +1,11 @@
-/** Strengthen: review the tailoring for this job, then save it as a version. */
+/** Strengthen: review the tailoring for this job, then save it as a version and go on to Target. */
 import { useState } from "preact/hooks";
 import { ApiError } from "../../api/http";
+import { resumeToText } from "../../domain/resume-docs";
 import { navigate } from "../../state/nav";
 import { activeResume, resumesStore } from "../../state/resumes";
 import { useStore } from "../../state/store";
-import { sessionStore } from "../../state/session";
+import { useIsPro } from "../../state/session";
 import { settingsStore } from "../../state/settings";
 import { useAutoRun } from "../../ui/useAutoRun";
 import { openTab } from "../../platform/chrome";
@@ -14,27 +15,33 @@ import { ViewHeader } from "../../shell/ViewHeader";
 import { Button, Card, Meter, Segmented, Spinner } from "../../ui/controls";
 import { ErrorNotice, InfoNotice } from "../../ui/ErrorNotice";
 import { Icon } from "../../ui/Icon";
+import { PreviewSheet } from "../../ui/PreviewSheet";
 import { NeedsResume } from "../resumes/NeedsResume";
+import { ResumeCheckCard } from "../resumes/ResumeCheckCard";
 import { NeedsJob } from "../job/NeedsJob";
 import { useJobContext } from "../job/useTrackedJob";
+import { changeLabel } from "./change-label";
+import { KeywordsTab } from "./KeywordsTab";
 import { ChangeItem, GapItem } from "./ReviewItems";
-import { useTailorReview } from "./useTailorReview";
+import { isRevertible, useTailorReview } from "./useTailorReview";
 
-type Tab = "changes" | "questions";
+type Tab = "fixes" | "keywords" | "tools";
+
 
 export function StrengthenView() {
   const resume = useStore(resumesStore, activeResume);
   const { detected, job, ensure } = useJobContext();
   const flow = useTailorReview(resume, ensure);
-  const autoTailor = useStore(
-    settingsStore,
-    (s) => s.settings.autoTailor,
-  );
-  const isPro = useStore(sessionStore, (s) => s.session.status === "signedIn" && s.session.isPro);
+  const autoTailor = useStore(settingsStore, (s) => s.settings.autoTailor);
+  const isPro = useIsPro();
   useAutoRun(autoTailor && isPro && !!resume && !!(job || detected), flow.start.run);
-  const [tab, setTab] = useState<Tab>("changes");
+  const [tab, setTab] = useState<Tab>("fixes");
+  const [previewing, setPreviewing] = useState(false);
   const { review } = flow;
   const noChanges = flow.start.error instanceof ApiError && flow.start.error.code === "NO_APPLICABLE_CHANGES";
+  const preview = previewing ? flow.draft() : null;
+  // The version name sits bold inside the sentence, wherever the language puts it.
+  const savesAs = t("strengthen_savesAs").split("{title}");
 
   return (
     <>
@@ -59,42 +66,54 @@ export function StrengthenView() {
         {review ? (
           <>
             <Card>
-              <div class="row between">
-                <span class="strong">{t("strengthen_fit")}</span>
-                <span class="row">
-                  <span class="score muted">{review.preview.oldScore}</span>
-                  <Icon name="forward" />
-                  <span class="score">{review.preview.newScore}</span>
-                </span>
+              <div class="row">
+                <span class="strong grow">{t("strengthen_fit")}</span>
+                <span class="score muted">{review.preview.oldScore}</span>
+                <span class="score">{flow.score}</span>
               </div>
               <Meter
                 value={review.preview.oldScore}
-                ghost={review.preview.newScore}
-                label={t("strengthen_fitLabel", { from: review.preview.oldScore, to: review.preview.newScore })}
+                ghost={flow.score}
+                label={t("strengthen_fitLabel", { from: review.preview.oldScore, to: flow.score })}
               />
+              <div class="small text-3">{t("strengthen_fitCaption", { count: flow.keptCount })}</div>
             </Card>
 
             <Segmented
               label={t("strengthen_tabs")}
               value={tab}
               options={[
-                { value: "changes", label: t("strengthen_tabChanges", { count: review.preview.changes.length }) },
-                { value: "questions", label: t("strengthen_tabQuestions", { count: flow.openGaps.length }) },
+                { value: "fixes", label: t("strengthen_tabFixes", { count: review.preview.changes.length + flow.openGaps.length }) },
+                { value: "keywords", label: t("strengthen_tabKeywords") },
+                { value: "tools", label: t("strengthen_tabTools") },
               ]}
               onChange={setTab}
             />
 
-            <div class="stack-sm">
-              {tab === "changes"
-                ? review.preview.changes.map((c, i) => (
-                    <ChangeItem key={i} change={c} kept={!flow.reverted.has(i)} onToggle={() => flow.toggleChange(i)} />
-                  ))
-                : flow.openGaps.map((g) => <GapItem key={g.id} gap={g} onAnswer={(has) => flow.answerGap(g, has)} />)}
-              {tab === "questions" && !flow.openGaps.length ? <p class="muted small">{t("strengthen_noQuestions")}</p> : null}
-              {flow.confirmed.length ? (
-                <p class="small">{t("strengthen_addingSkills", { skills: flow.confirmed.join(", ") })}</p>
-              ) : null}
-            </div>
+            {tab === "fixes" ? (
+              <div class="stack-sm">
+                {flow.openGaps.map((g) => (
+                  <GapItem key={g.id} gap={g} onAnswer={(has) => flow.answerGap(g, has)} />
+                ))}
+                {review.preview.changes.map((c, i) => (
+                  <ChangeItem
+                    key={i}
+                    change={c}
+                    label={changeLabel(c, review.original)}
+                    kept={!flow.reverted.has(i)}
+                    fixed={!isRevertible(c)}
+                    onToggle={() => flow.toggleChange(i)}
+                  />
+                ))}
+                {flow.confirmed.length ? (
+                  <p class="small">{t("strengthen_addingSkills", { skills: flow.confirmed.join(", ") })}</p>
+                ) : null}
+              </div>
+            ) : tab === "keywords" ? (
+              <KeywordsTab matched={review.preview.matchedKeywords ?? []} gaps={review.preview.gaps} />
+            ) : resume ? (
+              <ResumeCheckCard key={resume.id} resumeId={resume.id} title={resume.title} />
+            ) : null}
           </>
         ) : null}
       </div>
@@ -108,24 +127,45 @@ export function StrengthenView() {
                 <Button onClick={() => openTab(studioResumeUrl(flow.saved!.resumeId))} icon="external">
                   {t("common_openStudio")}
                 </Button>
-                <Button variant="primary" block iconAfter="forward" onClick={() => navigate("coverLetter")}>
+                <Button variant="primary" block iconAfter="forward" onClick={() => navigate("target")}>
                   {t("strengthen_next")}
                 </Button>
               </div>
             </>
           ) : (
             <>
-              <div class="muted small row">
+              <div class="small text-3 row">
                 <Icon name="file" />
-                {t("strengthen_savesAs")}
+                <span>
+                  {savesAs[0]}
+                  <b class="text-strong">{flow.versionTitle}</b>
+                  {savesAs[1]}
+                </span>
               </div>
-              <Button variant="primary" block busy={flow.save.busy} onClick={() => void flow.save.run()}>
-                {t("strengthen_save", { count: flow.keptCount })}
-              </Button>
+              <div class="row">
+                <Button icon="eye" onClick={() => setPreviewing(true)}>
+                  {t("strengthen_preview")}
+                </Button>
+                <Button
+                  variant="primary"
+                  block
+                  iconAfter="forward"
+                  busy={flow.save.busy}
+                  onClick={() => void flow.save.run().then((ok) => ok && navigate("target"))}
+                >
+                  {t("strengthen_saveContinue")}
+                </Button>
+              </div>
               <ErrorNotice error={flow.save.error} />
             </>
           )}
         </footer>
+      ) : null}
+
+      {preview ? (
+        <PreviewSheet title={flow.versionTitle} onClose={() => setPreviewing(false)}>
+          <div class="doc-preview">{resumeToText(preview)}</div>
+        </PreviewSheet>
       ) : null}
     </>
   );

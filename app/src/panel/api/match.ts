@@ -6,16 +6,31 @@ import type { CoverLetter, CoverLetterTone } from "@shared/cover-letter";
 
 export type JobRef = { jobId: string } | { jobHtml: string };
 
-export type FitResult = { score: number; summary: string };
+/**
+ * `matchedSkills` / `missingSkills`: the job's required skills the résumé
+ * shows / doesn't show (always in the analyze response, possibly empty;
+ * both empty → the fit card shows only the score).
+ */
+export type FitResult = { score: number; summary: string; matchedSkills: string[]; missingSkills: string[] };
+
+const skillList = (v: unknown): string[] =>
+  Array.isArray(v) ? v.filter((s): s is string => typeof s === "string" && s.trim() !== "") : [];
 
 export async function analyzeFit(job: JobRef, resumeId: string): Promise<FitResult> {
-  const raw = await request<{ score?: number; summaryRecommendations?: string }>("/api/match/analyze", {
+  const raw = await request<{
+    score?: number;
+    summaryRecommendations?: string;
+    matchedSkills?: unknown;
+    missingSkills?: unknown;
+  }>("/api/match/analyze", {
     method: "POST",
     body: { ...job, resumeId },
   });
   return {
     score: Math.round(Number(raw.score ?? 0)),
     summary: typeof raw.summaryRecommendations === "string" ? raw.summaryRecommendations : "",
+    matchedSkills: skillList(raw.matchedSkills),
+    missingSkills: skillList(raw.missingSkills),
   };
 }
 
@@ -26,6 +41,8 @@ export type TailorPreview = {
   changes: TailorChange[];
   gaps: JobGap[];
   variationTitle: string;
+  /** The job's keywords the tailored résumé shows. */
+  matchedKeywords?: string[];
 };
 
 /** Tailor without saving — the person reviews the changes first. */

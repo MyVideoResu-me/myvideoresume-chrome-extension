@@ -1,0 +1,74 @@
+/* Home, pair tray, signed out, settings / analytics / profile compare. */
+/* ---- Home action grid ---- */
+.action-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.action {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 6px; min-height: 92px;
+  padding: 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  background: var(--surface); text-align: left;
+}
+.action:hover { border-color: var(--primary-line); }
+.action small { font-size: 11.5px; color: var(--text-muted); line-height: 1.35; }
+.action-primary .icon { color: var(--primary); }
+.action-promote .icon { color: var(--promote); }
+
+/* ---- Pair tray ---- */
+.pair {
+  position: sticky; bottom: 0; border-top: 1px solid var(--border); background: var(--bg-subtle);
+  padding: 10px 12px; display: flex; flex-direction: column; gap: 6px;
+}
+.pair-caption { font-size: 11px; color: var(--text-muted); }
+.pair-row { display: flex; align-items: center; gap: 6px; }
+.pair-slot {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; min-height: 40px;
+  padding: 6px 8px; border: 1px solid var(--border); border-radius: 10px;
+  background: var(--surface); text-align: left; font-size: 12px; font-weight: 600;
+}
+.pair-empty { color: var(--text-muted); font-weight: 500; border-style: dashed; }
+.pair-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pair-icon { width: 24px; height: 24px; flex: none; border-radius: 7px; display: grid; place-items: center; }
+.pair-job { background: var(--primary-soft); color: var(--primary-ink); }
+.pair-person { background: var(--person-soft); color: var(--person-ink); }
+.pair-doc { background: var(--muted-fill); color: var(--text-2); }
+.pair-plus { color: var(--text-muted); font-weight: 600; }
+
+/* ---- Signed out ---- */
+.signed-out { padding: 20px 16px; display: flex; flex-direction: column; gap: 14px; }
+.signed-out .view-title { font-size: 20px; }
+.points { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+.points li { display: flex; gap: 10px; align-items: center; }
+.point-icon {
+  width: 32px; height: 32px; flex: none; border-radius: 9px; display: grid; place-items: center;
+  background: var(--primary-soft); color: var(--primary-ink);
+}
+
+/* Narrow side panels (Chrome lets it shrink to ~320px). */
+@media (max-width: 340px) {
+  .view-body { padding: 12px 10px; }
+  .steps { font-size: 10px; }
+  .pair-row { flex-wrap: wrap; }
+  .pair-plus { display: none; }
+}
+
+/* ---- Settings, analytics, profile compare ---- */
+.setting-row {
+  display: flex; align-items: center; gap: 12px; justify-content: space-between;
+  padding: 10px 0; border-top: 1px solid var(--border);
+}
+.setting-row:first-child { border-top: 0; padding-top: 0; }
+.setting-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(90px, 1fr)); gap: 8px; }
+.stat { padding: 8px; border-radius: var(--radius-sm); background: var(--bg-subtle); }
+.stat-value { font: 600 18px var(--font-display); }
+.funnel-row { display: grid; grid-template-columns: minmax(70px, 30%) 1fr auto; align-items: center; gap: 8px; }
+.funnel-label { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.compare-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.compare-col { padding: 8px; border-radius: var(--radius-sm); background: var(--bg-subtle); font-size: 12px; }
+.compare-col b { display: block; margin-bottom: 4px; font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; }
+.suggest-item {
+  display: flex; gap: 10px; align-items: flex-start; padding: 10px;
+  border: 1px solid var(--border); border-radius: 10px; background: var(--surface);
+}
+.suggest-item.on { border-color: var(--primary-line); background: var(--primary-soft); }
+.suggest-item input { margin: 2px 0 0; }
+.suggest-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; overflow-wrap: anywhere; }
+@media (max-width: 340px) { .compare-grid { grid-template-columns: 1fr; } }

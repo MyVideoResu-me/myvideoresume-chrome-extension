@@ -22,6 +22,11 @@ const ENTITY_SLOT: Record<EntityKind, { icon: IconName; tone: Tone }> = {
   post: { icon: "message", tone: "person" },
 };
 
+/** "Senior PM · Northwind" — a job reads as title + company everywhere in the tray. */
+function jobLabel(job: { title: string; company: string }): string {
+  return [job.title, job.company].filter(Boolean).join(" · ");
+}
+
 function SlotView({ slot, emptyLabel }: { slot: Slot; emptyLabel: string }) {
   if (!slot) return <div class="pair-slot pair-empty">{emptyLabel}</div>;
   const body = (
@@ -55,13 +60,13 @@ export function PairTray() {
   let right: Slot;
   if (lens.pairing === "candidateAndJob") {
     left = pair.candidate ? { icon: "user", tone: "person", label: pair.candidate.profile.name } : null;
-    right = pair.job ? { icon: "briefcase", tone: "job", label: pair.job.title } : null;
+    right = pair.job ? { icon: "briefcase", tone: "job", label: jobLabel(pair.job) } : null;
   } else {
     const job = pair.job;
     left = entity
-      ? { ...ENTITY_SLOT[entity.kind], label: entityTitle(entity) }
+      ? { ...ENTITY_SLOT[entity.kind], label: entity.kind === "job" ? jobLabel(entity) : entityTitle(entity) }
       : job
-        ? { icon: "briefcase", tone: "job", label: job.title }
+        ? { icon: "briefcase", tone: "job", label: jobLabel(job) }
         : null;
     right = resumeSlot;
   }

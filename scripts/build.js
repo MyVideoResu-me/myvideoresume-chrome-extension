@@ -41,6 +41,7 @@ const TS_ENTRYPOINTS = {
 };
 
 const APP_SRC = path.join(ROOT, 'app', 'src');
+const FONTSOURCE_DIR = path.join(ROOT, 'node_modules', '@fontsource-variable');
 
 const EXTENSIONS = {
   app: {
@@ -54,11 +55,25 @@ const EXTENSIONS = {
       'content-script-posts.js': path.join(APP_SRC, 'content', 'posts.ts'),
       'content-script-composer.js': path.join(APP_SRC, 'content', 'composer.ts'),
     },
-    // Source dirs that are bundled, never copied raw.
+    // Source dirs that are bundled, never copied raw. (Everything else under
+    // app/ is copied as-is — incl. styles/, which sidepanel.css @imports.)
     skip: ['src', 'tsconfig.json'],
     // The app's own bundles (panel = Preact + shared schemas) ship minified;
     // the shared content scripts stay readable (tests check their symbols).
     minify: true,
+    // Brand fonts (SIL OFL), bundled so the panel and the in-page pill never
+    // fetch from a CDN. Latin covers en / es / fr. dist path → npm source.
+    staticFiles: {
+      'fonts/geist.woff2': path.join(FONTSOURCE_DIR, 'geist', 'files', 'geist-latin-wght-normal.woff2'),
+      'fonts/bricolage-grotesque.woff2': path.join(
+        FONTSOURCE_DIR,
+        'bricolage-grotesque',
+        'files',
+        'bricolage-grotesque-latin-wght-normal.woff2',
+      ),
+      'fonts/OFL-geist.txt': path.join(FONTSOURCE_DIR, 'geist', 'LICENSE'),
+      'fonts/OFL-bricolage-grotesque.txt': path.join(FONTSOURCE_DIR, 'bricolage-grotesque', 'LICENSE'),
+    },
   },
   recruiter: {
     src: path.join(ROOT, 'recruiter'),
@@ -135,6 +150,15 @@ function buildExtension(name) {
     const src = path.join(config.src, entry);
     const dest = path.join(config.dist, entry);
     copyRecursive(src, dest);
+  }
+
+  // 3a. Static files from npm packages (fonts + their licences).
+  for (const [outName, srcPath] of Object.entries(config.staticFiles || {})) {
+    if (!fs.existsSync(srcPath)) {
+      console.error(`  ERROR: static file not found: ${srcPath} — run npm install`);
+      process.exit(1);
+    }
+    copyRecursive(srcPath, path.join(config.dist, outName));
   }
 
   // 3b. Bundle TypeScript content scripts via esbuild. Each entry is

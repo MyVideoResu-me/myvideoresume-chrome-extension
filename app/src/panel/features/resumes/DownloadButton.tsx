@@ -1,6 +1,6 @@
 /** Download a résumé in the person's format (non-PDF formats are Pro). */
 import { exportResume } from "../../api/resumes";
-import { sessionStore } from "../../state/session";
+import { useIsPro } from "../../state/session";
 import { settingsStore } from "../../state/settings";
 import { useStore } from "../../state/store";
 import { openTab } from "../../platform/chrome";
@@ -20,8 +20,8 @@ function saveBlob(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url);
 }
 
-export function DownloadButton({ resumeId, title }: { resumeId: string; title: string }) {
-  const isPro = useStore(sessionStore, (s) => s.session.status === "signedIn" && s.session.isPro);
+export function DownloadButton({ resumeId, title, size }: { resumeId: string; title: string; size?: "md" | "sm" }) {
+  const isPro = useIsPro();
   const preferred = useStore(settingsStore, (s) => s.settings.downloadFormat);
   const format = isPro ? preferred : "pdf";
   const download = useAction(async () => {
@@ -31,7 +31,7 @@ export function DownloadButton({ resumeId, title }: { resumeId: string; title: s
   });
   return (
     <>
-      <Button icon="download" busy={download.busy} onClick={() => void download.run()}>
+      <Button icon="download" size={size} busy={download.busy} onClick={() => void download.run()}>
         {t("resumes_download", { format: format.toUpperCase() })}
       </Button>
       <ErrorNotice error={download.error} />

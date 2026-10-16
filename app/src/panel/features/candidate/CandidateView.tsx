@@ -11,7 +11,7 @@ import { Button, Card, Eyebrow } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
 import { Icon } from "../../ui/Icon";
 import { JobPicker } from "./JobPicker";
-import { useCandidateFor, useCaptureCandidate } from "./useCandidate";
+import { useCandidateFor, useCaptureCandidate, useTailorCandidate } from "./useCandidate";
 
 function Line({ ok, children }: { ok: boolean; children: ComponentChildren }) {
   return (
@@ -27,8 +27,9 @@ function Line({ ok, children }: { ok: boolean; children: ComponentChildren }) {
 export function CandidateView() {
   const profile = useStore(pageStore, (s) => (s.entity?.kind === "profile" ? s.entity : null));
   const candidate = useCandidateFor(profile);
-  const job = useStore(pairStore, (s) => s.job);
+  const { job, candidateResume } = useStore(pairStore, (s) => s);
   const { capture, findEmail } = useCaptureCandidate();
+  const tailor = useTailorCandidate();
   const name = candidate?.profile.name || profile?.name || t("candidate_none");
 
   return (
@@ -78,21 +79,28 @@ export function CandidateView() {
           <ErrorNotice error={capture.error} fallback="error_readPage" />
         </Card>
 
-        {candidate ? (
-          <>
-            <Eyebrow>{t("candidate_pairJob")}</Eyebrow>
-            <JobPicker />
-          </>
-        ) : null}
+        {candidate ? <JobPicker /> : null}
       </div>
       {candidate ? (
         <footer class="view-footer">
           <Button variant="primary" block iconAfter="forward" disabled={!job} onClick={() => navigate("outreach")}>
             {t("action_outreach")}
           </Button>
-          <Button block accent="promote" icon="video" disabled={!job} onClick={() => navigate("candidateVideo")}>
-            {t("action_candidateVideo")}
-          </Button>
+          <div class="row">
+            <Button
+              block
+              icon={candidateResume ? "check" : "target"}
+              busy={tailor.busy}
+              disabled={!job || !!candidateResume}
+              onClick={() => void tailor.run()}
+            >
+              {candidateResume ? t("candidateVideo_tailored") : t("candidate_tailorResume")}
+            </Button>
+            <Button block accent="promote" icon="video" disabled={!job} onClick={() => navigate("candidateVideo")}>
+              {t("action_candidateVideo")}
+            </Button>
+          </div>
+          <ErrorNotice error={tailor.error} />
         </footer>
       ) : null}
     </>

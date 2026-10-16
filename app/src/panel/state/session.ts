@@ -7,11 +7,23 @@
 import { fetchMe, fetchSubscription, logout, type Me } from "../api/account";
 import { JWT_KEY, clearSession, getToken } from "../api/http";
 import { onStorageChange, storageGet, storageRemove, storageSet } from "../platform/chrome";
+import { ROLE_KEY } from "./account-role";
+import { APPLY_ANSWERS_KEY } from "./apply-answers";
+import { REMINDERS_KEY } from "./reminders";
 import { createStore, useStore } from "./store";
 
 const LAST_USER_KEY = "lastUserId";
 /** Everything the panel keeps per user. */
-const USER_SCOPED_KEYS = ["selectedResumeId", "appLens", "currentTrackedJob", "jobScores", "jobTailorings"];
+const USER_SCOPED_KEYS = [
+  "selectedResumeId",
+  "appLens",
+  "currentTrackedJob",
+  "jobScores",
+  "jobTailorings",
+  ROLE_KEY,
+  REMINDERS_KEY,
+  APPLY_ANSWERS_KEY,
+];
 
 export type SessionState =
   | { status: "loading" }
@@ -31,7 +43,7 @@ async function load(): Promise<void> {
     const me = await fetchMe();
     const lastUser = await storageGet<string>(LAST_USER_KEY);
     if (lastUser && lastUser !== me.id) await storageRemove(USER_SCOPED_KEYS);
-    await storageSet({ [LAST_USER_KEY]: me.id });
+    await storageSet({ [LAST_USER_KEY]: me.id, [ROLE_KEY]: String(me.role ?? "") });
     const isPro = await fetchSubscription()
       .then((s) => s.isPro === true)
       .catch(() => false);
@@ -74,6 +86,11 @@ export function recheckProIfStale(): void {
 
 function roleOf(state: { session: SessionState }): string {
   return state.session.status === "signedIn" ? String(state.session.me.role) : "";
+}
+
+/** Whether the signed-in person is on Pro. */
+export function useIsPro(): boolean {
+  return useStore(sessionStore, (s) => s.session.status === "signedIn" && s.session.isPro);
 }
 
 /** The signed-in person's role ("" when signed out). */

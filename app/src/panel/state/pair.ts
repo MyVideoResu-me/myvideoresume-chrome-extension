@@ -54,6 +54,11 @@ export function setPairCandidate(candidate: CapturedCandidate | null): void {
   pairStore.set({ candidate, candidateResume: null });
 }
 
+/** The candidate's talent-pool row arrived after capture (it was saved on demand). */
+export function setCandidatePool(talentPoolId: string, poolEmail: string | null): void {
+  pairStore.set((s) => (s.candidate ? { ...s, candidate: { ...s.candidate, talentPoolId, poolEmail } } : s));
+}
+
 export function setCandidateEmail(email: string): void {
   pairStore.set((s) =>
     s.candidate ? { ...s, candidate: { ...s.candidate, profile: { ...s.candidate.profile, email } } } : s,

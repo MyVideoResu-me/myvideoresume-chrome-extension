@@ -5,6 +5,7 @@ import { t, type MessageKey } from "../../platform/i18n";
 import { Card, Chip, Segmented } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
 import { useAction } from "../../ui/useAction";
+import { ReminderRow } from "./ReminderRow";
 
 const ACTIVE: readonly PipelineStatus[] = ["tracked", "applied", "interviewing", "offered"];
 const CLOSED = PIPELINE_STATUSES.filter((s) => !ACTIVE.includes(s));
@@ -20,6 +21,13 @@ const STATUS_LABEL: Record<PipelineStatus, MessageKey> = {
   withdrawn: "status_withdrawn",
   declined: "status_declined",
 };
+
+/** "Added today" for a job tracked today, else "Tracked". */
+function isToday(iso: string): boolean {
+  if (!iso) return false;
+  const d = new Date(iso);
+  return !Number.isNaN(d.getTime()) && d.toDateString() === new Date().toDateString();
+}
 
 function useStatusChange(job: Job) {
   return useAction((s: PipelineStatus) => changeJobStatus(job.id, s));
@@ -71,7 +79,7 @@ export function PipelineCard({ job }: { job: Job }) {
     <Card>
       <div class="row between">
         <span class="strong">{t("pipeline_title")}</span>
-        <Chip tone="ok">{t("job_tracked")}</Chip>
+        <Chip tone="ok">{isToday(job.createdAt) ? t("job_addedToday") : t("job_tracked")}</Chip>
       </div>
       <Segmented
         label={t("pipeline_status")}
@@ -80,6 +88,7 @@ export function PipelineCard({ job }: { job: Job }) {
         onChange={(s) => void save.run(s)}
       />
       <ErrorNotice error={save.error} />
+      <ReminderRow job={job} />
       <StatusSelect job={job} statuses={CLOSED} label={t("pipeline_closed")} />
     </Card>
   );

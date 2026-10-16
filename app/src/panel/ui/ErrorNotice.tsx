@@ -21,6 +21,12 @@ const KIND_MESSAGE: Record<ApiError["kind"], MessageKey> = {
   server: "error_server",
 };
 
+/** Codes with their own explanation (checked before the kind). */
+const CODE_MESSAGE: Readonly<Record<string, MessageKey>> = {
+  CONSENT_EMAIL_MISMATCH: "error_consentEmailMismatch",
+  CONSENT_EMAIL_NOT_ALLOWED: "error_consentEmailNotAllowed",
+};
+
 /** Open the upgrade page (the API may hand back a relative or absolute URL). */
 export function openUpgrade(url?: string | null): void {
   openTab(url && /^https?:\/\//.test(url) ? url : webUrl(url || "/pricing"));
@@ -30,7 +36,8 @@ export function ErrorNotice({ error, fallback }: { error: unknown; fallback?: Me
   if (!error) return null;
   const apiError = error instanceof ApiError ? error : null;
   const kind = apiError?.kind ?? "server";
-  const message = apiError ? t(KIND_MESSAGE[kind]) : t(fallback ?? "error_server");
+  const codeKey = apiError ? CODE_MESSAGE[apiError.code] : undefined;
+  const message = t(codeKey ?? (apiError ? KIND_MESSAGE[kind] : (fallback ?? "error_server")));
   const showUpgrade = kind === "pro" || kind === "limit";
   return (
     <div class="notice notice-error" role="alert">

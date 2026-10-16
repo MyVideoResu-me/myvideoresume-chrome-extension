@@ -4,7 +4,7 @@
  */
 import type { ComponentType } from "preact";
 import { useEffect, useRef } from "preact/hooks";
-import type { RouteName } from "../domain/routes";
+import type { ScreenName } from "../domain/routes";
 import { navStore } from "../state/nav";
 import { recheckProIfStale, refreshSession, sessionStore } from "../state/session";
 import { useStore } from "../state/store";
@@ -12,31 +12,29 @@ import { startUser } from "../state/user-reset";
 import { t } from "../platform/i18n";
 import { Button, Spinner } from "../ui/controls";
 import { AnalyticsView } from "../features/analytics/AnalyticsView";
-import { ApplyView } from "../features/apply/ApplyView";
 import { CandidateView } from "../features/candidate/CandidateView";
 import { CandidateVideoView } from "../features/candidate/CandidateVideoView";
-import { CoverLetterView } from "../features/cover/CoverLetterView";
 import { HomeView } from "../features/home/HomeView";
 import { JobView } from "../features/job/JobView";
+import { TargetView } from "../features/job/TargetView";
 import { OutreachView } from "../features/outreach/OutreachView";
 import { PipelineView } from "../features/pipeline/PipelineView";
 import { PostReplyView } from "../features/post/PostReplyView";
+import { ProfileImportView } from "../features/profile-import/ProfileImportView";
 import { PromoteView } from "../features/promote/PromoteView";
 import { ProspectView } from "../features/prospect/ProspectView";
 import { ResumesView } from "../features/resumes/ResumesView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { StrengthenView } from "../features/strengthen/StrengthenView";
-import { AccountMenu } from "./AccountMenu";
-import { LensMenu } from "./LensMenu";
+import { AppHeader } from "./AppHeader";
 import { PairTray } from "./PairTray";
 import { SignedOut } from "./SignedOut";
 
-const SCREENS: Record<RouteName, ComponentType> = {
+const SCREENS: Record<ScreenName, ComponentType> = {
   home: HomeView,
   job: JobView,
   strengthen: StrengthenView,
-  coverLetter: CoverLetterView,
-  apply: ApplyView,
+  target: TargetView,
   promote: PromoteView,
   candidate: CandidateView,
   outreach: OutreachView,
@@ -47,23 +45,11 @@ const SCREENS: Record<RouteName, ComponentType> = {
   analytics: AnalyticsView,
   resumes: ResumesView,
   settings: SettingsView,
+  profileImport: ProfileImportView,
 };
 
 /** Screens that are lists, not pair work — no pair tray. */
-const NO_TRAY: ReadonlySet<RouteName> = new Set(["pipeline", "analytics", "resumes", "settings"]);
-
-function AppHeader() {
-  return (
-    <header class="app-header">
-      <span class="logo" aria-hidden="true">
-        h
-      </span>
-      <span class="brand">hired.video</span>
-      <LensMenu />
-      <AccountMenu />
-    </header>
-  );
-}
+const NO_TRAY: ReadonlySet<ScreenName> = new Set(["pipeline", "analytics", "resumes", "settings"]);
 
 export function App() {
   const session = useStore(sessionStore, (s) => s.session);

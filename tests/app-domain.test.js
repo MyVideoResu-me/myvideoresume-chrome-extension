@@ -25,9 +25,33 @@ describe("lenses", () => {
     assert.ok(ids.includes("sales"));
   });
 
-  it("recruiter lens follows the product hiring switch", () => {
-    const has = lenses.availableLenses("recruiter").some((l) => l.id === "recruiter");
-    assert.equal(has, roles.HIRING_PERSONAS_ENABLED);
+  it("hiring is on", () => {
+    assert.equal(roles.HIRING_PERSONAS_ENABLED, true);
+  });
+
+  it("a hiring role gets the recruiter lens and starts in it", () => {
+    for (const role of ["recruiter", "employer"]) {
+      const ids = lenses.availableLenses(role).map((l) => l.id);
+      assert.ok(ids.includes("recruiter"), role);
+      assert.equal(lenses.resolveLens(null, role).id, "recruiter", role);
+      assert.equal(lenses.resolveLens("sales", role).id, "sales", role);
+    }
+  });
+
+  it("admins may use the recruiter lens but start as a job seeker", () => {
+    assert.ok(lenses.availableLenses("admin").some((l) => l.id === "recruiter"));
+    assert.equal(lenses.resolveLens(null, "admin").id, "jobSeeker");
+  });
+
+  it("a job seeker never gets the recruiter lens", () => {
+    const ids = lenses.availableLenses("job_seeker").map((l) => l.id);
+    assert.ok(!ids.includes("recruiter"));
+    assert.equal(lenses.resolveLens(null, "job_seeker").id, "jobSeeker");
+  });
+
+  it("a job seeker on a profile can improve their résumé from it", () => {
+    const seeker = lenses.LENSES.find((l) => l.id === "jobSeeker");
+    assert.ok(seeker.actions.profile.includes("profileImport"));
   });
 
   it("a saved lens the account may not use falls back to the role default", () => {

@@ -3,7 +3,7 @@ import { useEffect } from "preact/hooks";
 import { jobsStore, loadSavedJobs } from "../../state/jobs";
 import { useStore } from "../../state/store";
 import { openTab } from "../../platform/chrome";
-import { webUrl } from "../../platform/config";
+import { webJobsUrl } from "../../platform/web-links";
 import { t } from "../../platform/i18n";
 import { ViewHeader } from "../../shell/ViewHeader";
 import { Button, Card, Spinner } from "../../ui/controls";
@@ -27,7 +27,7 @@ export function PipelineView() {
           <Button size="sm" icon="scan" busy={reload.busy} onClick={() => void reload.run()}>
             {t("common_refresh")}
           </Button>
-          <Button size="sm" icon="external" onClick={() => openTab(webUrl("/jobs"))}>
+          <Button size="sm" icon="external" onClick={() => openTab(webJobsUrl())}>
             {t("pipeline_openSite")}
           </Button>
         </div>

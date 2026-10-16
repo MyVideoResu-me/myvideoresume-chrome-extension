@@ -70,6 +70,14 @@ export function saveVersion(
   });
 }
 
+/**
+ * Replace a résumé's document (PUT /api/resumes/:id). Callers pass a
+ * VERSION's id — the panel never writes the master this way.
+ */
+export function updateResumeContent(id: string, content: ResumeContent): Promise<unknown> {
+  return request(`/api/resumes/${encodeURIComponent(id)}`, { method: "PUT", body: { content } });
+}
+
 export function uploadResumeFile(file: File): Promise<RawResume> {
   const form = new FormData();
   form.append("file", file);

@@ -16,20 +16,23 @@ export type ExtractedProfile = {
 export type CapturedCandidate = {
   profile: ExtractedProfile;
   talentPoolId: string | null;
+  /** The email on the talent-pool row — the only address consent may go to. */
+  poolEmail?: string | null;
   duplicate: boolean;
 };
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const list = <T>(v: unknown): T[] => (Array.isArray(v) ? (v as T[]) : []);
 
-export async function extractProfile(html: string, sourceUrl: string): Promise<CapturedCandidate> {
+/** `force` skips the server's same-page dedup, so a fresh talent-pool row is made. */
+export async function extractProfile(html: string, sourceUrl: string, force = false): Promise<CapturedCandidate> {
   const raw = await request<Record<string, unknown>>("/api/recruiter/extract-profile", {
     method: "POST",
-    body: { html, sourceUrl },
+    body: { html, sourceUrl, ...(force ? { force: true } : {}) },
   });
   const p = (raw.profile ?? {}) as Record<string, unknown>;
   const contact = (p.contactInfo ?? {}) as Record<string, unknown>;
-  const pool = raw.talentPoolCandidate as { id?: string } | null | undefined;
+  const pool = raw.talentPoolCandidate as { id?: string; candidateEmail?: string | null } | null | undefined;
   return {
     profile: {
       name: str(p.name),
@@ -43,6 +46,7 @@ export async function extractProfile(html: string, sourceUrl: string): Promise<C
       email: str(contact.email) || null,
     },
     talentPoolId: pool?.id ?? null,
+    poolEmail: str(pool?.candidateEmail) || null,
     duplicate: raw.duplicate === true,
   };
 }

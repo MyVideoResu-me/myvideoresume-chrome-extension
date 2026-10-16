@@ -143,31 +143,27 @@ import { extractFormFields as extractFormFieldsShared } from "../../hired.video/
 
   type FillResult = Record<string, "filled" | "skipped" | "error">;
 
+  /** The form element a field id points at (name, id, Workday automation id, raw selector). */
+  function findField(fieldId: string): HTMLElement | null {
+    let el = document.querySelector<HTMLElement>(`[name="${CSS.escape(fieldId)}"]`);
+    if (!el) el = document.getElementById(fieldId);
+    if (!el) el = document.querySelector<HTMLElement>(`[data-automation-id="${CSS.escape(fieldId)}"]`);
+    if (!el && (fieldId.startsWith("#") || fieldId.startsWith("[") || fieldId.startsWith("."))) {
+      try {
+        el = document.querySelector<HTMLElement>(fieldId);
+      } catch {
+        /* invalid selector */
+      }
+    }
+    return el;
+  }
+
   function fillFormFields(answersMap: Record<string, string>): FillResult {
     const results: FillResult = {};
     for (const [fieldId, answer] of Object.entries(answersMap)) {
       try {
-        let el: HTMLElement | null = null;
-        // 1. name
-        el = document.querySelector<HTMLElement>(`[name="${CSS.escape(fieldId)}"]`);
-        // 2. id
-        if (!el) el = document.getElementById(fieldId);
-        // 3. Workday data-automation-id
-        if (!el) el = document.querySelector<HTMLElement>(`[data-automation-id="${CSS.escape(fieldId)}"]`);
-        // 4. raw CSS selector
-        if (!el && (fieldId.startsWith("#") || fieldId.startsWith("[") || fieldId.startsWith("."))) {
-          try {
-            el = document.querySelector<HTMLElement>(fieldId);
-          } catch {
-            /* invalid selector */
-          }
-        }
-
-        if (!el) {
-          results[fieldId] = "skipped";
-          continue;
-        }
-        if ((el as HTMLInputElement).type === "file") {
+        const el = findField(fieldId);
+        if (!el || (el as HTMLInputElement).type === "file") {
           results[fieldId] = "skipped";
           continue;
         }
@@ -177,6 +173,59 @@ import { extractFormFields as extractFormFieldsShared } from "../../hired.video/
       }
     }
     return results;
+  }
+
+  /**
+   * Put a file (the tailored résumé) into a file input, the way a person
+   * choosing it would: a DataTransfer's FileList + input/change events.
+   */
+  function attachFile(fieldId: string, name: string, mime: string, base64: string): boolean {
+    const el = findField(fieldId);
+    if (!(el instanceof HTMLInputElement) || el.type !== "file") return false;
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([bytes], name, { type: mime }));
+    el.files = transfer.files;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    return el.files?.length === 1;
+  }
+
+  // -------------------------------------------------------------------------
+  // "We mark the job Applied when you do": after the panel filled this
+  // form, the person's own submit (a form submit, or a click on a
+  // submit-looking button) is reported to the panel once. We never submit.
+  // -------------------------------------------------------------------------
+
+  const SUBMIT_TEXT = /submit|send application|envoyer|enviar/i;
+  let submitWatched = false;
+  let submitReported = false;
+
+  function reportSubmitted(): void {
+    if (submitReported) return;
+    submitReported = true;
+    try {
+      (chrome.runtime.sendMessage({ action: "applicationSubmitted", url: window.location.href }) as any)?.catch?.(() => {});
+    } catch {
+      /* panel closed */
+    }
+  }
+
+  function watchSubmit(): void {
+    if (submitWatched) return;
+    submitWatched = true;
+    document.addEventListener("submit", () => reportSubmitted(), true);
+    document.addEventListener(
+      "click",
+      (ev) => {
+        const target = (ev.target as Element | null)?.closest?.('button, input[type="submit"], [role="button"]');
+        if (!target) return;
+        // SPA forms (no submit event): the button that reads like the final submit.
+        const text = ((target as HTMLInputElement).value || target.textContent || "").trim();
+        if (text.length <= 40 && SUBMIT_TEXT.test(text)) reportSubmitted();
+      },
+      true,
+    );
   }
 
   // -------------------------------------------------------------------------
@@ -201,9 +250,19 @@ import { extractFormFields as extractFormFieldsShared } from "../../hired.video/
 
     if (request.action === "fillFormFields") {
       try {
+        if (request.watchSubmit === true) watchSubmit();
         sendResponse({ results: fillFormFields(request.answers || {}) });
       } catch (err) {
         sendResponse({ results: {}, error: err instanceof Error ? err.message : String(err) });
+      }
+      return true;
+    }
+
+    if (request.action === "attachFormFile") {
+      try {
+        sendResponse({ ok: attachFile(String(request.fieldId || ""), String(request.name || "resume"), String(request.mime || ""), String(request.base64 || "")) });
+      } catch (err) {
+        sendResponse({ ok: false, error: err instanceof Error ? err.message : String(err) });
       }
       return true;
     }

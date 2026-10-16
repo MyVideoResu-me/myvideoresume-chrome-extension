@@ -3,7 +3,7 @@ import { useEffect, useRef } from "preact/hooks";
 import { activeResume, chooseResume, loadResumes, resumesStore, uploadResume } from "../../state/resumes";
 import { useStore } from "../../state/store";
 import { openTab } from "../../platform/chrome";
-import { webUrl } from "../../platform/config";
+import { webResumesUrl } from "../../platform/web-links";
 import { t } from "../../platform/i18n";
 import { ViewHeader } from "../../shell/ViewHeader";
 import { Button, Spinner } from "../../ui/controls";
@@ -68,7 +68,7 @@ export function ResumesView() {
           <Button icon="upload" busy={upload.busy} onClick={() => fileRef.current?.click()}>
             {t("resumes_add")}
           </Button>
-          <Button icon="external" onClick={() => openTab(webUrl("/resumes"))}>
+          <Button icon="external" onClick={() => openTab(webResumesUrl())}>
             {t("resumes_openSite")}
           </Button>
         </div>

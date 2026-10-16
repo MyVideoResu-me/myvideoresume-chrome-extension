@@ -27,7 +27,7 @@ export function LensMenu() {
         onClick={toggle}
       >
         {t(lens.labelKey)}
-        <Icon name="chevronDown" size={14} />
+        <Icon name={open ? "chevronUp" : "chevronDown"} size={14} />
       </button>
       {open ? (
         <div class="lens-menu" role="menu" aria-label={t("lens_switch")}>

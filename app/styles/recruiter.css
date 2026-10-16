@@ -1,0 +1,100 @@
+/* ==========================================================================
+   Recruiter + sales flows, profile import (candidate, outreach, prospect,
+   post reply, consent, profile import / compare). Owned by those features.
+   ========================================================================== */
+/* Two bodies on one screen (a fixed head + the flow under it). */
+.view-body-head { flex: 0 0 auto; padding-bottom: 0; }
+.view-body-tail { padding-top: 12px; }
+
+.link-btn {
+  align-self: flex-start; padding: 0; border: 0; background: none;
+  color: var(--primary-ink); font-weight: 600; text-decoration: underline;
+}
+
+/* Avatars with initials. */
+.avatar-lg, .avatar-sm {
+  flex: none; border-radius: 999px; display: grid; place-items: center;
+  background: var(--person-soft); color: var(--person-ink); font-weight: 700;
+}
+.avatar-lg { width: 40px; height: 40px; font: 700 14px var(--font-display); }
+.avatar-sm { width: 28px; height: 28px; font-size: 11px; background: var(--muted-fill); color: var(--text-2); }
+.avatar-promote { background: var(--avatar-promote-bg); color: var(--avatar-promote-ink); }
+.post-author { gap: 8px; }
+
+/* Message composer: cap caption + counter on one line. */
+.composer-hint { flex: 1; display: flex; justify-content: space-between; gap: 8px; color: var(--text-muted); }
+
+/* Job picker with fit %. */
+.picker-head { gap: 4px; }
+.picker-note { width: 100%; margin: 0; }
+.job-opt-fit { flex-direction: row; align-items: center; gap: 10px; }
+.job-opt-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.fit-score { flex: none; font: 600 14px var(--font-display); color: var(--text-muted); }
+.fit-strong { color: var(--primary-ink); }
+.fit-pending { color: var(--text-muted); }
+
+/* Candidate video timeline. */
+.line-current .fill-dot { background: var(--promote-soft); color: var(--promote-ink); }
+.line-current .fill-label { font-weight: 600; }
+.timeline-panel {
+  margin: 0; padding: 10px; border-radius: var(--radius-sm); background: var(--bg-subtle);
+  font: 12px/1.5 var(--font); max-height: 240px; overflow: auto; overflow-wrap: anywhere;
+}
+
+/* Radio cards with a badge. */
+.radio-legend { padding: 0 0 6px; }
+.radio-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+
+/* Consent request. */
+.consent-box { padding: 10px; border: 1px solid var(--border); border-radius: 10px; background: var(--bg-subtle); margin: 0; }
+
+/* Render preview (large) + video card (compact). */
+.render-preview {
+  position: relative; overflow: hidden; display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 14px; border-radius: var(--radius); background: var(--video-bg); color: var(--video-text);
+  min-height: 150px;
+}
+.render-landscape { aspect-ratio: 16 / 9; min-height: 0; }
+.render-square { aspect-ratio: 1 / 1; max-width: 220px; }
+.render-vertical { aspect-ratio: 9 / 16; max-width: 160px; }
+.render-chip {
+  position: absolute; top: 12px; left: 12px; display: inline-flex; align-items: center;
+  height: 22px; padding: 0 8px; border-radius: 99px; background: var(--video-chip); font-size: 11px;
+}
+.render-play {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  width: 44px; height: 44px; border-radius: 99px; display: grid; place-items: center;
+  background: var(--video-chip); color: var(--video-text);
+}
+.render-title { position: relative; font: 600 15px/1.2 var(--font-display); overflow-wrap: anywhere; }
+.render-time { position: relative; font-size: 10.5px; opacity: 0.8; margin-top: 4px; }
+video.render-preview.render-video { padding: 0; object-fit: cover; }
+.render-bar { position: absolute; left: 0; right: 0; bottom: 0; height: 3px; background: var(--video-track); overflow: hidden; }
+.render-bar > span { display: block; height: 100%; width: 0; background: var(--video-progress); transition: width 0.3s; }
+.render-bar-busy > span { width: 35%; animation: render-slide 1.4s ease-in-out infinite; }
+@keyframes render-slide { from { transform: translateX(-100%); } to { transform: translateX(300%); } }
+@media (prefers-reduced-motion: reduce) { .render-bar-busy > span { animation: none; width: 100%; opacity: 0.5; } }
+
+.video-card, .attach-card {
+  display: flex; flex-direction: column; gap: 8px; padding: 10px;
+  border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+}
+.video-card { flex-direction: row; align-items: center; gap: 10px; }
+.video-thumb {
+  width: 96px; height: 54px; flex: none; border-radius: 8px; display: grid; place-items: center;
+  background: var(--video-bg); color: var(--video-text);
+}
+.video-thumb-square { width: 64px; height: 64px; }
+.attach-card .video-thumb { width: 48px; height: 36px; }
+.video-card-text, .attach-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; font-size: 12.5px; overflow-wrap: anywhere; }
+.attach-row { display: flex; align-items: center; gap: 10px; }
+
+/* Prospect signals. */
+.signals { border-top: 1px solid var(--border); padding-top: 6px; display: flex; flex-direction: column; gap: 2px; }
+.signal { padding: 4px 0 4px 10px; border-left: 2px solid var(--primary-line); font-size: 12.5px; color: var(--text-2); }
+
+@media (max-width: 360px) {
+  .video-thumb { width: 72px; height: 40px; }
+  .video-thumb-square { width: 52px; height: 52px; }
+  .render-title { font-size: 14px; }
+}

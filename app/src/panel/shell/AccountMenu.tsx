@@ -3,7 +3,7 @@ import { signOut, sessionStore } from "../state/session";
 import { navigate } from "../state/nav";
 import { useStore } from "../state/store";
 import { openTab } from "../platform/chrome";
-import { webUrl } from "../platform/config";
+import { webHomeUrl } from "../platform/web-links";
 import { t } from "../platform/i18n";
 import type { RouteName } from "../domain/routes";
 import type { MessageKey } from "../platform/i18n";
@@ -57,7 +57,7 @@ export function AccountMenu() {
               {t(item.labelKey)}
             </button>
           ))}
-          <button type="button" role="menuitem" class="menu-item" onClick={() => openTab(webUrl("/"))}>
+          <button type="button" role="menuitem" class="menu-item" onClick={() => openTab(webHomeUrl())}>
             <Icon name="external" />
             {t("menu_openSite")}
           </button>

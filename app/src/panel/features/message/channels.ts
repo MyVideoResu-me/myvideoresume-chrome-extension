@@ -7,6 +7,8 @@ export type ChannelDef = {
   labelKey: MessageKey;
   /** Hard cap the destination enforces (LinkedIn connection notes: 300). */
   maxChars?: number;
+  /** Explains the cap under the message box. */
+  capCaptionKey?: MessageKey;
   /** "fill" types into the page's open box; "email" opens the mail app. */
   deliver: "fill" | "email";
   fillLabelKey: MessageKey;
@@ -14,8 +16,14 @@ export type ChannelDef = {
 
 export const CHANNELS: Record<ChannelId, ChannelDef> = {
   email: { labelKey: "channel_email", deliver: "email", fillLabelKey: "message_openEmail" },
-  linkedinNote: { labelKey: "channel_linkedinNote", maxChars: 300, deliver: "fill", fillLabelKey: "message_fillBox" },
-  linkedinMessage: { labelKey: "channel_linkedinMessage", deliver: "fill", fillLabelKey: "message_fillBox" },
+  linkedinNote: {
+    labelKey: "channel_linkedinNote",
+    maxChars: 300,
+    capCaptionKey: "message_noteCap",
+    deliver: "fill",
+    fillLabelKey: "message_fillLinkedIn",
+  },
+  linkedinMessage: { labelKey: "channel_linkedinMessage", deliver: "fill", fillLabelKey: "message_fillLinkedIn" },
   reply: { labelKey: "channel_reply", deliver: "fill", fillLabelKey: "message_fillReply" },
 };
 

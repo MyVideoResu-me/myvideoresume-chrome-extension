@@ -4,7 +4,7 @@
  * the upgrade page instead of switching on.
  */
 import { DOWNLOAD_FORMATS, type DownloadFormat, type ExtensionSettings } from "../../../shared/settings";
-import { sessionStore } from "../../state/session";
+import { useIsPro } from "../../state/session";
 import { settingsStore, updateSettings } from "../../state/settings";
 import { useStore } from "../../state/store";
 import { t, type MessageKey } from "../../platform/i18n";
@@ -32,7 +32,7 @@ const FORMAT_LABEL: Record<DownloadFormat, MessageKey> = {
 
 export function SettingsView() {
   const settings = useStore(settingsStore, (s) => s.settings);
-  const isPro = useStore(sessionStore, (s) => s.session.status === "signedIn" && s.session.isPro);
+  const isPro = useIsPro();
 
   const set = (patch: ExtensionSettings, needsPro: boolean) => {
     if (needsPro && !isPro) openUpgrade();

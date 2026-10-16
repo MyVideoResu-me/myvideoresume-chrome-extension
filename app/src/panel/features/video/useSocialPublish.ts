@@ -38,7 +38,8 @@ export function useSocialPublish(projectId: string | null, title: string) {
     return () => window.removeEventListener("focus", refresh);
   }, []);
 
-  const post = useAction(async (platform: SocialPlatform) => {
+  /** Caption it and post it to one platform. `post` wraps it for a single button. */
+  const publish = async (platform: SocialPlatform): Promise<void> => {
     if (!projectId) return;
     const cap = await generateCaption(projectId, platform).catch(() => null);
     const caption = [cap?.hook, cap?.caption, cap?.hashtags?.map((h) => (h.startsWith("#") ? h : `#${h}`)).join(" ")]
@@ -46,7 +47,8 @@ export function useSocialPublish(projectId: string | null, title: string) {
       .join("\n\n");
     await publishToPlatform(projectId, platform, { title, caption });
     setPosted((prev) => new Set(prev).add(platform));
-  });
+  };
+  const post = useAction(publish);
 
   const connect = useAction(async (platform: SocialPlatform) => {
     openTab(await connectUrl(platform, "/studio"));
@@ -56,5 +58,5 @@ export function useSocialPublish(projectId: string | null, title: string) {
   const stateOf = (p: SocialPlatform): PlatformState =>
     posted.has(p) ? "posted" : connected.has(p) ? "connected" : "notConnected";
 
-  return { platforms: VIDEO_PUBLISH_PLATFORMS, stateOf, post, connect };
+  return { platforms: VIDEO_PUBLISH_PLATFORMS, stateOf, post, publish, connect };
 }

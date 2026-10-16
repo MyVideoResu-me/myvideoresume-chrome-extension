@@ -11,6 +11,8 @@ const PATHS = {
   check: <path d="M20 6 9 17l-5-5" />,
   bookmark: <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z" />,
   chevronDown: <path d="m6 9 6 6 6-6" />,
+  chevronUp: <path d="m18 15-6-6-6 6" />,
+  eye: <><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></>,
   chevronRight: <path d="m9 6 6 6-6 6" />,
   back: <path d="M19 12H5M12 19l-7-7 7-7" />,
   forward: <path d="M5 12h14M12 5l7 7-7 7" />,

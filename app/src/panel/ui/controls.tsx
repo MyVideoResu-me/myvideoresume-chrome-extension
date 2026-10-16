@@ -1,5 +1,7 @@
-/** Presentational controls. Styling lives in sidepanel.css (theme tokens). */
+/** Presentational controls. Styling lives in sidepanel.css → styles/*.css (theme tokens in styles/tokens.css). */
 import type { ComponentChildren, JSX } from "preact";
+import { useIsPro } from "../state/session";
+import { t } from "../platform/i18n";
 import { Icon, type IconName } from "./Icon";
 
 type ButtonProps = {
@@ -12,8 +14,10 @@ type ButtonProps = {
   /** Secondary button with the promote (video) accent text. */
   accent?: "promote";
   disabled?: boolean;
+  /** "submit" for a form's primary button; plain "button" otherwise. */
+  type?: "button" | "submit";
   children?: ComponentChildren;
-} & Omit<JSX.HTMLAttributes<HTMLButtonElement>, "size" | "icon" | "class" | "className">;
+} & Omit<JSX.HTMLAttributes<HTMLButtonElement>, "size" | "icon" | "class" | "className" | "type">;
 
 export function Button({
   variant = "secondary",
@@ -25,13 +29,14 @@ export function Button({
   accent,
   children,
   disabled,
+  type = "button",
   ...rest
 }: ButtonProps) {
   const cls = ["btn", `btn-${variant}`, size === "sm" ? "btn-sm" : "", block ? "btn-block" : "", accent ? `text-${accent}` : ""]
     .filter(Boolean)
     .join(" ");
   return (
-    <button type="button" class={cls} disabled={disabled || busy} aria-busy={busy || undefined} {...rest}>
+    <button type={type} class={cls} disabled={disabled || busy} aria-busy={busy || undefined} {...rest}>
       {busy ? <span class="spinner" aria-hidden="true" /> : icon ? <Icon name={icon} /> : null}
       {children}
       {iconAfter && !busy ? <Icon name={iconAfter} /> : null}
@@ -87,9 +92,27 @@ export function Segmented<T extends string>({
   );
 }
 
-export function Toggle({ checked, label, onChange }: { checked: boolean; label: string; onChange: (v: boolean) => void }) {
+export function Toggle({
+  checked,
+  label,
+  onChange,
+  disabled,
+}: {
+  checked: boolean;
+  label: string;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
+}) {
   return (
-    <button type="button" role="switch" aria-checked={checked} aria-label={label} class="toggle" onClick={() => onChange(!checked)} />
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={label}
+      class="toggle"
+      disabled={disabled}
+      onClick={() => onChange(!checked)}
+    />
   );
 }
 
@@ -127,6 +150,41 @@ export function TextArea({
       {hint ? <div class="field-hint">{hint}</div> : null}
     </div>
   );
+}
+
+export function TextField({
+  id,
+  label,
+  value,
+  onInput,
+  placeholder,
+}: {
+  id: string;
+  label: string;
+  value: string;
+  onInput: (v: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div class="field">
+      <label for={id} class="field-label small">
+        {label}
+      </label>
+      <input
+        id={id}
+        class="input"
+        type="text"
+        value={value}
+        placeholder={placeholder}
+        onInput={(e) => onInput(e.currentTarget.value)}
+      />
+    </div>
+  );
+}
+
+/** The inline "Pro" badge — shows for free accounts only. */
+export function ProBadge() {
+  return useIsPro() ? null : <Chip tone="pro">{t("common_pro")}</Chip>;
 }
 
 export function Spinner({ label }: { label: string }) {

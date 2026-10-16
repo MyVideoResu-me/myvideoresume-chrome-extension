@@ -18,6 +18,8 @@ export class ApiError extends Error {
     readonly code: string,
     message: string,
     readonly upgradeUrl: string | null = null,
+    /** The envelope's `error.details` (e.g. `{ reason }` on CONSENT_REQUIRED). */
+    readonly details: Readonly<Record<string, unknown>> | null = null,
   ) {
     super(message);
     this.name = "ApiError";
@@ -76,14 +78,17 @@ async function send(path: string, options: RequestOptions, token: string): Promi
 
 async function toError(res: Response): Promise<ApiError> {
   const json = (await res.json().catch(() => null)) as
-    | { error?: { code?: string; message?: string; upgradeUrl?: string; details?: { upgradeUrl?: string } } }
+    | { error?: { code?: string; message?: string; upgradeUrl?: string; details?: Record<string, unknown> } }
     | null;
   const err = json?.error;
+  const details = err?.details && typeof err.details === "object" ? err.details : null;
+  const detailsUpgrade = typeof details?.upgradeUrl === "string" ? details.upgradeUrl : null;
   return new ApiError(
     res.status,
     err?.code ?? `HTTP_${res.status}`,
     err?.message ?? res.statusText,
-    err?.upgradeUrl ?? err?.details?.upgradeUrl ?? null,
+    err?.upgradeUrl ?? detailsUpgrade,
+    details,
   );
 }
 

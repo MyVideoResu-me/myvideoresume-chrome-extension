@@ -24,11 +24,24 @@ export type Job = {
   applyUrl: string;
   description: string;
   pipelineStatus: PipelineStatus | null;
+  /** "Full-time", "Contract", … as the posting says (job_items.job_type). */
+  employmentType: string;
+  /** remote | hybrid | onsite, "" when unknown. */
+  workSetting: string;
+  salaryMin: number | null;
+  salaryMax: number | null;
+  salaryCurrency: string;
+  /** When the job row was created — for a job tracked from a page, when it was tracked. */
+  createdAt: string;
 };
 
 type RawJob = Record<string, unknown>;
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
+const numOrNull = (v: unknown): number | null => {
+  const n = typeof v === "string" ? Number(v) : v;
+  return typeof n === "number" && Number.isFinite(n) && n > 0 ? n : null;
+};
 
 export function toJob(raw: RawJob): Job {
   const status = str(raw.pipelineStatus ?? raw.status);
@@ -41,7 +54,24 @@ export function toJob(raw: RawJob): Job {
     applyUrl: str(raw.applyUrl ?? raw.sourceUrl),
     description: str(raw.description ?? raw.descriptionText),
     pipelineStatus: (PIPELINE_STATUSES as readonly string[]).includes(status) ? (status as PipelineStatus) : null,
+    employmentType: str(raw.employmentType ?? raw.jobType),
+    workSetting: str(raw.workSetting) || (raw.isRemote === true ? "remote" : ""),
+    salaryMin: numOrNull(raw.salaryMin),
+    salaryMax: numOrNull(raw.salaryMax),
+    salaryCurrency: str(raw.salaryCurrency) || "USD",
+    createdAt: str(raw.createdAt ?? raw.postedDate),
   };
+}
+
+export type JobDetails = { title: string; company: string; location: string };
+
+/** Correct what the extractor read (PUT /api/jobs/:id — the person's own tracked job). */
+export async function updateJobDetails(jobId: string, details: JobDetails): Promise<Job> {
+  const raw = await request<RawJob>(`/api/jobs/${encodeURIComponent(jobId)}`, {
+    method: "PUT",
+    body: { title: details.title, company: details.company, location: details.location },
+  });
+  return toJob(raw);
 }
 
 export type ExtractInput = {

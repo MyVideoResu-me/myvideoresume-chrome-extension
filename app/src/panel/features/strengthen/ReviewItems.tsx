@@ -3,12 +3,30 @@ import type { JobGap, TailorChange } from "@shared/resume-tailor";
 import { t } from "../../platform/i18n";
 import { Button, Toggle } from "../../ui/controls";
 
-export function ChangeItem({ change, kept, onToggle }: { change: TailorChange; kept: boolean; onToggle: () => void }) {
+/**
+ * `fixed`: the change can't be undone on its own, so it is always applied
+ * and its switch is locked on (never a switch that says "off" and saves it anyway).
+ */
+export function ChangeItem({
+  change,
+  label,
+  kept,
+  fixed,
+  onToggle,
+}: {
+  change: TailorChange;
+  label: string;
+  kept: boolean;
+  fixed: boolean;
+  onToggle: () => void;
+}) {
   return (
     <div class={`review-item ${kept ? "on" : ""}`}>
-      <div class="row between">
-        <span class="tag tag-primary">{t(`section_${change.section}` as const)}</span>
-        <Toggle checked={kept} label={t("strengthen_keepChange")} onChange={onToggle} />
+      <div class="row">
+        <span class="tag tag-primary">{change.before ? t("strengthen_kindRewrite") : t("strengthen_kindAdded")}</span>
+        <span class="strong small grow">{label}</span>
+        {fixed ? <span class="muted small">{t("strengthen_alwaysApplied")}</span> : null}
+        <Toggle checked={kept} disabled={fixed} label={t("strengthen_keepChange")} onChange={onToggle} />
       </div>
       {change.before ? <div class="diff-del">{change.before}</div> : null}
       <div class="diff-add">{change.after}</div>
@@ -19,12 +37,13 @@ export function ChangeItem({ change, kept, onToggle }: { change: TailorChange; k
 
 export function GapItem({ gap, onAnswer }: { gap: JobGap; onAnswer: (has: boolean) => void }) {
   return (
-    <div class="review-item">
-      <div class="row between">
+    <div class="review-item on">
+      <div class="row">
         <span class="tag tag-warn">{t("strengthen_gap")}</span>
-        <span class="strong small">{gap.skill || gap.requirement}</span>
+        <span class="strong small grow">{gap.skill || gap.requirement}</span>
+        <span class="muted small">{t("strengthen_requiredInJd")}</span>
       </div>
-      <div class="small">{gap.question}</div>
+      <div class="small text-3">{gap.question}</div>
       {gap.kind === "skill" && gap.skill ? (
         <div class="row">
           <Button size="sm" variant="primary" onClick={() => onAnswer(true)}>
