@@ -1,0 +1,908 @@
+{
+  "extName": {
+    "message": "hired.video — empleos, currículums y video"
+  },
+  "extDescription": {
+    "message": "Detecta empleos, perfiles y publicaciones en cualquier página. Sigue el empleo, adapta tu currículum, escribe la carta de presentación, postúlate y promociónalo todo con un video: una extensión para quienes buscan empleo, reclutadores y ventas."
+  },
+  "actionTitle": {
+    "message": "Abrir hired.video"
+  },
+  "common_back": {
+    "message": "Atrás"
+  },
+  "common_copied": {
+    "message": "Copiado"
+  },
+  "common_copy": {
+    "message": "Copiar"
+  },
+  "common_dismiss": {
+    "message": "Descartar"
+  },
+  "common_loading": {
+    "message": "Cargando…"
+  },
+  "common_openStudio": {
+    "message": "Abrir en Studio"
+  },
+  "common_pro": {
+    "message": "Pro"
+  },
+  "common_refresh": {
+    "message": "Actualizar"
+  },
+  "common_retry": {
+    "message": "Reintentar"
+  },
+  "common_upgrade": {
+    "message": "Pasar a Pro"
+  },
+  "common_video": {
+    "message": "Video"
+  },
+  "error_auth": {
+    "message": "Tu sesión terminó. Vuelve a iniciar sesión."
+  },
+  "error_conflict": {
+    "message": "No se puede hacer ahora: revisa los datos e inténtalo de nuevo."
+  },
+  "error_invalid": {
+    "message": "Algo en la solicitud no era correcto. Inténtalo de nuevo."
+  },
+  "error_limit": {
+    "message": "Alcanzaste el límite mensual de esta función."
+  },
+  "error_network": {
+    "message": "No se puede conectar con hired.video. Revisa tu conexión."
+  },
+  "error_notFound": {
+    "message": "Ya no lo encontramos."
+  },
+  "error_pro": {
+    "message": "Esta es una función Pro."
+  },
+  "error_readPage": {
+    "message": "No pudimos leer esta página. Abre la publicación en sí e inténtalo de nuevo."
+  },
+  "error_server": {
+    "message": "Algo salió mal. Inténtalo de nuevo."
+  },
+  "lens_switch": {
+    "message": "Cambiar enfoque"
+  },
+  "lens_jobSeeker": {
+    "message": "Busco empleo"
+  },
+  "lens_jobSeeker_desc": {
+    "message": "Yo + empleos: seguir, adaptar, postular, promocionar"
+  },
+  "lens_recruiter": {
+    "message": "Reclutador"
+  },
+  "lens_recruiter_desc": {
+    "message": "Candidatos + empleos: contacto, videos de candidatos"
+  },
+  "lens_sales": {
+    "message": "Ventas y redes"
+  },
+  "lens_sales_desc": {
+    "message": "Prospectos + publicaciones: videos de presentación, respuestas en video"
+  },
+  "lens_footnote": {
+    "message": "Empieza según tu rol. Cámbialo cuando quieras."
+  },
+  "account_menu": {
+    "message": "Cuenta"
+  },
+  "account_pro": {
+    "message": "Plan Pro"
+  },
+  "account_free": {
+    "message": "Plan gratuito"
+  },
+  "menu_pipeline": {
+    "message": "Mis postulaciones"
+  },
+  "menu_resumes": {
+    "message": "Mis currículums"
+  },
+  "menu_showPill": {
+    "message": "Mostrar la píldora en las páginas"
+  },
+  "menu_openSite": {
+    "message": "Abrir hired.video"
+  },
+  "menu_signOut": {
+    "message": "Cerrar sesión"
+  },
+  "signedOut_title": {
+    "message": "Convierte cualquier página en tu próximo paso"
+  },
+  "signedOut_sub": {
+    "message": "Inicia sesión una vez: el panel funciona en cada bolsa de empleo, perfil y publicación."
+  },
+  "signedOut_point1": {
+    "message": "Sigue empleos de cualquier sitio en un solo lugar"
+  },
+  "signedOut_point2": {
+    "message": "Adapta tu currículum y carta a cada empleo"
+  },
+  "signedOut_point3": {
+    "message": "Promociónate con un video corto"
+  },
+  "signedOut_cta": {
+    "message": "Iniciar sesión"
+  },
+  "steps_label": {
+    "message": "Progreso"
+  },
+  "step_create": {
+    "message": "Crear"
+  },
+  "step_strengthen": {
+    "message": "Mejorar"
+  },
+  "step_target": {
+    "message": "Dirigir"
+  },
+  "step_promote": {
+    "message": "Promocionar"
+  },
+  "pair_label": {
+    "message": "Trabajando en"
+  },
+  "pair_emptyPage": {
+    "message": "Nada en esta página"
+  },
+  "pair_emptyResume": {
+    "message": "Aún sin currículum"
+  },
+  "pair_emptyJob": {
+    "message": "Elige un empleo"
+  },
+  "home_onThisPage": {
+    "message": "En esta página"
+  },
+  "home_scanning": {
+    "message": "Leyendo esta página…"
+  },
+  "home_nothing": {
+    "message": "No se detectó nada aquí"
+  },
+  "home_nothing_hint": {
+    "message": "Abre una oferta, un perfil o una publicación. Para una publicación en un feed, selecciona primero su texto."
+  },
+  "home_scanAgain": {
+    "message": "Volver a escanear"
+  },
+  "home_useSelection": {
+    "message": "Usar el texto seleccionado como publicación"
+  },
+  "home_noSelection": {
+    "message": "Primero selecciona el texto de la publicación en la página."
+  },
+  "home_makeWithJob": {
+    "message": "Haz algo con este empleo"
+  },
+  "home_makeWithProfile": {
+    "message": "Haz algo para esta persona"
+  },
+  "home_makeWithPost": {
+    "message": "Responder a esta publicación"
+  },
+  "home_makeWithResume": {
+    "message": "Haz algo con tu currículum"
+  },
+  "action_trackJob": {
+    "message": "Seguir este empleo"
+  },
+  "action_trackJob_hint": {
+    "message": "Guárdalo en tus postulaciones"
+  },
+  "action_strengthen": {
+    "message": "Adaptar mi currículum"
+  },
+  "action_strengthen_hint": {
+    "message": "Ajústalo a este empleo"
+  },
+  "action_coverLetter": {
+    "message": "Carta de presentación"
+  },
+  "action_coverLetter_hint": {
+    "message": "Escrita a partir del currículum y el empleo"
+  },
+  "action_apply": {
+    "message": "Postular con currículum"
+  },
+  "action_apply_hint": {
+    "message": "Llenamos el formulario, tú lo envías"
+  },
+  "action_promoteFit": {
+    "message": "Video “Por qué encajo”"
+  },
+  "action_promoteFit_hint": {
+    "message": "Promociónalo en redes"
+  },
+  "action_promoteResume": {
+    "message": "Video de currículum"
+  },
+  "action_promoteResume_hint": {
+    "message": "Promociónate en redes"
+  },
+  "action_candidate": {
+    "message": "Guardar candidato"
+  },
+  "action_candidate_hint": {
+    "message": "Extrae el perfil y vincula un empleo"
+  },
+  "action_outreach": {
+    "message": "Escribir mensaje de presentación"
+  },
+  "action_outreach_hint": {
+    "message": "Comparte el empleo con la persona"
+  },
+  "action_candidateVideo": {
+    "message": "Video del candidato"
+  },
+  "action_candidateVideo_hint": {
+    "message": "Para quien contrata"
+  },
+  "action_pitch": {
+    "message": "Video de presentación + mensaje"
+  },
+  "action_pitch_hint": {
+    "message": "Promociona tus habilidades ante esta persona"
+  },
+  "action_postReply": {
+    "message": "Respuesta en video"
+  },
+  "action_postReply_hint": {
+    "message": "Responde con un enlace a tu video"
+  },
+  "job_viewTitle": {
+    "message": "Seguir este empleo"
+  },
+  "job_none": {
+    "message": "No hay empleo en esta página"
+  },
+  "job_track": {
+    "message": "Seguir"
+  },
+  "job_tracked": {
+    "message": "Seguido"
+  },
+  "job_inPipeline": {
+    "message": "En tus postulaciones"
+  },
+  "job_next": {
+    "message": "Mejorar mi currículum para este empleo"
+  },
+  "job_needOne": {
+    "message": "Primero abre una oferta de empleo"
+  },
+  "job_needOne_hint": {
+    "message": "Ve a la página del empleo en cualquier sitio: la detectaremos."
+  },
+  "fit_title": {
+    "message": "Coincidencia con {resume}"
+  },
+  "fit_meterLabel": {
+    "message": "{score} por ciento de coincidencia"
+  },
+  "fit_check": {
+    "message": "Ver mi coincidencia"
+  },
+  "pipeline_title": {
+    "message": "Postulaciones"
+  },
+  "pipeline_viewTitle": {
+    "message": "Mis postulaciones"
+  },
+  "pipeline_status": {
+    "message": "Estado"
+  },
+  "pipeline_closed": {
+    "message": "Cerrada"
+  },
+  "pipeline_count": {
+    "message": "{count} empleos seguidos"
+  },
+  "pipeline_empty": {
+    "message": "Aún no sigues empleos. Abre una oferta y pulsa Seguir."
+  },
+  "pipeline_openJob": {
+    "message": "Abrir {job}"
+  },
+  "pipeline_openSite": {
+    "message": "Abrir en hired.video"
+  },
+  "status_tracked": {
+    "message": "Guardado"
+  },
+  "status_applied": {
+    "message": "Postulado"
+  },
+  "status_interviewing": {
+    "message": "Entrevista"
+  },
+  "status_offered": {
+    "message": "Oferta"
+  },
+  "status_accepted": {
+    "message": "Aceptado"
+  },
+  "status_rejected": {
+    "message": "Rechazado"
+  },
+  "status_cancelled": {
+    "message": "Cancelado"
+  },
+  "status_withdrawn": {
+    "message": "Retirado"
+  },
+  "status_declined": {
+    "message": "Declinado"
+  },
+  "strengthen_title": {
+    "message": "Mejorar currículum"
+  },
+  "strengthen_for": {
+    "message": "para {job}"
+  },
+  "strengthen_intro": {
+    "message": "Adaptaremos {resume} a este empleo y te mostraremos cada cambio antes de guardar."
+  },
+  "strengthen_start": {
+    "message": "Adaptar a este empleo"
+  },
+  "strengthen_working": {
+    "message": "Leyendo el empleo y tu currículum…"
+  },
+  "strengthen_noChanges": {
+    "message": "Tu currículum ya encaja con este empleo: no hay nada que cambiar."
+  },
+  "strengthen_fit": {
+    "message": "Coincidencia con este empleo"
+  },
+  "strengthen_fitLabel": {
+    "message": "La coincidencia pasa de {from} a {to}"
+  },
+  "strengthen_tabs": {
+    "message": "Revisar"
+  },
+  "strengthen_tabChanges": {
+    "message": "Cambios · {count}"
+  },
+  "strengthen_tabQuestions": {
+    "message": "Preguntas · {count}"
+  },
+  "strengthen_keepChange": {
+    "message": "Conservar este cambio"
+  },
+  "strengthen_gap": {
+    "message": "Brecha"
+  },
+  "strengthen_gapYes": {
+    "message": "Sí, agregarla"
+  },
+  "strengthen_gapNo": {
+    "message": "Todavía no"
+  },
+  "strengthen_gapExperience": {
+    "message": "Responde esta en Studio."
+  },
+  "strengthen_noQuestions": {
+    "message": "No hay preguntas pendientes."
+  },
+  "strengthen_addingSkills": {
+    "message": "Agregando: {skills}"
+  },
+  "strengthen_savesAs": {
+    "message": "Se guarda como una versión nueva. Tu original no cambia."
+  },
+  "strengthen_save": {
+    "message": "Guardar versión con {count} cambios"
+  },
+  "strengthen_saved": {
+    "message": "Guardado como “{title}”."
+  },
+  "strengthen_next": {
+    "message": "Siguiente: carta"
+  },
+  "section_basics": {
+    "message": "Resumen"
+  },
+  "section_work": {
+    "message": "Experiencia"
+  },
+  "section_education": {
+    "message": "Educación"
+  },
+  "section_skills": {
+    "message": "Habilidades"
+  },
+  "section_projects": {
+    "message": "Proyectos"
+  },
+  "section_volunteer": {
+    "message": "Voluntariado"
+  },
+  "section_awards": {
+    "message": "Premios"
+  },
+  "section_certificates": {
+    "message": "Certificados"
+  },
+  "section_publications": {
+    "message": "Publicaciones"
+  },
+  "section_languages": {
+    "message": "Idiomas"
+  },
+  "section_interests": {
+    "message": "Intereses"
+  },
+  "section_references": {
+    "message": "Referencias"
+  },
+  "cover_title": {
+    "message": "Carta de presentación"
+  },
+  "cover_resume": {
+    "message": "Usando {resume}"
+  },
+  "cover_intro_title": {
+    "message": "Una carta para este empleo"
+  },
+  "cover_intro": {
+    "message": "Escrita a partir de tu currículum y la oferta: solo lo que tu currículum respalda."
+  },
+  "cover_write": {
+    "message": "Escribir mi carta"
+  },
+  "cover_writing": {
+    "message": "Escribiendo tu carta…"
+  },
+  "cover_tone": {
+    "message": "Tono"
+  },
+  "cover_letter": {
+    "message": "Tu carta"
+  },
+  "cover_regenerate": {
+    "message": "Volver a escribir"
+  },
+  "cover_next": {
+    "message": "Siguiente: postular"
+  },
+  "tone_warm": {
+    "message": "Cercano"
+  },
+  "tone_confident": {
+    "message": "Seguro"
+  },
+  "tone_formal": {
+    "message": "Formal"
+  },
+  "tone_brief": {
+    "message": "Breve"
+  },
+  "apply_title": {
+    "message": "Postular"
+  },
+  "apply_intro": {
+    "message": "Abre el formulario de postulación en esta página. Completamos lo que cubre tu currículum; tú lo revisas y lo envías."
+  },
+  "apply_usesResume": {
+    "message": "Currículum: {resume}"
+  },
+  "apply_usesLetter": {
+    "message": "Carta: la que escribiste para este empleo"
+  },
+  "apply_noLetter": {
+    "message": "Aún no hay carta para este empleo"
+  },
+  "apply_form": {
+    "message": "Formulario de postulación"
+  },
+  "apply_ready": {
+    "message": "{ready} de {total} completados"
+  },
+  "apply_rowFilled": {
+    "message": "Completado"
+  },
+  "apply_rowSkipped": {
+    "message": "Sin cambios"
+  },
+  "apply_rowYours": {
+    "message": "Te toca responder"
+  },
+  "apply_rowError": {
+    "message": "No se pudo completar"
+  },
+  "apply_noForm": {
+    "message": "No encontramos un formulario en esta página. Abre el formulario de postulación e inténtalo de nuevo."
+  },
+  "apply_fill": {
+    "message": "Completar el formulario"
+  },
+  "apply_fillAgain": {
+    "message": "Completar de nuevo"
+  },
+  "apply_youSubmit": {
+    "message": "Tú revisas y pulsas Enviar: nunca enviamos por ti."
+  },
+  "apply_markApplied": {
+    "message": "Ya la envié: marcar como Postulado"
+  },
+  "apply_marked": {
+    "message": "Marcado como postulado."
+  },
+  "video_intro": {
+    "message": "Escribimos un guion corto a partir de tu currículum y Studio lo renderiza en tu navegador."
+  },
+  "video_write": {
+    "message": "Escribir el guion del video"
+  },
+  "video_writing": {
+    "message": "Escribiendo tu guion…"
+  },
+  "video_script": {
+    "message": "Guion"
+  },
+  "video_seconds": {
+    "message": "{seconds} segundos"
+  },
+  "video_rewrite": {
+    "message": "Volver a escribirlo"
+  },
+  "video_renderInStudio": {
+    "message": "Ábrelo en Studio para renderizarlo: solo toma un minuto."
+  },
+  "video_openStudio": {
+    "message": "Renderizar en Studio"
+  },
+  "video_openAgain": {
+    "message": "Volver a abrir en Studio"
+  },
+  "video_waiting": {
+    "message": "Renderízalo en la pestaña de Studio. Este panel lo detectará cuando termine."
+  },
+  "video_watching": {
+    "message": "Esperando el video…"
+  },
+  "video_rendersInBrowser": {
+    "message": "Los videos se renderizan en tu navegador en hired.video."
+  },
+  "video_ready": {
+    "message": "Tu video está listo."
+  },
+  "video_copyLink": {
+    "message": "Copiar enlace del video"
+  },
+  "video_postTo": {
+    "message": "Publicar en"
+  },
+  "video_connect": {
+    "message": "Conectar {platform}"
+  },
+  "promote_title": {
+    "message": "Promocionar"
+  },
+  "promote_fitSubtitle": {
+    "message": "“Por qué encajo” · {job}"
+  },
+  "promote_resumeSubtitle": {
+    "message": "Un video corto de tu currículum"
+  },
+  "promote_fitName": {
+    "message": "Por qué encajo — {job}"
+  },
+  "promote_resumeName": {
+    "message": "Video de currículum — {resume}"
+  },
+  "promote_fitPrompt": {
+    "message": "Un video de 30 segundos que muestre por qué encajo en el puesto de {job} en {company}: empieza con lo que necesitan, demuéstralo con mis resultados y termina con una petición clara."
+  },
+  "candidate_title": {
+    "message": "Candidato"
+  },
+  "candidate_onPage": {
+    "message": "Candidato en esta página"
+  },
+  "candidate_none": {
+    "message": "No hay perfil en esta página"
+  },
+  "candidate_save": {
+    "message": "Guardar"
+  },
+  "candidate_roles": {
+    "message": "{count} puestos capturados"
+  },
+  "candidate_skills": {
+    "message": "{count} habilidades"
+  },
+  "candidate_resumeDrafted": {
+    "message": "Currículum armado a partir del perfil"
+  },
+  "candidate_noEmail": {
+    "message": "No hay correo en la página"
+  },
+  "candidate_findEmail": {
+    "message": "Buscar correo"
+  },
+  "candidate_pairJob": {
+    "message": "Vincular con un empleo"
+  },
+  "candidate_noJobs": {
+    "message": "Aún no tienes empleos abiertos."
+  },
+  "candidate_logCaptured": {
+    "message": "Capturado desde {host}"
+  },
+  "outreach_title": {
+    "message": "Mensaje de presentación"
+  },
+  "outreach_title_to": {
+    "message": "Presentación para {name}"
+  },
+  "outreach_sharing": {
+    "message": "Compartiendo: {job}"
+  },
+  "outreach_needPair": {
+    "message": "Primero guarda un candidato y elige un empleo."
+  },
+  "outreach_context": {
+    "message": "Comparte el puesto de {job} en {company} ({location}). Sus habilidades: {skills}. Su perfil: {summary}. Sé concreto sobre por qué su experiencia encaja; breve y cercano."
+  },
+  "outreach_logSubject": {
+    "message": "Presentación: {job}"
+  },
+  "outreach_logTouch": {
+    "message": "Registrar en la línea de tiempo de {name}"
+  },
+  "outreach_remind": {
+    "message": "Recordarme dar seguimiento en {days} días"
+  },
+  "outreach_videoInstead": {
+    "message": "Mejor crear un video del candidato para el empleo"
+  },
+  "candidateVideo_title": {
+    "message": "Video del candidato"
+  },
+  "candidateVideo_for": {
+    "message": "{name} para {job}"
+  },
+  "candidateVideo_extracted": {
+    "message": "Candidato extraído"
+  },
+  "candidateVideo_built": {
+    "message": "Currículum armado a partir del perfil"
+  },
+  "candidateVideo_tailor": {
+    "message": "Adaptar el currículum al empleo"
+  },
+  "candidateVideo_tailorBtn": {
+    "message": "Adaptar"
+  },
+  "candidateVideo_tailored": {
+    "message": "Adaptado al empleo"
+  },
+  "candidateVideo_who": {
+    "message": "Quién lo ve"
+  },
+  "candidateVideo_named": {
+    "message": "Enlace privado"
+  },
+  "candidateVideo_anonymized": {
+    "message": "Anónimo"
+  },
+  "candidateVideo_namedHint": {
+    "message": "No listado: solo quien tenga el enlace puede verlo. Muestra nombre y empleadores."
+  },
+  "candidateVideo_anonymizedHint": {
+    "message": "No listado y sin nombre ni empleadores: para una preselección anónima."
+  },
+  "candidateVideo_name": {
+    "message": "{name} para {job}"
+  },
+  "candidateVideo_nameAnon": {
+    "message": "Candidato para {job}"
+  },
+  "candidateVideo_anonName": {
+    "message": "La persona candidata"
+  },
+  "candidateVideo_prompt": {
+    "message": "Un video de 45 segundos para quien contrata que muestre por qué esta persona encaja en el puesto de {job} en {company}. Solo evidencia: nada que el currículum no muestre."
+  },
+  "message_channel": {
+    "message": "Enviar como"
+  },
+  "message_label": {
+    "message": "Mensaje"
+  },
+  "message_write": {
+    "message": "Escribir el mensaje"
+  },
+  "message_writing": {
+    "message": "Escribiendo…"
+  },
+  "message_rewrite": {
+    "message": "Volver a escribir"
+  },
+  "message_count": {
+    "message": "{count} / {max}"
+  },
+  "message_fillBox": {
+    "message": "Ponerlo en el cuadro de mensaje"
+  },
+  "message_fillReply": {
+    "message": "Ponerlo en el cuadro de respuesta"
+  },
+  "message_openEmail": {
+    "message": "Abrir en mi correo"
+  },
+  "message_youSend": {
+    "message": "Lo escribimos en el cuadro abierto en la página. Tú lo lees y pulsas Enviar."
+  },
+  "message_youSendEmail": {
+    "message": "Se abre tu correo con el mensaje listo. Tú pulsas Enviar."
+  },
+  "message_noBox": {
+    "message": "Abre el cuadro de mensaje o respuesta en la página e inténtalo de nuevo. El texto está copiado, así que también puedes pegarlo."
+  },
+  "channel_email": {
+    "message": "Correo"
+  },
+  "channel_linkedinNote": {
+    "message": "Nota de conexión"
+  },
+  "channel_linkedinMessage": {
+    "message": "Mensaje"
+  },
+  "channel_reply": {
+    "message": "Respuesta"
+  },
+  "prospect_title": {
+    "message": "Video de presentación"
+  },
+  "prospect_for": {
+    "message": "Para {name}"
+  },
+  "prospect_needProfile": {
+    "message": "Primero abre el perfil de la persona."
+  },
+  "prospect_skills": {
+    "message": "Habilidades a destacar"
+  },
+  "prospect_noSkills": {
+    "message": "Tu currículum aún no tiene habilidades."
+  },
+  "prospect_videoName": {
+    "message": "Para {name}"
+  },
+  "prospect_prompt": {
+    "message": "Un video personal de 40 segundos para {name} ({title}, {company}): cómo mis habilidades en {skills} resuelven problemas de alguien en su puesto. Llámale por su nombre, sé concreto y termina pidiendo con suavidad una llamada corta."
+  },
+  "prospect_context": {
+    "message": "Hice un video corto para esta persona sobre cómo mis habilidades en {skills} ayudan a alguien en el puesto de {title} en {company}. Un mensaje personal y concreto, sin presión."
+  },
+  "prospect_sentToday": {
+    "message": "Enviados hoy: {count}. Una persona a la vez, a mano."
+  },
+  "reply_title": {
+    "message": "Respuesta en video"
+  },
+  "reply_post": {
+    "message": "Publicación a la que respondes"
+  },
+  "reply_needPost": {
+    "message": "Abre la publicación en su propia página, o selecciona su texto y usa “Usar el texto seleccionado como publicación”."
+  },
+  "reply_angle": {
+    "message": "Enfoque de la respuesta"
+  },
+  "reply_angleShow": {
+    "message": "Muestra, no cuentes"
+  },
+  "reply_angleShow_hint": {
+    "message": "Responde con un resultado real de mi currículum."
+  },
+  "reply_angleFlip": {
+    "message": "Dale la vuelta a la pregunta"
+  },
+  "reply_angleFlip_hint": {
+    "message": "Ofrece el otro punto de vista, desde mi experiencia."
+  },
+  "reply_angleTip": {
+    "message": "Consejo rápido"
+  },
+  "reply_angleTip_hint": {
+    "message": "Un consejo concreto y útil, sin vender nada."
+  },
+  "reply_videoName": {
+    "message": "Respuesta a {author}"
+  },
+  "reply_prompt": {
+    "message": "Un video de 30 segundos en respuesta a esta publicación: “{post}”. Enfoque: {angle}. Empieza con la pregunta de la publicación en pantalla y usa solo datos de mi currículum."
+  },
+  "reply_context": {
+    "message": "Escribe una respuesta pública corta a esta publicación: “{post}”. Enfoque: {angle}. Aporta valor primero; el enlace al video hace el resto."
+  },
+  "post_unknownAuthor": {
+    "message": "Esta publicación"
+  },
+  "resumes_title": {
+    "message": "Mis currículums"
+  },
+  "resumes_subtitle": {
+    "message": "El que elijas se usa en todo el panel"
+  },
+  "resumes_none": {
+    "message": "Agrega tu currículum para empezar"
+  },
+  "resumes_none_hint": {
+    "message": "Sube un PDF o Word: será tu currículum principal."
+  },
+  "resumes_add": {
+    "message": "Subir currículum"
+  },
+  "resumes_master": {
+    "message": "Principal"
+  },
+  "resumes_version": {
+    "message": "Versión"
+  },
+  "resumes_openSite": {
+    "message": "Editar en hired.video"
+  },
+  "check_title": {
+    "message": "Revisar {resume}"
+  },
+  "check_intro": {
+    "message": "Califica tu currículum y ve qué mejorar, sin necesidad de un empleo."
+  },
+  "check_run": {
+    "message": "Revisar mi currículum"
+  },
+  "check_meterLabel": {
+    "message": "Puntuación {score} de 100"
+  },
+  "check_unlock": {
+    "message": "Ver todas las mejoras con Pro"
+  },
+  "check_fixInStudio": {
+    "message": "Corregirlo en Studio"
+  },
+  "pill_region": {
+    "message": "hired.video"
+  },
+  "pill_jobDetected": {
+    "message": "Empleo detectado"
+  },
+  "pill_profileDetected": {
+    "message": "Perfil detectado"
+  },
+  "pill_postDetected": {
+    "message": "Publicación detectada"
+  },
+  "pill_track": {
+    "message": "Seguir"
+  },
+  "pill_tailor": {
+    "message": "Adaptar currículum"
+  },
+  "pill_pitch": {
+    "message": "Video de presentación"
+  },
+  "pill_candidate": {
+    "message": "Guardar candidato"
+  },
+  "pill_reply": {
+    "message": "Responder en video"
+  },
+  "pill_dismiss": {
+    "message": "Ocultar en esta página"
+  }
+}

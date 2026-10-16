@@ -24,10 +24,16 @@ const { execSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(ROOT, 'dist');
-const TARGETS = ['jobseeker', 'recruiter'];
+const TARGETS = ['app', 'jobseeker', 'recruiter'];
 
 function zipDir(srcDir, zipPath) {
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
+  if (process.platform !== 'win32') {
+    // CI (ubuntu) has no `powershell`: zip from inside the folder so
+    // manifest.json lands at the ZIP root.
+    execSync(`zip -qr '${zipPath}' .`, { cwd: srcDir, stdio: 'inherit' });
+    return;
+  }
   // PowerShell's Compress-Archive places the contents (not the parent
   // folder) at the ZIP root when the source pattern ends in /*.
   const ps = `Compress-Archive -Path '${srcDir}\\*' -DestinationPath '${zipPath}' -Force`;
@@ -62,7 +68,7 @@ const target = args.find((a) => !a.startsWith('--'));
 
 if (target && !TARGETS.includes(target)) {
   console.error(`Unknown target: ${target}`);
-  console.error('Usage: node scripts/release.js [jobseeker|recruiter] [--build]');
+  console.error('Usage: node scripts/release.js [app|jobseeker|recruiter] [--build]');
   process.exit(1);
 }
 

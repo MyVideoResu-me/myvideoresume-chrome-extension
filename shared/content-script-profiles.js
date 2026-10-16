@@ -1,5 +1,8 @@
 /**
- * hired.video Chrome Extension - Profile Auto-Detection (Recruiter)
+ * hired.video Chrome Extension - Profile Auto-Detection
+ *
+ * Shared by the recruiter extension and the unified app (recruiter +
+ * sales lenses).
  *
  * Watches the active page for candidate profiles on LinkedIn, Indeed, etc.
  * When detected, sends a `profileDetected` message to the service worker
@@ -18,13 +21,13 @@
 let lastDetectedProfileKey = null;
 let lastDetectedListCount = 0;
 
-function detectProfileOnPage() {
+/** Read the profile in the focused pane, or null when the page has none. */
+function readProfileOnPage() {
   // Guard: only run on known profile hosts
   const host = window.location.hostname.toLowerCase();
-  let siteName = null;
   let siteParser = null;
 
-  if (typeof PROFILE_SITE_PARSERS === 'undefined') return false;
+  if (typeof PROFILE_SITE_PARSERS === 'undefined') return null;
 
   for (const [name, config] of Object.entries(PROFILE_SITE_PARSERS)) {
     if (config.hostPatterns.some((p) => host.includes(p))) {
@@ -33,33 +36,34 @@ function detectProfileOnPage() {
         const url = window.location.pathname;
         if (!config.urlPatterns.some((pattern) => pattern.test(url))) continue;
       }
-      siteName = name;
       siteParser = config;
       break;
     }
   }
 
-  if (!siteParser) return false;
+  if (!siteParser) return null;
 
   // Try to find the profile pane
   const focused = findFocusedProfilePane();
-  if (!focused) return false;
+  if (!focused) return null;
 
   const name = pickText(focused.el, siteParser.nameSelectors);
-  if (!name) return false;
+  if (!name) return null;
 
-  const title = pickText(focused.el, siteParser.titleSelectors);
-  const company = pickText(focused.el, siteParser.companySelectors);
-  const location = pickText(focused.el, siteParser.locationSelectors);
-
-  notifyProfileDetected({
+  return {
     name: name.slice(0, 250),
-    title,
-    company,
-    location,
+    title: pickText(focused.el, siteParser.titleSelectors),
+    company: pickText(focused.el, siteParser.companySelectors),
+    location: pickText(focused.el, siteParser.locationSelectors),
     sourceUrl: window.location.href,
     hasFocusedPane: true,
-  });
+  };
+}
+
+function detectProfileOnPage() {
+  const payload = readProfileOnPage();
+  if (!payload) return false;
+  notifyProfileDetected(payload);
   return true;
 }
 
@@ -72,6 +76,8 @@ function notifyProfileDetected(payload) {
     .catch(() => {
       // Side panel may not be open — ignore.
     });
+  // In-page pill (unified app only) — see shared/detection-bus.ts.
+  if (typeof window.__hiredVideoDetected === 'function') window.__hiredVideoDetected('profile', payload);
 }
 
 // Detect search-result list views (LinkedIn / Indeed / GitHub) and tell
@@ -96,6 +102,15 @@ function detectListViewOnPage() {
     })
     .catch(() => {});
 }
+
+// Side-panel request (via the service worker's forwardToActiveTab): the
+// panel opened after the page loaded, so it asks for the current profile
+// instead of waiting for the next change.
+chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+  if (msg?.action !== 'detectProfile') return false;
+  sendResponse({ payload: readProfileOnPage(), originUrl: window.location.href });
+  return false;
+});
 
 // Service-worker request: return outerHTML for every list card on the
 // page so the recruiter extension can batch-extract them.

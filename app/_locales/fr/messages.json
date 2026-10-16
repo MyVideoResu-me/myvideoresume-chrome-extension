@@ -1,0 +1,908 @@
+{
+  "extName": {
+    "message": "hired.video — emplois, CV et vidéo"
+  },
+  "extDescription": {
+    "message": "Détectez offres, profils et publications sur n’importe quelle page. Suivez l’offre, adaptez votre CV, rédigez la lettre de motivation, postulez et faites tout connaître en vidéo — une extension pour les candidats, les recruteurs et la vente."
+  },
+  "actionTitle": {
+    "message": "Ouvrir hired.video"
+  },
+  "common_back": {
+    "message": "Retour"
+  },
+  "common_copied": {
+    "message": "Copié"
+  },
+  "common_copy": {
+    "message": "Copier"
+  },
+  "common_dismiss": {
+    "message": "Ignorer"
+  },
+  "common_loading": {
+    "message": "Chargement…"
+  },
+  "common_openStudio": {
+    "message": "Ouvrir dans Studio"
+  },
+  "common_pro": {
+    "message": "Pro"
+  },
+  "common_refresh": {
+    "message": "Actualiser"
+  },
+  "common_retry": {
+    "message": "Réessayer"
+  },
+  "common_upgrade": {
+    "message": "Passer à Pro"
+  },
+  "common_video": {
+    "message": "Vidéo"
+  },
+  "error_auth": {
+    "message": "Votre session a expiré. Reconnectez-vous."
+  },
+  "error_conflict": {
+    "message": "Impossible pour le moment — vérifiez les détails et réessayez."
+  },
+  "error_invalid": {
+    "message": "Un élément de la demande semble incorrect. Réessayez."
+  },
+  "error_limit": {
+    "message": "Vous avez atteint la limite mensuelle de cette fonction."
+  },
+  "error_network": {
+    "message": "Impossible de joindre hired.video. Vérifiez votre connexion."
+  },
+  "error_notFound": {
+    "message": "Introuvable."
+  },
+  "error_pro": {
+    "message": "Cette fonction est réservée à Pro."
+  },
+  "error_readPage": {
+    "message": "Impossible de lire cette page. Ouvrez l’annonce elle-même et réessayez."
+  },
+  "error_server": {
+    "message": "Une erreur s’est produite. Réessayez."
+  },
+  "lens_switch": {
+    "message": "Changer d’angle"
+  },
+  "lens_jobSeeker": {
+    "message": "Candidat"
+  },
+  "lens_jobSeeker_desc": {
+    "message": "Moi + offres : suivre, adapter, postuler, promouvoir"
+  },
+  "lens_recruiter": {
+    "message": "Recruteur"
+  },
+  "lens_recruiter_desc": {
+    "message": "Candidats + offres : prise de contact, vidéos de candidats"
+  },
+  "lens_sales": {
+    "message": "Vente et réseaux"
+  },
+  "lens_sales_desc": {
+    "message": "Prospects + publications : vidéos de pitch, réponses en vidéo"
+  },
+  "lens_footnote": {
+    "message": "Part de votre rôle. Changez quand vous voulez."
+  },
+  "account_menu": {
+    "message": "Compte"
+  },
+  "account_pro": {
+    "message": "Forfait Pro"
+  },
+  "account_free": {
+    "message": "Forfait gratuit"
+  },
+  "menu_pipeline": {
+    "message": "Mon suivi"
+  },
+  "menu_resumes": {
+    "message": "Mes CV"
+  },
+  "menu_showPill": {
+    "message": "Afficher la pastille sur les pages"
+  },
+  "menu_openSite": {
+    "message": "Ouvrir hired.video"
+  },
+  "menu_signOut": {
+    "message": "Se déconnecter"
+  },
+  "signedOut_title": {
+    "message": "Faites de chaque page votre prochaine étape"
+  },
+  "signedOut_sub": {
+    "message": "Connectez-vous une fois : le panneau fonctionne sur chaque site d’emploi, profil et publication."
+  },
+  "signedOut_point1": {
+    "message": "Suivez les offres de tous les sites au même endroit"
+  },
+  "signedOut_point2": {
+    "message": "Adaptez CV et lettre à chaque offre"
+  },
+  "signedOut_point3": {
+    "message": "Faites-vous connaître avec une courte vidéo"
+  },
+  "signedOut_cta": {
+    "message": "Se connecter"
+  },
+  "steps_label": {
+    "message": "Progression"
+  },
+  "step_create": {
+    "message": "Créer"
+  },
+  "step_strengthen": {
+    "message": "Renforcer"
+  },
+  "step_target": {
+    "message": "Cibler"
+  },
+  "step_promote": {
+    "message": "Promouvoir"
+  },
+  "pair_label": {
+    "message": "En cours"
+  },
+  "pair_emptyPage": {
+    "message": "Rien sur cette page"
+  },
+  "pair_emptyResume": {
+    "message": "Pas encore de CV"
+  },
+  "pair_emptyJob": {
+    "message": "Choisissez une offre"
+  },
+  "home_onThisPage": {
+    "message": "Sur cette page"
+  },
+  "home_scanning": {
+    "message": "Lecture de la page…"
+  },
+  "home_nothing": {
+    "message": "Rien de détecté ici"
+  },
+  "home_nothing_hint": {
+    "message": "Ouvrez une offre, un profil ou une publication. Pour une publication dans un fil, sélectionnez d’abord son texte."
+  },
+  "home_scanAgain": {
+    "message": "Relancer l’analyse"
+  },
+  "home_useSelection": {
+    "message": "Utiliser le texte sélectionné comme publication"
+  },
+  "home_noSelection": {
+    "message": "Sélectionnez d’abord le texte de la publication sur la page."
+  },
+  "home_makeWithJob": {
+    "message": "Créez à partir de cette offre"
+  },
+  "home_makeWithProfile": {
+    "message": "Créez pour cette personne"
+  },
+  "home_makeWithPost": {
+    "message": "Répondre à cette publication"
+  },
+  "home_makeWithResume": {
+    "message": "Créez à partir de votre CV"
+  },
+  "action_trackJob": {
+    "message": "Suivre cette offre"
+  },
+  "action_trackJob_hint": {
+    "message": "Ajoutez-la à votre suivi"
+  },
+  "action_strengthen": {
+    "message": "Adapter mon CV"
+  },
+  "action_strengthen_hint": {
+    "message": "Ajustez-le à cette offre"
+  },
+  "action_coverLetter": {
+    "message": "Lettre de motivation"
+  },
+  "action_coverLetter_hint": {
+    "message": "Rédigée à partir du CV et de l’offre"
+  },
+  "action_apply": {
+    "message": "Postuler avec mon CV"
+  },
+  "action_apply_hint": {
+    "message": "Nous remplissons, vous envoyez"
+  },
+  "action_promoteFit": {
+    "message": "Vidéo « Pourquoi moi »"
+  },
+  "action_promoteFit_hint": {
+    "message": "Diffusez-la sur les réseaux"
+  },
+  "action_promoteResume": {
+    "message": "Vidéo CV"
+  },
+  "action_promoteResume_hint": {
+    "message": "Faites-vous connaître sur les réseaux"
+  },
+  "action_candidate": {
+    "message": "Enregistrer le candidat"
+  },
+  "action_candidate_hint": {
+    "message": "Extraire le profil, associer une offre"
+  },
+  "action_outreach": {
+    "message": "Écrire un message d’approche"
+  },
+  "action_outreach_hint": {
+    "message": "Partagez l’offre avec la personne"
+  },
+  "action_candidateVideo": {
+    "message": "Vidéo du candidat"
+  },
+  "action_candidateVideo_hint": {
+    "message": "Pour le responsable du recrutement"
+  },
+  "action_pitch": {
+    "message": "Vidéo de pitch + message"
+  },
+  "action_pitch_hint": {
+    "message": "Mettez vos compétences en avant auprès d’elle"
+  },
+  "action_postReply": {
+    "message": "Réponse en vidéo"
+  },
+  "action_postReply_hint": {
+    "message": "Répondez avec un lien vers votre vidéo"
+  },
+  "job_viewTitle": {
+    "message": "Suivre cette offre"
+  },
+  "job_none": {
+    "message": "Aucune offre sur cette page"
+  },
+  "job_track": {
+    "message": "Suivre"
+  },
+  "job_tracked": {
+    "message": "Suivie"
+  },
+  "job_inPipeline": {
+    "message": "Dans votre suivi"
+  },
+  "job_next": {
+    "message": "Renforcer mon CV pour cette offre"
+  },
+  "job_needOne": {
+    "message": "Ouvrez d’abord une offre d’emploi"
+  },
+  "job_needOne_hint": {
+    "message": "Allez sur la page de l’offre, sur n’importe quel site : nous la détecterons."
+  },
+  "fit_title": {
+    "message": "Adéquation avec {resume}"
+  },
+  "fit_meterLabel": {
+    "message": "{score} pour cent d’adéquation"
+  },
+  "fit_check": {
+    "message": "Vérifier mon adéquation"
+  },
+  "pipeline_title": {
+    "message": "Suivi"
+  },
+  "pipeline_viewTitle": {
+    "message": "Mon suivi"
+  },
+  "pipeline_status": {
+    "message": "Statut"
+  },
+  "pipeline_closed": {
+    "message": "Clôturée"
+  },
+  "pipeline_count": {
+    "message": "{count} offres suivies"
+  },
+  "pipeline_empty": {
+    "message": "Aucune offre suivie. Ouvrez une offre et appuyez sur Suivre."
+  },
+  "pipeline_openJob": {
+    "message": "Ouvrir {job}"
+  },
+  "pipeline_openSite": {
+    "message": "Ouvrir sur hired.video"
+  },
+  "status_tracked": {
+    "message": "Enregistrée"
+  },
+  "status_applied": {
+    "message": "Candidature envoyée"
+  },
+  "status_interviewing": {
+    "message": "Entretien"
+  },
+  "status_offered": {
+    "message": "Offre reçue"
+  },
+  "status_accepted": {
+    "message": "Acceptée"
+  },
+  "status_rejected": {
+    "message": "Refusée"
+  },
+  "status_cancelled": {
+    "message": "Annulée"
+  },
+  "status_withdrawn": {
+    "message": "Retirée"
+  },
+  "status_declined": {
+    "message": "Déclinée"
+  },
+  "strengthen_title": {
+    "message": "Renforcer le CV"
+  },
+  "strengthen_for": {
+    "message": "pour {job}"
+  },
+  "strengthen_intro": {
+    "message": "Nous adapterons {resume} à cette offre et vous montrerons chaque changement avant d’enregistrer."
+  },
+  "strengthen_start": {
+    "message": "Adapter à cette offre"
+  },
+  "strengthen_working": {
+    "message": "Lecture de l’offre et de votre CV…"
+  },
+  "strengthen_noChanges": {
+    "message": "Votre CV correspond déjà à cette offre — rien à changer."
+  },
+  "strengthen_fit": {
+    "message": "Adéquation à cette offre"
+  },
+  "strengthen_fitLabel": {
+    "message": "L’adéquation passe de {from} à {to}"
+  },
+  "strengthen_tabs": {
+    "message": "Révision"
+  },
+  "strengthen_tabChanges": {
+    "message": "Changements · {count}"
+  },
+  "strengthen_tabQuestions": {
+    "message": "Questions · {count}"
+  },
+  "strengthen_keepChange": {
+    "message": "Garder ce changement"
+  },
+  "strengthen_gap": {
+    "message": "Écart"
+  },
+  "strengthen_gapYes": {
+    "message": "Oui — l’ajouter"
+  },
+  "strengthen_gapNo": {
+    "message": "Pas encore"
+  },
+  "strengthen_gapExperience": {
+    "message": "Répondez à celle-ci dans Studio."
+  },
+  "strengthen_noQuestions": {
+    "message": "Aucune question en attente."
+  },
+  "strengthen_addingSkills": {
+    "message": "Ajout : {skills}"
+  },
+  "strengthen_savesAs": {
+    "message": "Enregistré comme nouvelle version. Votre CV principal reste intact."
+  },
+  "strengthen_save": {
+    "message": "Enregistrer la version avec {count} changements"
+  },
+  "strengthen_saved": {
+    "message": "Enregistré sous « {title} »."
+  },
+  "strengthen_next": {
+    "message": "Suivant : lettre"
+  },
+  "section_basics": {
+    "message": "Résumé"
+  },
+  "section_work": {
+    "message": "Expérience"
+  },
+  "section_education": {
+    "message": "Formation"
+  },
+  "section_skills": {
+    "message": "Compétences"
+  },
+  "section_projects": {
+    "message": "Projets"
+  },
+  "section_volunteer": {
+    "message": "Bénévolat"
+  },
+  "section_awards": {
+    "message": "Distinctions"
+  },
+  "section_certificates": {
+    "message": "Certifications"
+  },
+  "section_publications": {
+    "message": "Publications"
+  },
+  "section_languages": {
+    "message": "Langues"
+  },
+  "section_interests": {
+    "message": "Centres d’intérêt"
+  },
+  "section_references": {
+    "message": "Références"
+  },
+  "cover_title": {
+    "message": "Lettre de motivation"
+  },
+  "cover_resume": {
+    "message": "Avec {resume}"
+  },
+  "cover_intro_title": {
+    "message": "Une lettre pour cette offre"
+  },
+  "cover_intro": {
+    "message": "Rédigée à partir de votre CV et de l’annonce — uniquement ce que votre CV prouve."
+  },
+  "cover_write": {
+    "message": "Rédiger ma lettre"
+  },
+  "cover_writing": {
+    "message": "Rédaction de votre lettre…"
+  },
+  "cover_tone": {
+    "message": "Ton"
+  },
+  "cover_letter": {
+    "message": "Votre lettre"
+  },
+  "cover_regenerate": {
+    "message": "Réécrire"
+  },
+  "cover_next": {
+    "message": "Suivant : postuler"
+  },
+  "tone_warm": {
+    "message": "Chaleureux"
+  },
+  "tone_confident": {
+    "message": "Assuré"
+  },
+  "tone_formal": {
+    "message": "Formel"
+  },
+  "tone_brief": {
+    "message": "Bref"
+  },
+  "apply_title": {
+    "message": "Postuler"
+  },
+  "apply_intro": {
+    "message": "Ouvrez le formulaire de candidature sur cette page. Nous remplissons ce que couvre votre CV ; vous vérifiez et envoyez."
+  },
+  "apply_usesResume": {
+    "message": "CV : {resume}"
+  },
+  "apply_usesLetter": {
+    "message": "Lettre : celle rédigée pour cette offre"
+  },
+  "apply_noLetter": {
+    "message": "Pas encore de lettre pour cette offre"
+  },
+  "apply_form": {
+    "message": "Formulaire de candidature"
+  },
+  "apply_ready": {
+    "message": "{ready} sur {total} remplis"
+  },
+  "apply_rowFilled": {
+    "message": "Rempli"
+  },
+  "apply_rowSkipped": {
+    "message": "Laissé tel quel"
+  },
+  "apply_rowYours": {
+    "message": "À compléter par vous"
+  },
+  "apply_rowError": {
+    "message": "Impossible à remplir"
+  },
+  "apply_noForm": {
+    "message": "Aucun formulaire trouvé sur cette page. Ouvrez le formulaire de candidature et réessayez."
+  },
+  "apply_fill": {
+    "message": "Remplir le formulaire"
+  },
+  "apply_fillAgain": {
+    "message": "Remplir à nouveau"
+  },
+  "apply_youSubmit": {
+    "message": "Vous vérifiez et cliquez sur Envoyer — nous n’envoyons jamais à votre place."
+  },
+  "apply_markApplied": {
+    "message": "C’est envoyé — marquer comme postulée"
+  },
+  "apply_marked": {
+    "message": "Marquée comme postulée."
+  },
+  "video_intro": {
+    "message": "Nous écrivons un court script à partir de votre CV, puis Studio le génère dans votre navigateur."
+  },
+  "video_write": {
+    "message": "Écrire le script de la vidéo"
+  },
+  "video_writing": {
+    "message": "Rédaction du script…"
+  },
+  "video_script": {
+    "message": "Script"
+  },
+  "video_seconds": {
+    "message": "{seconds} secondes"
+  },
+  "video_rewrite": {
+    "message": "Le réécrire"
+  },
+  "video_renderInStudio": {
+    "message": "Ouvrez-le dans Studio pour le générer — cela prend une minute."
+  },
+  "video_openStudio": {
+    "message": "Générer dans Studio"
+  },
+  "video_openAgain": {
+    "message": "Rouvrir dans Studio"
+  },
+  "video_waiting": {
+    "message": "Générez-la dans l’onglet Studio. Ce panneau la récupère dès qu’elle est prête."
+  },
+  "video_watching": {
+    "message": "En attente de la vidéo…"
+  },
+  "video_rendersInBrowser": {
+    "message": "Les vidéos sont générées dans votre navigateur sur hired.video."
+  },
+  "video_ready": {
+    "message": "Votre vidéo est prête."
+  },
+  "video_copyLink": {
+    "message": "Copier le lien de la vidéo"
+  },
+  "video_postTo": {
+    "message": "Publier sur"
+  },
+  "video_connect": {
+    "message": "Connecter {platform}"
+  },
+  "promote_title": {
+    "message": "Promouvoir"
+  },
+  "promote_fitSubtitle": {
+    "message": "« Pourquoi moi » · {job}"
+  },
+  "promote_resumeSubtitle": {
+    "message": "Une courte vidéo de votre CV"
+  },
+  "promote_fitName": {
+    "message": "Pourquoi moi — {job}"
+  },
+  "promote_resumeName": {
+    "message": "Vidéo CV — {resume}"
+  },
+  "promote_fitPrompt": {
+    "message": "Une vidéo de 30 secondes qui montre pourquoi je corresponds au poste de {job} chez {company} : partir de leur besoin, le prouver par mes résultats, finir par une demande claire."
+  },
+  "candidate_title": {
+    "message": "Candidat"
+  },
+  "candidate_onPage": {
+    "message": "Candidat sur cette page"
+  },
+  "candidate_none": {
+    "message": "Aucun profil sur cette page"
+  },
+  "candidate_save": {
+    "message": "Enregistrer"
+  },
+  "candidate_roles": {
+    "message": "{count} postes récupérés"
+  },
+  "candidate_skills": {
+    "message": "{count} compétences"
+  },
+  "candidate_resumeDrafted": {
+    "message": "CV rédigé à partir du profil"
+  },
+  "candidate_noEmail": {
+    "message": "Pas d’e-mail sur la page"
+  },
+  "candidate_findEmail": {
+    "message": "Trouver l’e-mail"
+  },
+  "candidate_pairJob": {
+    "message": "Associer à une offre"
+  },
+  "candidate_noJobs": {
+    "message": "Vous n’avez encore aucune offre ouverte."
+  },
+  "candidate_logCaptured": {
+    "message": "Récupéré depuis {host}"
+  },
+  "outreach_title": {
+    "message": "Message d’approche"
+  },
+  "outreach_title_to": {
+    "message": "Approche de {name}"
+  },
+  "outreach_sharing": {
+    "message": "Offre partagée : {job}"
+  },
+  "outreach_needPair": {
+    "message": "Enregistrez d’abord un candidat et choisissez une offre."
+  },
+  "outreach_context": {
+    "message": "Présentez le poste de {job} chez {company} ({location}). Ses compétences : {skills}. Son parcours : {summary}. Soyez précis sur l’adéquation de son expérience ; court et humain."
+  },
+  "outreach_logSubject": {
+    "message": "Approche : {job}"
+  },
+  "outreach_logTouch": {
+    "message": "Consigner dans l’historique de {name}"
+  },
+  "outreach_remind": {
+    "message": "Me rappeler de relancer dans {days} jours"
+  },
+  "outreach_videoInstead": {
+    "message": "Plutôt créer une vidéo candidat-offre"
+  },
+  "candidateVideo_title": {
+    "message": "Vidéo du candidat"
+  },
+  "candidateVideo_for": {
+    "message": "{name} pour {job}"
+  },
+  "candidateVideo_extracted": {
+    "message": "Candidat récupéré"
+  },
+  "candidateVideo_built": {
+    "message": "CV construit à partir du profil"
+  },
+  "candidateVideo_tailor": {
+    "message": "Adapter le CV à l’offre"
+  },
+  "candidateVideo_tailorBtn": {
+    "message": "Adapter"
+  },
+  "candidateVideo_tailored": {
+    "message": "Adapté à l’offre"
+  },
+  "candidateVideo_who": {
+    "message": "Qui la voit"
+  },
+  "candidateVideo_named": {
+    "message": "Lien privé"
+  },
+  "candidateVideo_anonymized": {
+    "message": "Anonymisée"
+  },
+  "candidateVideo_namedHint": {
+    "message": "Non répertoriée : seules les personnes ayant le lien peuvent la voir. Nom et employeurs affichés."
+  },
+  "candidateVideo_anonymizedHint": {
+    "message": "Non répertoriée, sans nom ni employeurs — pour une présélection anonyme."
+  },
+  "candidateVideo_name": {
+    "message": "{name} pour {job}"
+  },
+  "candidateVideo_nameAnon": {
+    "message": "Candidat pour {job}"
+  },
+  "candidateVideo_anonName": {
+    "message": "Le candidat"
+  },
+  "candidateVideo_prompt": {
+    "message": "Une vidéo de 45 secondes pour le responsable du recrutement montrant pourquoi ce candidat convient au poste de {job} chez {company}. Uniquement des faits présents dans le CV."
+  },
+  "message_channel": {
+    "message": "Envoyer en tant que"
+  },
+  "message_label": {
+    "message": "Message"
+  },
+  "message_write": {
+    "message": "Rédiger le message"
+  },
+  "message_writing": {
+    "message": "Rédaction…"
+  },
+  "message_rewrite": {
+    "message": "Réécrire"
+  },
+  "message_count": {
+    "message": "{count} / {max}"
+  },
+  "message_fillBox": {
+    "message": "Le placer dans la zone de message"
+  },
+  "message_fillReply": {
+    "message": "Le placer dans la zone de réponse"
+  },
+  "message_openEmail": {
+    "message": "Ouvrir dans ma messagerie"
+  },
+  "message_youSend": {
+    "message": "Nous le saisissons dans la zone ouverte sur la page. Vous le relisez et cliquez sur Envoyer."
+  },
+  "message_youSendEmail": {
+    "message": "Votre messagerie s’ouvre avec le message prêt. Vous cliquez sur Envoyer."
+  },
+  "message_noBox": {
+    "message": "Ouvrez la zone de message ou de réponse sur la page, puis réessayez. Le texte est copié : vous pouvez aussi le coller."
+  },
+  "channel_email": {
+    "message": "E-mail"
+  },
+  "channel_linkedinNote": {
+    "message": "Note d’invitation"
+  },
+  "channel_linkedinMessage": {
+    "message": "Message"
+  },
+  "channel_reply": {
+    "message": "Réponse"
+  },
+  "prospect_title": {
+    "message": "Vidéo de pitch"
+  },
+  "prospect_for": {
+    "message": "Pour {name}"
+  },
+  "prospect_needProfile": {
+    "message": "Ouvrez d’abord le profil de la personne."
+  },
+  "prospect_skills": {
+    "message": "Compétences à mettre en avant"
+  },
+  "prospect_noSkills": {
+    "message": "Votre CV ne liste encore aucune compétence."
+  },
+  "prospect_videoName": {
+    "message": "Pour {name}"
+  },
+  "prospect_prompt": {
+    "message": "Une vidéo personnelle de 40 secondes pour {name} ({title}, {company}) : comment mes compétences en {skills} résolvent les problèmes de quelqu’un à son poste. L’appeler par son nom, rester précis, finir par une demande légère d’appel court."
+  },
+  "prospect_context": {
+    "message": "J’ai fait une courte vidéo sur la façon dont mes compétences en {skills} aident un(e) {title} chez {company}. Un message personnel et précis — sans forcer."
+  },
+  "prospect_sentToday": {
+    "message": "Envoyés aujourd’hui : {count}. Une personne à la fois, à la main."
+  },
+  "reply_title": {
+    "message": "Réponse en vidéo"
+  },
+  "reply_post": {
+    "message": "Publication à laquelle vous répondez"
+  },
+  "reply_needPost": {
+    "message": "Ouvrez la publication sur sa propre page, ou sélectionnez son texte et utilisez « Utiliser le texte sélectionné comme publication »."
+  },
+  "reply_angle": {
+    "message": "Angle de réponse"
+  },
+  "reply_angleShow": {
+    "message": "Montrer plutôt que dire"
+  },
+  "reply_angleShow_hint": {
+    "message": "Répondre par un vrai résultat tiré de mon CV."
+  },
+  "reply_angleFlip": {
+    "message": "Retourner la question"
+  },
+  "reply_angleFlip_hint": {
+    "message": "Apporter l’autre point de vue, à partir de mon expérience."
+  },
+  "reply_angleTip": {
+    "message": "Astuce rapide"
+  },
+  "reply_angleTip_hint": {
+    "message": "Un conseil concret et utile — sans argumentaire."
+  },
+  "reply_videoName": {
+    "message": "Réponse à {author}"
+  },
+  "reply_prompt": {
+    "message": "Une réponse vidéo de 30 secondes à cette publication : « {post} ». Angle — {angle}. Ouvrir sur la question de la publication à l’écran et n’utiliser que des faits de mon CV."
+  },
+  "reply_context": {
+    "message": "Rédigez une courte réponse publique à cette publication : « {post} ». Angle — {angle}. Apportez d’abord de la valeur ; le lien vidéo fait le reste."
+  },
+  "post_unknownAuthor": {
+    "message": "Cette publication"
+  },
+  "resumes_title": {
+    "message": "Mes CV"
+  },
+  "resumes_subtitle": {
+    "message": "Celui que vous choisissez sert partout dans le panneau"
+  },
+  "resumes_none": {
+    "message": "Ajoutez votre CV pour commencer"
+  },
+  "resumes_none_hint": {
+    "message": "Importez un PDF ou un Word : il devient votre CV principal."
+  },
+  "resumes_add": {
+    "message": "Importer un CV"
+  },
+  "resumes_master": {
+    "message": "Principal"
+  },
+  "resumes_version": {
+    "message": "Version"
+  },
+  "resumes_openSite": {
+    "message": "Modifier sur hired.video"
+  },
+  "check_title": {
+    "message": "Vérifier {resume}"
+  },
+  "check_intro": {
+    "message": "Notez votre CV et voyez quoi corriger — sans offre."
+  },
+  "check_run": {
+    "message": "Vérifier mon CV"
+  },
+  "check_meterLabel": {
+    "message": "Score de {score} sur 100"
+  },
+  "check_unlock": {
+    "message": "Voir toutes les corrections avec Pro"
+  },
+  "check_fixInStudio": {
+    "message": "Corriger dans Studio"
+  },
+  "pill_region": {
+    "message": "hired.video"
+  },
+  "pill_jobDetected": {
+    "message": "Offre détectée"
+  },
+  "pill_profileDetected": {
+    "message": "Profil détecté"
+  },
+  "pill_postDetected": {
+    "message": "Publication détectée"
+  },
+  "pill_track": {
+    "message": "Suivre"
+  },
+  "pill_tailor": {
+    "message": "Adapter le CV"
+  },
+  "pill_pitch": {
+    "message": "Vidéo de pitch"
+  },
+  "pill_candidate": {
+    "message": "Enregistrer le candidat"
+  },
+  "pill_reply": {
+    "message": "Répondre en vidéo"
+  },
+  "pill_dismiss": {
+    "message": "Masquer sur cette page"
+  }
+}

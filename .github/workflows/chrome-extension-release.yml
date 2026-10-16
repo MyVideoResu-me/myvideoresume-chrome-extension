@@ -41,6 +41,7 @@ jobs:
     name: Build Extension Packages
     runs-on: ubuntu-latest
     outputs:
+      app_version: ${{ steps.versions.outputs.app_version }}
       jobseeker_version: ${{ steps.versions.outputs.jobseeker_version }}
       recruiter_version: ${{ steps.versions.outputs.recruiter_version }}
 
@@ -59,7 +60,7 @@ jobs:
       - name: Validate manifests and read versions
         id: versions
         run: |
-          for target in jobseeker recruiter; do
+          for target in app jobseeker recruiter; do
             MANIFEST_PATH="${target}/manifest.json"
             jq empty "$MANIFEST_PATH"
             jq -e '.manifest_version' "$MANIFEST_PATH" >/dev/null
@@ -69,15 +70,33 @@ jobs:
             echo "${target}_version=$VERSION" >> "$GITHUB_OUTPUT"
           done
 
+      - name: Typecheck the unified app
+        run: npm run typecheck
+
       - name: Build packages
         # `release.js` runs the Node build pipeline for each target and
         # produces `dist/<target>.zip` with manifest.json at the ZIP root.
         run: node scripts/release.js --build
 
+      - name: Unit tests
+        run: npm test
+
       - name: Verify packages exist
         run: |
+          ls -la dist/app.zip
           ls -la dist/jobseeker.zip
           ls -la dist/recruiter.zip
+
+      # The unified app is built + uploaded as an artifact on every run but
+      # NOT published yet: it needs its Chrome Web Store listing decided
+      # (new item vs. replacing the jobseeker listing) and a
+      # CHROME_EXTENSION_ID_APP secret.
+      - name: Upload app artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: chrome-extension-app-${{ steps.versions.outputs.app_version }}-${{ github.sha }}
+          path: dist/app.zip
+          retention-days: 30
 
       - name: Upload jobseeker artifact
         uses: actions/upload-artifact@v4

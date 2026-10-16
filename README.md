@@ -4,6 +4,36 @@
 
 Chrome extension for the hired.video platform.
 
+## Targets
+
+| Target | Folder | What it is |
+|---|---|---|
+| `app` | `app/` | **The one hired.video extension.** Lenses (Job seeker / Recruiter / Sales & social) over one engine: detect a job, profile or post → Create → Strengthen → Target → Promote. Side panel is Preact + TypeScript in `app/src/panel`, strings in `app/_locales/{en,es,fr}`. |
+| `jobseeker` | `jobseeker/` | Legacy job-seeker listing — kept until the store moves to `app`. |
+| `recruiter` | `recruiter/` | Legacy recruiter listing — kept until the store moves to `app`. |
+
+`shared/` holds what every target uses (auth bridge, detectors, service-worker base, the autofill matcher, job-URL matching).
+
+### Unified app layout (`app/src`)
+
+- `panel/api/` — one typed client per API area; `http.ts` is the only `fetch` (JWT, silent refresh, error envelope).
+- `panel/domain/` — data: lenses, actions, routes/steps, page entities, résumé documents.
+- `panel/state/` — small stores (session, page detection, lens, pair, jobs, résumés, nav) + use cases (`job-capture.ts`).
+- `panel/features/<flow>/` — one folder per screen: view + hook.
+- `panel/ui/`, `panel/shell/` — presentational controls and the panel frame.
+- `content/` — in-page pill, post detection, message-box filler.
+
+A new lens or action is a data entry in `domain/lenses.ts` / `domain/actions.ts`; a new screen is a `features/` folder plus one line in `shell/App.tsx`'s registry.
+
+The recruiter lens follows `HIRING_PERSONAS_ENABLED` in `hired.video/shared/user-roles.ts` — it appears only when the hiring side is on.
+
+```bash
+npm install
+npm run build:app      # → dist/app (load unpacked)
+npm run typecheck
+npm test
+```
+
 ## Build locally
 
 ### Linux/macOS
@@ -64,6 +94,8 @@ review cycle.
 
 **Recruiter:** This extension helps recruiters source candidates, extract professional profiles, and match them against open job requisitions using the hired.video platform.
 
+**hired.video (unified app):** This extension turns the page you are viewing — a job posting, a professional profile, or a social post — into career material on hired.video: track the job, tailor your résumé and cover letter to it, fill its application form, and make a short video to promote yourself or a candidate. Messages and replies are typed into the site's own box; the user always presses Send.
+
 ### storage
 
 Used to persist the user's authentication token (JWT) locally so they remain signed in across browser sessions without re-entering credentials. Also stores user-specific settings and preferences (e.g. recruiter pipeline configuration).
@@ -83,6 +115,10 @@ Used to inject content scripts into tabs where the content script was not pre-lo
 ### tabs
 
 Used to (1) query the active tab to send messages to content scripts for extracting job, profile, and company data from the current page, (2) open hired.video pages (dashboard, pricing, resumes, login) in new tabs when the user clicks links in the side panel, and (3) reload hired.video tabs after authentication changes to keep login state in sync.
+
+### clipboardWrite (not requested)
+
+The unified app copies text with `navigator.clipboard` from the side panel in response to a click, which needs no extra permission.
 
 ### alarms
 

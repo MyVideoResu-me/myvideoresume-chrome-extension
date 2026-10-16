@@ -22,7 +22,7 @@ const crx3 = require('crx3');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(ROOT, 'dist');
-const TARGETS = ['jobseeker', 'recruiter'];
+const TARGETS = ['app', 'jobseeker', 'recruiter'];
 
 async function packExtension(target) {
   const extDir = path.join(DIST_DIR, target);
@@ -88,7 +88,7 @@ async function main() {
 
   if (target && !TARGETS.includes(target)) {
     console.error(`Unknown target: ${target}`);
-    console.error('Usage: node scripts/pack-crx.js [jobseeker|recruiter]');
+    console.error('Usage: node scripts/pack-crx.js [app|jobseeker|recruiter]');
     process.exit(1);
   }
 

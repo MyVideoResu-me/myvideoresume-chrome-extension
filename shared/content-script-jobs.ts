@@ -29,6 +29,7 @@ import {
   looksLikeJobUrl,
   type DetectedJob,
 } from "../../hired.video/shared/scraping/index.js";
+import { announceCleared, announceDetected } from "./detection-bus";
 
 // Idempotency guard — see original .js file for rationale (manifest
 // injection + service-worker programmatic injection can race).
@@ -134,6 +135,7 @@ import {
     } catch {
       /* ignore */
     }
+    announceDetected("job", msg.payload);
   }
 
   function detectJobOnPage(): boolean {
@@ -190,6 +192,7 @@ import {
     if (currentUrl === lastUrl) return;
     lastUrl = currentUrl;
     lastDetectedKey = null;
+    announceCleared();
     try {
       (chrome.runtime.sendMessage({ action: "urlChanged", url: currentUrl }) as any)?.catch?.(() => {});
     } catch {

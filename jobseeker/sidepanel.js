@@ -559,65 +559,14 @@ function scheduleTokenBudgetRefresh() {
 // =====================================================================
 
 /**
- * Normalise a URL for comparison: strip trailing slashes, fragments,
- * and common tracking query params so that small variations still match.
- */
-function normalizeUrlForMatch(raw) {
-  if (!raw) return '';
-  try {
-    const u = new URL(raw);
-    // LinkedIn canonical: /jobs/view/12345/ vs ?currentJobId=12345
-    if (u.hostname.includes('linkedin.com')) {
-      const jobId = u.searchParams.get('currentJobId');
-      if (jobId) return `https://www.linkedin.com/jobs/view/${jobId}/`;
-      const m = u.pathname.match(/\/jobs\/view\/(\d+)/);
-      if (m) return `https://www.linkedin.com/jobs/view/${m[1]}/`;
-    }
-    u.hash = '';
-    // Remove common tracking params
-    for (const p of ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content', 'ref', 'fbclid', 'gclid']) {
-      u.searchParams.delete(p);
-    }
-    return u.toString().replace(/\/+$/, '');
-  } catch {
-    return raw.replace(/\/+$/, '').split('#')[0];
-  }
-}
-
-/**
  * Find a tracked job whose sourceUrl OR applyUrl matches the given URL.
- * Returns { job, matchedBy: 'sourceUrl'|'applyUrl' } or null.
- *
- * Apply pages (e.g. a Workday form opened from a LinkedIn listing) have
- * a different URL than the source job listing. Matching both ensures the
- * same tracked job surfaces on either page instead of being treated as a
- * new job when the user clicks "Apply".
+ * Returns { job, matchedBy: 'sourceUrl'|'applyUrl' } or null. The URL
+ * matching lives in shared/job-url-match.ts (one source with the unified
+ * app panel), exposed via sidepanel-scraping-bundle.js.
  */
 function findMatchingTrackedJob(url) {
   if (!url || !trackedJobsList.length) return null;
-  const norm = normalizeUrlForMatch(url);
-  if (!norm) return null;
-
-  // First pass: sourceUrl (the listing). This is the canonical match.
-  const bySource = trackedJobsList.find((j) => {
-    const jUrl = normalizeUrlForMatch(j.sourceUrl);
-    return jUrl && jUrl === norm;
-  });
-  if (bySource) return { job: bySource, matchedBy: 'sourceUrl' };
-
-  // Second pass: applyUrl. Only match when applyUrl is genuinely different
-  // from sourceUrl — otherwise we'd re-match the same job and mis-flag the
-  // listing page as an application page.
-  const byApply = trackedJobsList.find((j) => {
-    if (!j.applyUrl) return false;
-    const aUrl = normalizeUrlForMatch(j.applyUrl);
-    const sUrl = normalizeUrlForMatch(j.sourceUrl);
-    if (!aUrl || aUrl === sUrl) return false;
-    return aUrl === norm;
-  });
-  if (byApply) return { job: byApply, matchedBy: 'applyUrl' };
-
-  return null;
+  return window.HiredVideoScraping.matchTrackedJob(trackedJobsList, url);
 }
 
 /**
@@ -1171,7 +1120,7 @@ async function handleAutofillApplication() {
   const answers = {};
   const review = []; // { label, value, profileKey, status }
   for (const field of fields) {
-    const picked = pickAutofillValue(field, profile);
+    const picked = window.HiredVideoAutofill.pickAutofillValue(field, profile);
     if (picked && picked.value) {
       answers[field.id] = picked.value;
       review.push({
@@ -1323,7 +1272,7 @@ async function loadAutofillProfile(resumeId) {
     });
     if (resp.ok) {
       const resume = unwrapResponse(await resp.json()) || {};
-      const basics = extractResumeBasics(resume);
+      const basics = window.HiredVideoAutofill.extractResumeBasics(resume);
       Object.assign(profile, basics);
     }
   } catch (err) { /* non-fatal */ }
@@ -1331,239 +1280,9 @@ async function loadAutofillProfile(resumeId) {
   return Object.keys(profile).length ? profile : null;
 }
 
-/**
- * Pull a flat autofill map from the JSON Resume document. The backend
- * returns resume content in several shapes (object on `resumeData`,
- * JSON string on `content`, sometimes at the top level) so we probe
- * each candidate until we find one with a JSON-Resume-shaped block.
- *
- * Emits keys the AUTOFILL_PATTERNS table knows how to route:
- *   • basics       → fullName, firstName, lastName, email, phone,
- *                    website, linkedin, github, twitter, city, state,
- *                    postalCode, country, address, headline, summary
- *   • work[0]      → currentCompany, currentTitle, currentStartDate,
- *                    currentEndDate
- *   • work[*]      → yearsExperience
- *   • education[0] → school, degree, fieldOfStudy, graduationYear, gpa
- *   • skills[]     → skills (comma-joined)
- *   • languages[]  → languages (comma-joined)
- */
-function extractResumeBasics(resume) {
-  if (!resume) return {};
-  const candidates = [resume.resumeData, resume.content, resume.data, resume];
-  let doc = null;
-  for (const c of candidates) {
-    if (c && typeof c === 'object' && (c.basics || c.work || c.education)) { doc = c; break; }
-    if (typeof c === 'string') {
-      try {
-        const parsed = JSON.parse(c);
-        if (parsed && (parsed.basics || parsed.work || parsed.education)) { doc = parsed; break; }
-      } catch (e) { /* not JSON */ }
-    }
-  }
-  if (!doc) return {};
-
-  const out = {};
-  const basics = doc.basics || {};
-  if (basics.name) {
-    out.fullName = basics.name;
-    const [first, ...rest] = basics.name.split(/\s+/);
-    out.firstName = first || '';
-    out.lastName = rest.join(' ') || '';
-  }
-  if (basics.email) out.email = basics.email;
-  if (basics.phone) out.phone = basics.phone;
-  if (basics.url) out.website = basics.url;
-  if (basics.label) out.headline = basics.label;
-  if (basics.summary) out.summary = basics.summary;
-
-  const loc = basics.location;
-  if (loc) {
-    if (loc.city) out.city = loc.city;
-    if (loc.region) out.state = loc.region;
-    if (loc.postalCode) out.postalCode = loc.postalCode;
-    if (loc.countryCode || loc.country) out.country = loc.countryCode || loc.country;
-    if (loc.address) out.address = loc.address;
-  }
-
-  if (Array.isArray(basics.profiles)) {
-    for (const p of basics.profiles) {
-      const network = (p.network || '').toLowerCase();
-      const url = p.url || '';
-      if (!url) continue;
-      if (network.includes('linkedin')) out.linkedin = url;
-      else if (network.includes('github')) out.github = url;
-      else if (network.includes('twitter') || network.includes('x.com')) out.twitter = url;
-      else if (network.includes('portfolio') || network.includes('website')) out.website ||= url;
-    }
-  }
-
-  // Most recent work entry — treated as "current" for form fields like
-  // "Current Company" / "Most Recent Title".
-  if (Array.isArray(doc.work) && doc.work.length) {
-    const current = doc.work[0] || {};
-    if (current.name || current.company) out.currentCompany = current.name || current.company;
-    if (current.position) out.currentTitle = current.position;
-    if (current.startDate) out.currentStartDate = current.startDate;
-    if (current.endDate) out.currentEndDate = current.endDate;
-    const yrs = totalYearsOfExperience(doc.work);
-    if (yrs != null) out.yearsExperience = String(yrs);
-  }
-
-  // Most recent education entry
-  if (Array.isArray(doc.education) && doc.education.length) {
-    const edu = doc.education[0] || {};
-    if (edu.institution) out.school = edu.institution;
-    if (edu.studyType || edu.area) {
-      out.degree = [edu.studyType, edu.area].filter(Boolean).join(' in ');
-    }
-    if (edu.area) out.fieldOfStudy = edu.area;
-    if (edu.endDate) {
-      const yr = String(edu.endDate).match(/\d{4}/);
-      if (yr) out.graduationYear = yr[0];
-    }
-    if (edu.score) out.gpa = String(edu.score);
-  }
-
-  // Flat comma-joined lists — many ATSes render Skills as a single text box.
-  if (Array.isArray(doc.skills) && doc.skills.length) {
-    out.skills = doc.skills
-      .map((s) => (typeof s === 'string' ? s : s?.name || ''))
-      .filter(Boolean)
-      .join(', ');
-  }
-  if (Array.isArray(doc.languages) && doc.languages.length) {
-    out.languages = doc.languages
-      .map((l) => (typeof l === 'string' ? l : l?.language || ''))
-      .filter(Boolean)
-      .join(', ');
-  }
-
-  return out;
-}
-
-/**
- * Sum whole-year durations across all work entries. Returns a rounded
- * whole number or null when no dateable entry exists. Coarse on purpose
- * — application forms ask "years of experience" as an integer.
- */
-function totalYearsOfExperience(work) {
-  let months = 0;
-  let any = false;
-  for (const job of work) {
-    const start = parseDateToMonths(job.startDate);
-    if (start == null) continue;
-    const end = job.endDate ? parseDateToMonths(job.endDate) : nowMonths();
-    if (end == null) continue;
-    months += Math.max(0, end - start);
-    any = true;
-  }
-  return any ? Math.max(0, Math.round(months / 12)) : null;
-}
-
-function parseDateToMonths(raw) {
-  if (!raw) return null;
-  const m = String(raw).match(/(\d{4})(?:-(\d{1,2}))?/);
-  if (!m) return null;
-  const year = Number(m[1]);
-  const month = m[2] ? Number(m[2]) - 1 : 0;
-  return year * 12 + month;
-}
-
-function nowMonths() {
-  const d = new Date();
-  return d.getFullYear() * 12 + d.getMonth();
-}
-
-/**
- * Pattern→key routing table for form-field autofill. Each entry maps a
- * case-insensitive substring of the field's label/name/placeholder to
- * the corresponding profile key. Earlier entries win, so list specific
- * ones (first name) before generic ones (name).
- *
- * Kept as data so the matching function stays linear and easy to audit.
- */
-const AUTOFILL_PATTERNS = [
-  // Name — specific forms first so they don't get eaten by "name"
-  { key: 'firstName',      matches: ['first name', 'firstname', 'given name', 'first_name', 'forename'] },
-  { key: 'lastName',       matches: ['last name', 'lastname', 'family name', 'surname', 'last_name'] },
-  { key: 'fullName',       matches: ['full name', 'your name', 'legal name', 'name (as', 'preferred name'] },
-
-  // Contact
-  { key: 'email',          matches: ['email', 'e-mail'] },
-  { key: 'phone',          matches: ['phone', 'mobile', 'telephone', 'cell'] },
-
-  // Social
-  { key: 'linkedin',       matches: ['linkedin', 'linked in'] },
-  { key: 'github',         matches: ['github', 'git hub'] },
-  { key: 'twitter',        matches: ['twitter', 'x.com profile', 'x profile'] },
-  { key: 'website',        matches: ['portfolio', 'website', 'personal site', 'personal url', 'personal web'] },
-
-  // Location
-  { key: 'address',        matches: ['street address', 'address line', 'mailing address', 'address 1'] },
-  { key: 'city',           matches: ['city', 'town'] },
-  { key: 'state',          matches: ['state', 'province', 'region'] },
-  { key: 'postalCode',     matches: ['postal code', 'postcode', 'zip code', 'zip/postal', 'zip'] },
-  { key: 'country',        matches: ['country'] },
-
-  // Experience — currentCompany before "company" / "employer" so generic
-  // "Current Employer" doesn't shadow a hypothetical "Company Name" field
-  { key: 'currentCompany', matches: ['current company', 'current employer', 'most recent company',
-                                     'most recent employer', 'present company', 'present employer',
-                                     'company name', 'employer'] },
-  { key: 'currentTitle',   matches: ['current title', 'current position', 'current role',
-                                     'most recent title', 'most recent position', 'job title',
-                                     'current job'] },
-  { key: 'currentStartDate', matches: ['start date at', 'start date in current', 'date started current'] },
-  { key: 'yearsExperience',matches: ['years of experience', 'years experience', 'total experience',
-                                     'years in', 'how many years'] },
-
-  // Education
-  { key: 'school',         matches: ['school', 'university', 'college', 'institution'] },
-  { key: 'degree',         matches: ['degree', 'highest level of education', 'education level'] },
-  { key: 'fieldOfStudy',   matches: ['field of study', 'major', 'area of study', 'discipline'] },
-  { key: 'graduationYear', matches: ['graduation year', 'grad year', 'year graduated', 'year of graduation'] },
-  { key: 'gpa',            matches: ['gpa', 'grade point'] },
-
-  // Free-text dump fields
-  { key: 'skills',         matches: ['skills', 'key skills', 'technical skills', 'core competencies'] },
-  { key: 'languages',      matches: ['languages spoken', 'languages you speak', 'spoken languages'] },
-  { key: 'summary',        matches: ['summary', 'about you', 'tell us about', 'bio', 'professional summary',
-                                     'cover letter', 'why are you interested', 'why do you want'] },
-  { key: 'headline',       matches: ['headline', 'professional headline', 'tagline'] },
-
-  // Generic 'name' last — otherwise it'd eat "first name" matches above.
-  { key: 'fullName',       matches: ['name'] },
-];
-
-/**
- * Decide what to fill into a given form field. Returns `{ key, value }`
- * when a pattern matches and the profile has the corresponding value,
- * or null when no pattern matches. Matching stages:
- *   1. Concatenate label + name + id + placeholder into a haystack.
- *   2. Walk AUTOFILL_PATTERNS in order; first hit with a populated
- *      profile value wins.
- *
- * Select/radio values pass through — the content script's setFieldValue
- * handles fuzzy option matching (e.g. "United States" → "US").
- */
-function pickAutofillValue(field, profile) {
-  const haystack = [
-    field.label || '',
-    field.name || '',
-    field.id || '',
-    field.placeholder || '',
-  ].join(' ').toLowerCase();
-  if (!haystack.trim()) return null;
-
-  for (const pat of AUTOFILL_PATTERNS) {
-    if (pat.matches.some((m) => haystack.includes(m))) {
-      const v = profile[pat.key];
-      if (v) return { key: pat.key, value: v };
-    }
-  }
-  return null;
-}
+// Résumé → form-field matching lives in shared/autofill-matcher.ts, exposed
+// as window.HiredVideoAutofill by sidepanel-scraping-bundle.js (one source
+// shared with the unified app panel).
 
 // =====================================================================
 // One-click Tailor & Save pipeline

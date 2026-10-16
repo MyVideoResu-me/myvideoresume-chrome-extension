@@ -1,9 +1,12 @@
 /**
- * hired.video Chrome Extension - Recruiter Service Worker
+ * hired.video Chrome Extension - Detection relay
  *
- * Extension-specific handlers appended after service-worker-base.js
- * by the build script. Adds forwarding for profileDetected and
- * companyDetected messages from the recruiter content scripts.
+ * Appended after service-worker-base.js by the build script for every
+ * extension that detects more than jobs (recruiter + the unified app).
+ * Forwards profile / company / list-view / post detections from the
+ * content scripts to the side panel, and relays the side panel's
+ * "give me the focused profile / company / list HTML" requests to the
+ * active tab.
  */
 
 // ---- Shared helper ------------------------------------------------------
@@ -31,7 +34,7 @@ function forwardToActiveTab(action, extra, sendResponse) {
   });
 }
 
-// ---- Recruiter-specific message handlers --------------------------------
+// ---- Detection message handlers ------------------------------------------
 // These are added to the existing chrome.runtime.onMessage listener chain
 // from service-worker-base.js. Chrome allows multiple listeners.
 
@@ -40,14 +43,18 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'profileDetected'
       || request.action === 'companyDetected'
       || request.action === 'listViewDetected'
-      || request.action === 'listViewCleared') {
+      || request.action === 'listViewCleared'
+      || request.action === 'postDetected'
+      || request.action === 'postCleared') {
     chrome.runtime.sendMessage(request).catch(() => {});
     return false;
   }
 
   // ---- HTML fetchers (side panel → active tab content script) ----
   if (request.action === 'getFocusedProfileHTML'
-      || request.action === 'getFocusedCompanyHTML') {
+      || request.action === 'getFocusedCompanyHTML'
+      || request.action === 'detectProfile'
+      || request.action === 'detectPost') {
     forwardToActiveTab(request.action, null, sendResponse);
     return true; // async response
   }
