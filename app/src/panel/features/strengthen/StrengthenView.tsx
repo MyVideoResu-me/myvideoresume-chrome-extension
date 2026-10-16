@@ -4,6 +4,9 @@ import { ApiError } from "../../api/http";
 import { navigate } from "../../state/nav";
 import { activeResume, resumesStore } from "../../state/resumes";
 import { useStore } from "../../state/store";
+import { sessionStore } from "../../state/session";
+import { settingsStore } from "../../state/settings";
+import { useAutoRun } from "../../ui/useAutoRun";
 import { openTab } from "../../platform/chrome";
 import { t } from "../../platform/i18n";
 import { studioResumeUrl } from "../../platform/web-links";
@@ -23,6 +26,12 @@ export function StrengthenView() {
   const resume = useStore(resumesStore, activeResume);
   const { detected, job, ensure } = useJobContext();
   const flow = useTailorReview(resume, ensure);
+  const autoTailor = useStore(
+    settingsStore,
+    (s) => s.settings.autoTailor,
+  );
+  const isPro = useStore(sessionStore, (s) => s.session.status === "signedIn" && s.session.isPro);
+  useAutoRun(autoTailor && isPro && !!resume && !!(job || detected), flow.start.run);
   const [tab, setTab] = useState<Tab>("changes");
   const { review } = flow;
   const noChanges = flow.start.error instanceof ApiError && flow.start.error.code === "NO_APPLICABLE_CHANGES";

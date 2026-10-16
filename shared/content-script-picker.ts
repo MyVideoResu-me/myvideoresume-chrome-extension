@@ -78,25 +78,48 @@ import {
 
   type Captured = Partial<Record<FieldKey, CapturedField>>;
 
+  /**
+   * UI strings: the extension's _locales when it has them (the unified
+   * app), else the English text — the legacy recruiter build ships none.
+   * Keys: picker_<mode>_<field>_label / _hint, picker_<name>.
+   */
+  function tr(key: string, fallback: string, vars?: Record<string, string | number>): string {
+    let text = fallback;
+    try {
+      text = chrome.i18n.getMessage(key) || fallback;
+    } catch {
+      /* no i18n in this context */
+    }
+    return vars ? text.replace(/\{(\w+)\}/g, (m, k: string) => (k in vars ? String(vars[k]) : m)) : text;
+  }
+
+  function step(mode: PickerMode, key: FieldKey, label: string, hint: string) {
+    return {
+      key,
+      label: tr(`picker_${mode}_${key}_label`, label),
+      hint: tr(`picker_${mode}_${key}_hint`, hint),
+    };
+  }
+
   const STEPS_BY_MODE: Record<PickerMode, { key: FieldKey; label: string; hint: string }[]> = {
     job: [
-      { key: "title", label: "Job title", hint: "Click the job title heading on the page." },
-      { key: "company", label: "Company", hint: "Click the company name." },
-      { key: "location", label: "Location", hint: "Click the location text (city/remote)." },
-      { key: "description", label: "Description", hint: "Click anywhere inside the job description body." },
-      { key: "applyUrl", label: "Apply button", hint: "Click the apply button or link. (Optional — Skip is OK.)" },
+      step("job", "title", "Job title", "Click the job title heading on the page."),
+      step("job", "company", "Company", "Click the company name."),
+      step("job", "location", "Location", "Click the location text (city/remote)."),
+      step("job", "description", "Description", "Click anywhere inside the job description body."),
+      step("job", "applyUrl", "Apply button", "Click the apply button or link. (Optional — Skip is OK.)"),
     ],
     profile: [
-      { key: "name", label: "Candidate name", hint: "Click the candidate's name heading." },
-      { key: "title", label: "Headline / title", hint: "Click the headline or current title." },
-      { key: "company", label: "Current company", hint: "Click the current employer's name. (Optional — Skip is OK.)" },
-      { key: "location", label: "Location", hint: "Click the city or region. (Optional — Skip is OK.)" },
+      step("profile", "name", "Candidate name", "Click the candidate's name heading."),
+      step("profile", "title", "Headline / title", "Click the headline or current title."),
+      step("profile", "company", "Current company", "Click the current employer's name. (Optional — Skip is OK.)"),
+      step("profile", "location", "Location", "Click the city or region. (Optional — Skip is OK.)"),
     ],
     company: [
-      { key: "name", label: "Company name", hint: "Click the company name heading." },
-      { key: "industry", label: "Industry", hint: "Click the industry label. (Optional — Skip is OK.)" },
-      { key: "size", label: "Employee count", hint: "Click the employee count or size. (Optional — Skip is OK.)" },
-      { key: "location", label: "Headquarters", hint: "Click the HQ or primary location. (Optional — Skip is OK.)" },
+      step("company", "name", "Company name", "Click the company name heading."),
+      step("company", "industry", "Industry", "Click the industry label. (Optional — Skip is OK.)"),
+      step("company", "size", "Employee count", "Click the employee count or size. (Optional — Skip is OK.)"),
+      step("company", "location", "Headquarters", "Click the HQ or primary location. (Optional — Skip is OK.)"),
     ],
   };
 
@@ -539,29 +562,29 @@ import {
     }).join("");
     let suggestBlock = "";
     if (busy) {
-      suggestBlock = `<div class="hv-suggest"><span class="hv-spinner"></span> Scanning page for ${escapeHtml(step.label.toLowerCase())}…</div>`;
+      suggestBlock = `<div class="hv-suggest"><span class="hv-spinner"></span> ${escapeHtml(tr("picker_scanning", "Scanning page for {field}…", { field: step.label.toLowerCase() }))}</div>`;
     } else if (suggestion && mode === "auto") {
       suggestBlock = `<div class="hv-suggest">
-        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#16a34a;margin-bottom:2px;">My guess</div>
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#16a34a;margin-bottom:2px;">${escapeHtml(tr("picker_guess", "My guess"))}</div>
         <div class="hv-suggest-text">${escapeHtml(suggestion.text)}</div>
       </div>`;
     }
     const actions =
       mode === "auto" && suggestion
-        ? `<button class="hv-success" data-act="confirm">✓ Yes, that's right</button>
-           <button class="hv-danger" data-act="reject">✗ Pick manually</button>`
-        : `<button class="hv-ghost" data-act="skip">Skip</button>`;
+        ? `<button class="hv-success" data-act="confirm">✓ ${escapeHtml(tr("picker_confirm", "Yes, that's right"))}</button>
+           <button class="hv-danger" data-act="reject">✗ ${escapeHtml(tr("picker_reject", "Pick manually"))}</button>`
+        : `<button class="hv-ghost" data-act="skip">${escapeHtml(tr("picker_skip", "Skip"))}</button>`;
     toolbar.classList.toggle("hv-trying", busy);
     toolbar.innerHTML = `
       <div class="hv-progress">${progress}</div>
-      <div class="hv-step">Step ${stepIdx + 1} of ${STEPS.length}</div>
+      <div class="hv-step">${escapeHtml(tr("picker_step", "Step {n} of {total}", { n: stepIdx + 1, total: STEPS.length }))}</div>
       <h4>${escapeHtml(step.label)}</h4>
       <p class="hv-hint">${escapeHtml(step.hint)}</p>
       ${suggestBlock}
       <div class="hv-actions">${actions}</div>
       <div class="hv-footer">
-        <button data-act="back" ${stepIdx === 0 ? "disabled" : ""}>← Back</button>
-        <button data-act="cancel">Cancel (Esc)</button>
+        <button data-act="back" ${stepIdx === 0 ? "disabled" : ""}>← ${escapeHtml(tr("picker_back", "Back"))}</button>
+        <button data-act="cancel">${escapeHtml(tr("picker_cancel", "Cancel (Esc)"))}</button>
       </div>
     `;
   }

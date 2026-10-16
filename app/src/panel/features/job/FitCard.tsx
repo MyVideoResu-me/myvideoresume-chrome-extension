@@ -7,6 +7,8 @@ import { t } from "../../platform/i18n";
 import { Button, Card, Meter } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
 import { useAction } from "../../ui/useAction";
+import { useAutoRun } from "../../ui/useAutoRun";
+import { settingsStore } from "../../state/settings";
 
 export function FitCard({ jobId }: { jobId: string }) {
   const resume = useStore(resumesStore, activeResume);
@@ -14,6 +16,8 @@ export function FitCard({ jobId }: { jobId: string }) {
   const check = useAction(async () => {
     if (resume) setFit(await analyzeFit({ jobId }, resume.id));
   });
+  const autoScore = useStore(settingsStore, (s) => s.settings.autoScore);
+  useAutoRun(autoScore && !!resume, check.run);
   if (!resume) return null;
 
   return (

@@ -6,6 +6,7 @@
 import { extractJob, type Job } from "../api/jobs";
 import type { DetectedJob } from "../domain/entities";
 import { capturePageHtml } from "../platform/page-html";
+import { recordEvent } from "../platform/telemetry";
 import { findTrackedJob, jobsStore, loadSavedJobs, upsertSavedJob } from "./jobs";
 import { pairStore, setPairJob } from "./pair";
 
@@ -22,6 +23,7 @@ export async function trackJobOnPage(detected: DetectedJob | null): Promise<Job>
   });
   upsertSavedJob(job);
   setPairJob(job);
+  recordEvent("track", job.sourceUrl, { jobId: job.id, title: job.title, company: job.company });
   return job;
 }
 

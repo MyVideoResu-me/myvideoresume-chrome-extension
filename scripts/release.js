@@ -9,12 +9,11 @@
  *
  * Usage:
  *   node scripts/release.js              # zip both
- *   node scripts/release.js jobseeker    # zip only jobseeker
  *   node scripts/release.js recruiter    # zip only recruiter
  *   node scripts/release.js --build      # build then zip both
  *
  * Output:
- *   dist/jobseeker.zip   (manifest.json at root — uploadable to CWS)
+ *   dist/app.zip   (manifest.json at root — uploadable to CWS)
  *   dist/recruiter.zip
  */
 
@@ -24,7 +23,7 @@ const { execSync } = require('child_process');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(ROOT, 'dist');
-const TARGETS = ['app', 'jobseeker', 'recruiter'];
+const TARGETS = ['app', 'recruiter'];
 
 function zipDir(srcDir, zipPath) {
   if (fs.existsSync(zipPath)) fs.unlinkSync(zipPath);
@@ -68,7 +67,7 @@ const target = args.find((a) => !a.startsWith('--'));
 
 if (target && !TARGETS.includes(target)) {
   console.error(`Unknown target: ${target}`);
-  console.error('Usage: node scripts/release.js [app|jobseeker|recruiter] [--build]');
+  console.error('Usage: node scripts/release.js [app|recruiter] [--build]');
   process.exit(1);
 }
 

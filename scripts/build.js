@@ -8,15 +8,12 @@
  *
  *   app        — the ONE hired.video extension (lenses: job seeker,
  *                recruiter, sales & social). Side panel is TSX bundled
- *                from app/src.
- *   jobseeker  — legacy job-seeker listing (kept until the store
- *                migration to `app` is done).
- *   recruiter  — legacy recruiter listing (same).
+ *                from app/src. Ships as the job-seeker Web Store item.
+ *   recruiter  — legacy recruiter listing, kept until it is retired.
  *
  * Usage:
  *   node scripts/build.js              # build all
  *   node scripts/build.js app          # build only the unified extension
- *   node scripts/build.js jobseeker    # build only jobseeker
  *   node scripts/build.js recruiter    # build only recruiter
  *
  * Output:
@@ -38,8 +35,6 @@ const DIST_DIR = path.join(ROOT, 'dist');
 const TS_ENTRYPOINTS = {
   'content-script-jobs.js': path.join(SHARED_DIR, 'content-script-jobs.ts'),
   'content-script-autofill.js': path.join(SHARED_DIR, 'content-script-autofill.ts'),
-  // Sidepanel re-uses the shared `detectJobInPage` via window.HiredVideoScraping.
-  'sidepanel-scraping-bundle.js': path.join(SHARED_DIR, 'sidepanel-scraping-bundle.ts'),
   // Interactive picker — injected on demand via chrome.scripting.executeScript
   // when auto-detect fails or the user clicks "Identify manually".
   'content-script-picker.js': path.join(SHARED_DIR, 'content-script-picker.ts'),
@@ -61,14 +56,9 @@ const EXTENSIONS = {
     },
     // Source dirs that are bundled, never copied raw.
     skip: ['src', 'tsconfig.json'],
-    // The panel bundles Preact + shared schemas — ship it minified.
+    // The app's own bundles (panel = Preact + shared schemas) ship minified;
+    // the shared content scripts stay readable (tests check their symbols).
     minify: true,
-  },
-  jobseeker: {
-    src: path.join(ROOT, 'jobseeker'),
-    dist: path.join(DIST_DIR, 'jobseeker'),
-    // Service worker = shared base + extension-specific (concatenated)
-    serviceWorkerFiles: ['service-worker-base.js', 'service-worker.js'],
   },
   recruiter: {
     src: path.join(ROOT, 'recruiter'),
@@ -85,7 +75,6 @@ const SKIP_IN_SHARED = new Set([
   // TS content scripts — bundled by esbuild, not copied raw.
   'content-script-jobs.ts',
   'content-script-autofill.ts',
-  'sidepanel-scraping-bundle.ts',
   'content-script-picker.ts',
   // Imported by bundles only.
   'autofill-matcher.ts',
@@ -152,7 +141,8 @@ function buildExtension(name) {
   //     bundled to a single IIFE-wrapped JS file so Chrome can load it
   //     directly from manifest.json (no module resolution at runtime).
   console.log('  Bundling TS content scripts (esbuild) ...');
-  const entrypoints = { ...TS_ENTRYPOINTS, ...(config.tsEntrypoints || {}) };
+  const ownEntries = config.tsEntrypoints || {};
+  const entrypoints = { ...TS_ENTRYPOINTS, ...ownEntries };
   for (const [outName, entryPath] of Object.entries(entrypoints)) {
     if (!fs.existsSync(entryPath)) {
       console.warn(`    WARNING: TS entry not found: ${entryPath} — skipping`);
@@ -170,7 +160,7 @@ function buildExtension(name) {
       // Chrome content scripts ship as a single file — no loader, no
       // runtime module resolution. Everything must inline.
       legalComments: 'none',
-      minify: !!config.minify,
+      minify: !!config.minify && outName in ownEntries,
       // The app side panel is Preact TSX.
       jsx: 'automatic',
       jsxImportSource: 'preact',
@@ -231,12 +221,12 @@ function listFiles(dir, base) {
 
 const args = process.argv.slice(2);
 const flags = new Set(args.filter((a) => a.startsWith('--')));
-const target = args.find((a) => !a.startsWith('--')); // 'app', 'jobseeker', 'recruiter', or undefined (all)
+const target = args.find((a) => !a.startsWith('--')); // 'app', 'recruiter', or undefined (all)
 const isWatch = flags.has('--watch');
 
 if (target && !EXTENSIONS[target]) {
   console.error(`Unknown target: ${target}`);
-  console.error('Usage: node scripts/build.js [app|jobseeker|recruiter] [--watch]');
+  console.error('Usage: node scripts/build.js [app|recruiter] [--watch]');
   process.exit(1);
 }
 

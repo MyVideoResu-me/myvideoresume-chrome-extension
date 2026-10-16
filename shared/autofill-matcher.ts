@@ -1,8 +1,6 @@
 /**
  * autofill-matcher — which résumé value goes in which application-form
- * field. One source for the unified app panel (imported directly) and the
- * legacy job-seeker panel (via window.HiredVideoAutofill, exposed by
- * sidepanel-scraping-bundle.ts).
+ * field (imported by the unified app panel).
  *
  *   extractResumeBasics(resume)  → flat { firstName, email, city, … } map
  *   pickAutofillValue(field, p)  → { key, value } for one form field

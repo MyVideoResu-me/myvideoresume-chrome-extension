@@ -10,6 +10,7 @@ import { Button, Spinner } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
 import { Icon } from "../../ui/Icon";
 import { useAction } from "../../ui/useAction";
+import { DownloadButton } from "./DownloadButton";
 import { ResumeCheckCard } from "./ResumeCheckCard";
 
 const ACCEPT = ".pdf,.doc,.docx,.txt,.rtf,.json";
@@ -73,7 +74,12 @@ export function ResumesView() {
         </div>
         <ErrorNotice error={upload.error} />
 
-        {active ? <ResumeCheckCard key={active.id} resumeId={active.id} title={active.title} /> : null}
+        {active ? (
+          <>
+            <DownloadButton key={`dl-${active.id}`} resumeId={active.id} title={active.title} />
+            <ResumeCheckCard key={active.id} resumeId={active.id} title={active.title} />
+          </>
+        ) : null}
       </div>
     </>
   );

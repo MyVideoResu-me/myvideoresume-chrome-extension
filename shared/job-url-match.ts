@@ -1,7 +1,6 @@
 /**
- * job-url-match — is this page the same job as a tracked one? Shared by
- * the unified app panel (imported) and the legacy job-seeker panel
- * (window.HiredVideoScraping.normalizeJobUrlForMatch).
+ * job-url-match — is this page the same job as a tracked one? (imported
+ * by the unified app panel).
  *
  * LinkedIn's many URL shapes go through the platform's canonicalizer;
  * everything else drops the hash, tracking params and trailing slashes.

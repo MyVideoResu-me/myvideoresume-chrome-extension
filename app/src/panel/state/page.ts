@@ -11,6 +11,9 @@ import {
   toDetectedProfile,
   type PageEntity,
 } from "../domain/entities";
+import type { PickerResult } from "../platform/picker";
+import { recordEvent, saveLearnedSelectors } from "../platform/telemetry";
+import { settingsStore } from "./settings";
 import { createStore } from "./store";
 
 export type PageState = { entity: PageEntity | null; url: string | null; scanning: boolean };
@@ -52,30 +55,70 @@ export async function takeSelectionAsPost(): Promise<boolean> {
   return true;
 }
 
+/** A manual picker capture becomes the page's job / profile. */
+function acceptPickerResult(result: PickerResult | undefined): void {
+  if (!result?.fields) return;
+  const f = (k: string) => result.fields[k]?.value ?? "";
+  saveLearnedSelectors(result.host, result.mode, result.fields);
+  recordEvent("picker_capture", result.sourceUrl, { mode: result.mode, fields: result.fields });
+  if (result.mode === "job") {
+    accept(
+      toDetectedJob({
+        title: f("title"),
+        company: f("company"),
+        location: f("location"),
+        sourceUrl: result.sourceUrl,
+        applyUrl: f("applyUrl") || result.sourceUrl,
+      }),
+    );
+  } else if (result.mode === "profile") {
+    accept(
+      toDetectedProfile({
+        name: f("name"),
+        title: f("title"),
+        company: f("company"),
+        location: f("location"),
+        sourceUrl: result.sourceUrl,
+      }),
+    );
+  }
+}
+
 let started = false;
 
 export function startPageWatch(): void {
   if (started) return;
   started = true;
   void scanPage();
-  onTabActivated(() => void scanPage());
+  // Auto-detect off → only the panel's "Scan again" reads the page.
+  const detecting = () => settingsStore.get().settings.autoDetect;
+  const autoScan = () => {
+    if (detecting()) void scanPage();
+  };
+  onTabActivated(autoScan);
   onRuntimeMessage((msg) => {
     const payload = msg.payload as Record<string, unknown> | undefined;
     switch (msg.action) {
       case "jobDetected":
+        if (!detecting()) break;
         accept(toDetectedJob(payload));
         break;
       case "profileDetected":
+        if (!detecting()) break;
         accept(toDetectedProfile(payload));
         break;
       case "postDetected":
+        if (!detecting()) break;
         accept(toDetectedPost(payload));
         break;
       case "postCleared":
         if (pageStore.get().entity?.kind === "post") pageStore.set({ entity: null });
         break;
       case "urlChanged":
-        void scanPage();
+        autoScan();
+        break;
+      case "pickerResult":
+        acceptPickerResult(msg.result as PickerResult | undefined);
         break;
     }
   });

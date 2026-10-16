@@ -8,6 +8,7 @@ import { loadLens } from "./lens";
 import { navStore } from "./nav";
 import { pairStore, restorePair } from "./pair";
 import { loadResumes, resumesStore } from "./resumes";
+import { loadSettings } from "./settings";
 
 export async function startUser(userId: string, switched: boolean): Promise<void> {
   if (switched) {
@@ -17,6 +18,6 @@ export async function startUser(userId: string, switched: boolean): Promise<void
     navStore.set({ route: "home", stack: [] });
   }
   await restorePair(userId);
-  await loadLens();
+  await Promise.all([loadLens(), loadSettings().catch(() => undefined)]);
   await loadResumes().catch(() => undefined);
 }

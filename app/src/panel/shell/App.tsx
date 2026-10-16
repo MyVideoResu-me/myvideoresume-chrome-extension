@@ -11,6 +11,7 @@ import { useStore } from "../state/store";
 import { startUser } from "../state/user-reset";
 import { t } from "../platform/i18n";
 import { Button, Spinner } from "../ui/controls";
+import { AnalyticsView } from "../features/analytics/AnalyticsView";
 import { ApplyView } from "../features/apply/ApplyView";
 import { CandidateView } from "../features/candidate/CandidateView";
 import { CandidateVideoView } from "../features/candidate/CandidateVideoView";
@@ -23,6 +24,7 @@ import { PostReplyView } from "../features/post/PostReplyView";
 import { PromoteView } from "../features/promote/PromoteView";
 import { ProspectView } from "../features/prospect/ProspectView";
 import { ResumesView } from "../features/resumes/ResumesView";
+import { SettingsView } from "../features/settings/SettingsView";
 import { StrengthenView } from "../features/strengthen/StrengthenView";
 import { AccountMenu } from "./AccountMenu";
 import { LensMenu } from "./LensMenu";
@@ -42,11 +44,13 @@ const SCREENS: Record<RouteName, ComponentType> = {
   prospect: ProspectView,
   postReply: PostReplyView,
   pipeline: PipelineView,
+  analytics: AnalyticsView,
   resumes: ResumesView,
+  settings: SettingsView,
 };
 
 /** Screens that are lists, not pair work — no pair tray. */
-const NO_TRAY: ReadonlySet<RouteName> = new Set(["pipeline", "resumes"]);
+const NO_TRAY: ReadonlySet<RouteName> = new Set(["pipeline", "analytics", "resumes", "settings"]);
 
 function AppHeader() {
   return (

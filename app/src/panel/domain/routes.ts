@@ -28,7 +28,10 @@ export type RouteName =
   | "prospect"
   | "postReply"
   | "pipeline"
-  | "resumes";
+  | "analytics"
+  | "resumes"
+  | "settings"
+  | "profileImport";
 
 /** `step: null` = no stepper (home, lists). `skips` = steps this flow doesn't use. */
 export const ROUTE_STEP: Record<RouteName, { step: Step | null; skips?: readonly Step[] }> = {
@@ -44,5 +47,8 @@ export const ROUTE_STEP: Record<RouteName, { step: Step | null; skips?: readonly
   prospect: { step: "target", skips: ["strengthen"] },
   postReply: { step: "target", skips: ["strengthen"] },
   pipeline: { step: null },
+  analytics: { step: null },
   resumes: { step: null },
+  settings: { step: null },
+  profileImport: { step: "strengthen" },
 };

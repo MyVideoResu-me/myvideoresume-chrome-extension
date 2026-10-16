@@ -4,6 +4,7 @@ import { navigate } from "../../state/nav";
 import { pageStore } from "../../state/page";
 import { pairStore } from "../../state/pair";
 import { useStore } from "../../state/store";
+import { launchPicker } from "../../platform/picker";
 import { t } from "../../platform/i18n";
 import { ViewHeader } from "../../shell/ViewHeader";
 import { Button, Card, Eyebrow } from "../../ui/controls";
@@ -48,9 +49,13 @@ export function CandidateView() {
                   .join(" · ")}
               </div>
             </div>
-            {candidate ? null : (
-              <Button variant="primary" size="sm" busy={capture.busy} disabled={!profile} onClick={() => void capture.run()}>
+            {candidate ? null : profile ? (
+              <Button variant="primary" size="sm" busy={capture.busy} onClick={() => void capture.run()}>
                 {t("candidate_save")}
+              </Button>
+            ) : (
+              <Button size="sm" icon="target" onClick={() => void launchPicker("profile")}>
+                {t("candidate_pick")}
               </Button>
             )}
           </div>

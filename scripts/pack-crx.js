@@ -8,11 +8,10 @@
  *
  * Usage:
  *   node scripts/pack-crx.js              # pack both
- *   node scripts/pack-crx.js jobseeker    # pack only jobseeker
  *   node scripts/pack-crx.js recruiter    # pack only recruiter
  *
  * Output:
- *   dist/jobseeker.crx   (+ jobseeker.pem on first run)
+ *   dist/app.crx   (+ app.pem on first run)
  *   dist/recruiter.crx   (+ recruiter.pem on first run)
  */
 
@@ -22,7 +21,7 @@ const crx3 = require('crx3');
 
 const ROOT = path.resolve(__dirname, '..');
 const DIST_DIR = path.join(ROOT, 'dist');
-const TARGETS = ['app', 'jobseeker', 'recruiter'];
+const TARGETS = ['app', 'recruiter'];
 
 async function packExtension(target) {
   const extDir = path.join(DIST_DIR, target);
@@ -88,7 +87,7 @@ async function main() {
 
   if (target && !TARGETS.includes(target)) {
     console.error(`Unknown target: ${target}`);
-    console.error('Usage: node scripts/pack-crx.js [app|jobseeker|recruiter]');
+    console.error('Usage: node scripts/pack-crx.js [app|recruiter]');
     process.exit(1);
   }
 

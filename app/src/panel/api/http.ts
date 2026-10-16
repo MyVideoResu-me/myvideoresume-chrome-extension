@@ -94,7 +94,12 @@ function unwrap<T>(json: unknown): T {
   return json as T;
 }
 
-export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+/**
+ * An authorized, successful Response (JWT attached, one silent refresh on
+ * 401). Throws ApiError otherwise. For bodies that aren't the JSON envelope
+ * (file downloads); everything else uses `request`.
+ */
+export async function requestRaw(path: string, options: RequestOptions = {}): Promise<Response> {
   let token = await getToken();
   if (!token) throw new ApiError(401, "NOT_SIGNED_IN", "Not signed in");
   let res: Response;
@@ -116,6 +121,11 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     throw await toError(res);
   }
   if (!res.ok) throw await toError(res);
+  return res;
+}
+
+export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  const res = await requestRaw(path, options);
   if (res.status === 204) return undefined as T;
   return unwrap<T>(await res.json().catch(() => null));
 }

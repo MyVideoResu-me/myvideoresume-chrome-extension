@@ -1,7 +1,7 @@
 /**
  * Sanity test for the bundled content scripts.
  *
- * The extension's `dist/jobseeker/content-script-jobs.js` is produced
+ * The extension's `dist/app/content-script-jobs.js` is produced
  * by esbuild from `shared/content-script-jobs.ts` + the hired.video
  * shared scraping module. This test asserts the bundle:
  *
@@ -25,15 +25,15 @@ const path = require("node:path");
 const { execSync } = require("node:child_process");
 
 const ROOT = path.resolve(__dirname, "..");
-const JOBSEEKER_DIST = path.join(ROOT, "dist", "jobseeker");
-const JOBS_BUNDLE = path.join(JOBSEEKER_DIST, "content-script-jobs.js");
-const AUTOFILL_BUNDLE = path.join(JOBSEEKER_DIST, "content-script-autofill.js");
+const APP_DIST = path.join(ROOT, "dist", "app");
+const JOBS_BUNDLE = path.join(APP_DIST, "content-script-jobs.js");
+const AUTOFILL_BUNDLE = path.join(APP_DIST, "content-script-autofill.js");
 
 describe("bundled content scripts", () => {
   before(() => {
     // Ensure a fresh build so the test isn't comparing against stale output.
     if (!fs.existsSync(JOBS_BUNDLE) || !fs.existsSync(AUTOFILL_BUNDLE)) {
-      execSync("node scripts/build.js jobseeker", { cwd: ROOT, stdio: "inherit" });
+      execSync("node scripts/build.js app", { cwd: ROOT, stdio: "inherit" });
     }
   });
 

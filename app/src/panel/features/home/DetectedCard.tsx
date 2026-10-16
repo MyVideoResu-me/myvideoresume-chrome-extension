@@ -3,6 +3,7 @@ import { useState } from "preact/hooks";
 import type { PageEntity } from "../../domain/entities";
 import { navigate } from "../../state/nav";
 import { scanPage, takeSelectionAsPost } from "../../state/page";
+import { launchPicker } from "../../platform/picker";
 import { t } from "../../platform/i18n";
 import { Button, Card } from "../../ui/controls";
 import { Icon } from "../../ui/Icon";
@@ -71,6 +72,9 @@ function NothingCard() {
       <div class="row wrap">
         <Button size="sm" icon="scan" onClick={() => void scanPage()}>
           {t("home_scanAgain")}
+        </Button>
+        <Button size="sm" icon="target" onClick={() => void launchPicker("job")}>
+          {t("home_pickJob")}
         </Button>
         <Button size="sm" icon="message" busy={selection.busy} onClick={() => void selection.run()}>
           {t("home_useSelection")}

@@ -8,9 +8,8 @@ Chrome extension for the hired.video platform.
 
 | Target | Folder | What it is |
 |---|---|---|
-| `app` | `app/` | **The one hired.video extension.** Lenses (Job seeker / Recruiter / Sales & social) over one engine: detect a job, profile or post → Create → Strengthen → Target → Promote. Side panel is Preact + TypeScript in `app/src/panel`, strings in `app/_locales/{en,es,fr}`. |
-| `jobseeker` | `jobseeker/` | Legacy job-seeker listing — kept until the store moves to `app`. |
-| `recruiter` | `recruiter/` | Legacy recruiter listing — kept until the store moves to `app`. |
+| `app` | `app/` | **The one hired.video extension.** Lenses (Job seeker / Recruiter / Sales & social) over one engine: detect a job, profile or post → Create → Strengthen → Target → Promote. Side panel is Preact + TypeScript in `app/src/panel`, strings in `app/_locales/{en,es,fr}`. **Published as the next version of the existing job-seeker Chrome Web Store item** (`CHROME_EXTENSION_ID_JOBSEEKER`), so current installs upgrade in place. Release: push a `chrome-ext-app-vX.Y.Z` tag. |
+| `recruiter` | `recruiter/` | Legacy recruiter listing — still released (`chrome-ext-recruiter-v*`) until it is retired in favour of the app's Recruiter lens. |
 
 `shared/` holds what every target uses (auth bridge, detectors, service-worker base, the autofill matcher, job-URL matching).
 
@@ -25,7 +24,7 @@ Chrome extension for the hired.video platform.
 
 A new lens or action is a data entry in `domain/lenses.ts` / `domain/actions.ts`; a new screen is a `features/` folder plus one line in `shell/App.tsx`'s registry.
 
-The recruiter lens follows `HIRING_PERSONAS_ENABLED` in `hired.video/shared/user-roles.ts` — it appears only when the hiring side is on.
+The recruiter lens follows `HIRING_PERSONAS_ENABLED` in `hired.video/shared/user-roles.ts` — it appears for recruiter / employer / admin accounts when the hiring side is on.
 
 ```bash
 npm install
@@ -90,7 +89,7 @@ review cycle.
 
 ### Single purpose
 
-**Job Seeker:** This extension helps job seekers find jobs, track applications, and generate AI-tailored resumes using the hired.video platform.
+**Job Seeker (now ships the unified app):** see "hired.video (unified app)" below.
 
 **Recruiter:** This extension helps recruiters source candidates, extract professional profiles, and match them against open job requisitions using the hired.video platform.
 

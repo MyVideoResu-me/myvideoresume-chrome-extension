@@ -1,13 +1,21 @@
-/** Avatar menu: pipeline, résumés, in-page pill setting, open hired.video, sign out. */
+/** Avatar menu: the account's list screens (data below), open hired.video, sign out. */
 import { signOut, sessionStore } from "../state/session";
 import { navigate } from "../state/nav";
 import { useStore } from "../state/store";
 import { openTab } from "../platform/chrome";
 import { webUrl } from "../platform/config";
 import { t } from "../platform/i18n";
-import { Icon } from "../ui/Icon";
+import type { RouteName } from "../domain/routes";
+import type { MessageKey } from "../platform/i18n";
+import { Icon, type IconName } from "../ui/Icon";
 import { usePopover } from "../ui/usePopover";
-import { PillSetting } from "../features/settings/PillSetting";
+
+const MENU: ReadonlyArray<{ route: RouteName; icon: IconName; labelKey: MessageKey }> = [
+  { route: "pipeline", icon: "list", labelKey: "menu_pipeline" },
+  { route: "analytics", icon: "chart", labelKey: "menu_analytics" },
+  { route: "resumes", icon: "file", labelKey: "menu_resumes" },
+  { route: "settings", icon: "settings", labelKey: "menu_settings" },
+];
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/).filter(Boolean);
@@ -20,7 +28,7 @@ export function AccountMenu() {
 
   if (session.status !== "signedIn") return null;
   const { me, isPro } = session;
-  const go = (route: "pipeline" | "resumes") => {
+  const go = (route: RouteName) => {
     navigate(route);
     close();
   };
@@ -43,15 +51,12 @@ export function AccountMenu() {
             <b>{me.name || me.email}</b>
             <small>{isPro ? t("account_pro") : t("account_free")}</small>
           </div>
-          <button type="button" role="menuitem" class="menu-item" onClick={() => go("pipeline")}>
-            <Icon name="list" />
-            {t("menu_pipeline")}
-          </button>
-          <button type="button" role="menuitem" class="menu-item" onClick={() => go("resumes")}>
-            <Icon name="file" />
-            {t("menu_resumes")}
-          </button>
-          <PillSetting />
+          {MENU.map((item) => (
+            <button key={item.route} type="button" role="menuitem" class="menu-item" onClick={() => go(item.route)}>
+              <Icon name={item.icon} />
+              {t(item.labelKey)}
+            </button>
+          ))}
           <button type="button" role="menuitem" class="menu-item" onClick={() => openTab(webUrl("/"))}>
             <Icon name="external" />
             {t("menu_openSite")}
