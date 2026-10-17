@@ -139,7 +139,6 @@
 }
 .job-opt.on, .radio-card.on { border-color: var(--primary); background: var(--primary-soft); }
 .job-opt b { display: inline-flex; align-items: center; gap: 6px; }
-.job-opt.indent { margin-left: 16px; width: calc(100% - 16px); }
 .radio-card { flex-direction: row; gap: 10px; cursor: pointer; }
 .radio-card input { margin: 2px 0 0; accent-color: var(--primary); }
 input[type="checkbox"] { accent-color: var(--primary); width: 16px; height: 16px; }

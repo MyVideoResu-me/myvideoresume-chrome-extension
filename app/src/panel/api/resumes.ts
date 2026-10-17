@@ -9,6 +9,8 @@ export type ResumeSummary = {
   isMaster: boolean;
   isActive: boolean;
   masterId: string;
+  /** ISO timestamp of the last edit, when the API sends one. */
+  updatedAt: string | null;
 };
 
 type RawResume = Record<string, unknown>;
@@ -23,6 +25,7 @@ function toSummary(raw: RawResume, masterId: string, isMaster: boolean): ResumeS
     isMaster,
     isActive: raw.isActive === true,
     masterId,
+    updatedAt: str(raw.updatedAt ?? raw.updated_at) || null,
   };
 }
 

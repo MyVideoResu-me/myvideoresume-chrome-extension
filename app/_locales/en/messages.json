@@ -1717,5 +1717,23 @@
   },
   "section_basics": {
     "message": "Summary"
+  },
+  "resumes_usingNow": {
+    "message": "Using now"
+  },
+  "resumes_all": {
+    "message": "All résumés · {count}"
+  },
+  "resumes_search": {
+    "message": "Find a résumé"
+  },
+  "resumes_searchHint": {
+    "message": "Search by title"
+  },
+  "resumes_noMatch": {
+    "message": "No résumé matches that search."
+  },
+  "resumes_versions": {
+    "message": "Versions ({count})"
   }
 }

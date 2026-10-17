@@ -1717,5 +1717,23 @@
   },
   "section_basics": {
     "message": "Résumé"
+  },
+  "resumes_usingNow": {
+    "message": "Utilisé maintenant"
+  },
+  "resumes_all": {
+    "message": "Tous les CV · {count}"
+  },
+  "resumes_search": {
+    "message": "Trouver un CV"
+  },
+  "resumes_searchHint": {
+    "message": "Rechercher par titre"
+  },
+  "resumes_noMatch": {
+    "message": "Aucun CV ne correspond à cette recherche."
+  },
+  "resumes_versions": {
+    "message": "Versions ({count})"
   }
 }

@@ -1,4 +1,8 @@
-/** "Me": pick the résumé the panel works with, add one, and check it. */
+/**
+ * "Me": the résumé the panel works with. Top to bottom: add or edit
+ * (always in reach), the résumé in use with its actions, then every résumé
+ * as a compact, searchable list.
+ */
 import { useEffect, useRef } from "preact/hooks";
 import { activeResume, chooseResume, loadResumes, resumesStore, uploadResume } from "../../state/resumes";
 import { useStore } from "../../state/store";
@@ -8,10 +12,9 @@ import { t } from "../../platform/i18n";
 import { ViewHeader } from "../../shell/ViewHeader";
 import { Button, Spinner } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
-import { Icon } from "../../ui/Icon";
 import { useAction } from "../../ui/useAction";
-import { DownloadButton } from "./DownloadButton";
-import { ResumeCheckCard } from "./ResumeCheckCard";
+import { ActiveResumeCard } from "./ActiveResumeCard";
+import { ResumeList } from "./ResumeList";
 
 const ACCEPT = ".pdf,.doc,.docx,.txt,.rtf,.json";
 
@@ -29,29 +32,6 @@ export function ResumesView() {
     <>
       <ViewHeader title={t("resumes_title")} subtitle={t("resumes_subtitle")} />
       <div class="view-body">
-        {!state.loaded ? <Spinner label={t("common_loading")} /> : null}
-        {state.loaded && !state.list.length ? <p class="muted small">{t("resumes_none_hint")}</p> : null}
-        {state.list.length ? (
-          <div class="stack-sm" role="radiogroup" aria-label={t("resumes_title")}>
-            {state.list.map((r) => (
-              <button
-                type="button"
-                key={r.id}
-                role="radio"
-                aria-checked={r.id === state.activeId}
-                class={`job-opt ${r.id === state.activeId ? "on" : ""} ${r.isMaster ? "" : "indent"}`}
-                onClick={() => void choose.run(r.id)}
-              >
-                <b>
-                  <Icon name="file" size={14} /> {r.title}
-                </b>
-                <small>{r.isMaster ? t("resumes_master") : t("resumes_version")}</small>
-              </button>
-            ))}
-          </div>
-        ) : null}
-        <ErrorNotice error={choose.error} />
-
         <input
           ref={fileRef}
           type="file"
@@ -64,22 +44,23 @@ export function ResumesView() {
             if (file) void upload.run(file);
           }}
         />
-        <div class="row">
-          <Button icon="upload" busy={upload.busy} onClick={() => fileRef.current?.click()}>
+        <div class="row resume-toolbar">
+          <Button size="sm" variant="primary" icon="upload" busy={upload.busy} onClick={() => fileRef.current?.click()}>
             {t("resumes_add")}
           </Button>
-          <Button icon="external" onClick={() => openTab(webResumesUrl())}>
+          <Button size="sm" icon="external" onClick={() => openTab(webResumesUrl())}>
             {t("resumes_openSite")}
           </Button>
         </div>
         <ErrorNotice error={upload.error} />
 
-        {active ? (
-          <>
-            <DownloadButton key={`dl-${active.id}`} resumeId={active.id} title={active.title} />
-            <ResumeCheckCard key={active.id} resumeId={active.id} title={active.title} />
-          </>
-        ) : null}
+        {!state.loaded ? <Spinner label={t("common_loading")} /> : null}
+        {state.loaded && !state.list.length ? <p class="muted small">{t("resumes_none_hint")}</p> : null}
+
+        {active ? <ActiveResumeCard resume={active} /> : null}
+
+        {state.list.length ? <ResumeList list={state.list} activeId={state.activeId} onPick={(id) => void choose.run(id)} /> : null}
+        <ErrorNotice error={choose.error} />
       </div>
     </>
   );

@@ -1717,5 +1717,23 @@
   },
   "section_basics": {
     "message": "Resumen"
+  },
+  "resumes_usingNow": {
+    "message": "En uso"
+  },
+  "resumes_all": {
+    "message": "Todos los currículums · {count}"
+  },
+  "resumes_search": {
+    "message": "Buscar un currículum"
+  },
+  "resumes_searchHint": {
+    "message": "Busca por título"
+  },
+  "resumes_noMatch": {
+    "message": "Ningún currículum coincide con la búsqueda."
+  },
+  "resumes_versions": {
+    "message": "Versiones ({count})"
   }
 }
