@@ -13,7 +13,7 @@ import { shortDate, t } from "../../platform/i18n";
 import { studioProjectUrl, videoWatchUrl, webStudioUrl } from "../../platform/web-links";
 import { Button, Eyebrow, Spinner } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
-import { EmptyState, IconAction, ItemList, ItemRow, SelectedItem } from "../../ui/items";
+import { BarAction, EmptyState, IconAction, ItemList, ItemRow, SelectedItem } from "../../ui/items";
 import { ListSearch } from "../../ui/ListSearch";
 import { useCopy } from "../../ui/useCopy";
 import type { ContentTabProps } from "../content/tab";
@@ -65,20 +65,9 @@ export function VideosTab({ header }: ContentTabProps) {
             meta={meta(selected)}
             actions={
               <>
-                <Button size="sm" icon="play" disabled={!canWatch(selected)} onClick={() => openTab(watchUrl(selected))}>
-                  {t("videos_watch")}
-                </Button>
-                <Button
-                  size="sm"
-                  icon={copiedKey === selected.id ? "check" : "link"}
-                  disabled={!canWatch(selected)}
-                  onClick={() => void copy(selected.id, watchUrl(selected))}
-                >
-                  {copiedKey === selected.id ? t("common_copied") : t("action_copyLink")}
-                </Button>
-                <Button size="sm" icon="pen" onClick={() => openTab(studioProjectUrl(selected.id))}>
-                  {t("action_edit")}
-                </Button>
+                <BarAction icon="play" disabled={!canWatch(selected)} onClick={() => openTab(watchUrl(selected))} label={t("videos_watch")} />
+                <BarAction icon={copiedKey === selected.id ? "check" : "link"} disabled={!canWatch(selected)} onClick={() => void copy(selected.id, watchUrl(selected))} label={copiedKey === selected.id ? t("common_copied") : t("action_copyLink")} />
+                <BarAction icon="pen" onClick={() => openTab(studioProjectUrl(selected.id))} label={t("action_edit")} />
               </>
             }
           >

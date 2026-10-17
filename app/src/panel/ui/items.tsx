@@ -43,7 +43,42 @@ export function IconAction({
   );
 }
 
-/** The selected item's actions, side by side and equal width. */
+/**
+ * One action of the selected item: icon + label, and icon only when the
+ * panel is narrow (the label stays its tooltip and accessible name).
+ */
+export function BarAction({
+  icon,
+  label,
+  onClick,
+  busy,
+  disabled,
+}: {
+  icon: IconName;
+  label: string;
+  onClick: () => void;
+  busy?: boolean;
+  disabled?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      class="btn btn-secondary btn-sm bar-action"
+      title={label}
+      aria-label={label}
+      disabled={disabled || busy}
+      aria-busy={busy || undefined}
+      onClick={onClick}
+    >
+      {busy ? <span class="spinner" aria-hidden="true" /> : <Icon name={icon} />}
+      <span class="bar-action-label" aria-hidden="true">
+        {label}
+      </span>
+    </button>
+  );
+}
+
+/** The selected item's `BarAction`s, side by side and equal width. */
 export function ActionBar({ children }: { children: ComponentChildren }) {
   return <div class="action-bar">{children}</div>;
 }
@@ -70,7 +105,7 @@ export function SelectedItem({
   tone: Tone;
   title: string;
   meta?: ComponentChildren;
-  /** Buttons for an `ActionBar`. */
+  /** `BarAction`s. */
   actions: ComponentChildren;
   /** What an action opened (a check result, a preview, a status picker). */
   children?: ComponentChildren;

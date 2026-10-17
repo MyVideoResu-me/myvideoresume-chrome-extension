@@ -12,7 +12,7 @@ import { openTab } from "../../platform/chrome";
 import { shortDate, t } from "../../platform/i18n";
 import { studioResumeUrl, webResumesUrl } from "../../platform/web-links";
 import { Button, Eyebrow, Spinner } from "../../ui/controls";
-import { EmptyState, IconAction, ItemList, ItemRow, SelectedItem } from "../../ui/items";
+import { BarAction, EmptyState, IconAction, ItemList, ItemRow, SelectedItem } from "../../ui/items";
 import { ListSearch } from "../../ui/ListSearch";
 import { useCopy } from "../../ui/useCopy";
 import type { ContentTabProps } from "../content/tab";
@@ -39,12 +39,8 @@ function SelectedLetter({ letter, copied, onCopy }: { letter: LetterItem; copied
       meta={meta(letter)}
       actions={
         <>
-          <Button size="sm" icon={copied ? "check" : "clipboard"} onClick={onCopy}>
-            {copied ? t("common_copied") : t("common_copy")}
-          </Button>
-          <Button size="sm" icon="pen" onClick={() => openTab(studioResumeUrl(letter.resume.id))}>
-            {t("action_edit")}
-          </Button>
+          <BarAction icon={copied ? "check" : "clipboard"} onClick={onCopy} label={copied ? t("common_copied") : t("common_copy")} />
+          <BarAction icon="pen" onClick={() => openTab(studioResumeUrl(letter.resume.id))} label={t("action_edit")} />
         </>
       }
     >

@@ -30,9 +30,20 @@ function Tabs({ tabs, current }: { tabs: readonly ContentTab[]; current: Content
   return (
     <div class="content-tabs" role="tablist" aria-label={t("content_title")}>
       {tabs.map((id) => (
-        <button key={id} type="button" role="tab" aria-selected={id === current} class={id === current ? "on" : ""} onClick={() => setTab(id)}>
+        <button
+          key={id}
+          type="button"
+          role="tab"
+          aria-selected={id === current}
+          aria-label={t(CONTENT_TAB[id].labelKey)}
+          title={t(CONTENT_TAB[id].labelKey)}
+          class={id === current ? "on" : ""}
+          onClick={() => setTab(id)}
+        >
           <Icon name={CONTENT_TAB[id].icon} size={14} />
-          {t(CONTENT_TAB[id].labelKey)}
+          <span class="tab-label" aria-hidden="true">
+            {t(CONTENT_TAB[id].labelKey)}
+          </span>
         </button>
       ))}
     </div>

@@ -12,9 +12,9 @@ import { useStore } from "../../state/store";
 import { openTab } from "../../platform/chrome";
 import { t } from "../../platform/i18n";
 import { publicJobUrl, webJobsUrl } from "../../platform/web-links";
-import { Button, Eyebrow, Spinner } from "../../ui/controls";
+import { Eyebrow, Spinner } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
-import { EmptyState, IconAction, ItemList, ItemRow, SelectedItem } from "../../ui/items";
+import { BarAction, EmptyState, IconAction, ItemList, ItemRow, SelectedItem } from "../../ui/items";
 import { ListSearch } from "../../ui/ListSearch";
 import { useAction } from "../../ui/useAction";
 import type { ContentTabProps } from "../content/tab";
@@ -61,17 +61,11 @@ export function JobsTab({ header }: ContentTabProps) {
             meta={companyLine(selected)}
             actions={
               <>
-                <Button size="sm" icon="external" disabled={!selected.sourceUrl} onClick={() => openTab(selected.sourceUrl)}>
-                  {t("jobs_openListing")}
-                </Button>
+                <BarAction icon="external" disabled={!selected.sourceUrl} onClick={() => openTab(selected.sourceUrl)} label={t("jobs_openListing")} />
                 {hasApply(selected) ? (
-                  <Button size="sm" icon="send" onClick={() => openTab(selected.applyUrl)}>
-                    {t("apply_title")}
-                  </Button>
+                  <BarAction icon="send" onClick={() => openTab(selected.applyUrl)} label={t("apply_title")} />
                 ) : null}
-                <Button size="sm" icon="briefcase" onClick={() => openTab(publicJobUrl(selected.id))}>
-                  {t("jobs_onHiredVideo")}
-                </Button>
+                <BarAction icon="briefcase" onClick={() => openTab(publicJobUrl(selected.id))} label={t("jobs_onHiredVideo")} />
               </>
             }
           >

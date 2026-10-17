@@ -3,9 +3,8 @@ import type { ResumeSummary } from "../../api/resumes";
 import { openTab } from "../../platform/chrome";
 import { shortDate, t } from "../../platform/i18n";
 import { studioResumeUrl } from "../../platform/web-links";
-import { Button } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
-import { SelectedItem } from "../../ui/items";
+import { BarAction, SelectedItem } from "../../ui/items";
 import { useAction } from "../../ui/useAction";
 import { ResumeCheckResult, useResumeCheck } from "./ResumeCheck";
 import { downloadResume, useDownloadFormat } from "./useDownload";
@@ -28,15 +27,9 @@ export function SelectedResume({ resume }: { resume: ResumeSummary }) {
       meta={resumeMeta(resume)}
       actions={
         <>
-          <Button size="sm" icon="download" busy={download.busy} onClick={() => void download.run()}>
-            {t("resumes_download", { format: format.toUpperCase() })}
-          </Button>
-          <Button size="sm" icon="target" busy={check.busy} onClick={() => void check.run()}>
-            {t("action_check")}
-          </Button>
-          <Button size="sm" icon="pen" onClick={() => openTab(studioResumeUrl(resume.id))}>
-            {t("action_edit")}
-          </Button>
+          <BarAction icon="download" busy={download.busy} onClick={() => void download.run()} label={t("resumes_download", { format: format.toUpperCase() })} />
+          <BarAction icon="target" busy={check.busy} onClick={() => void check.run()} label={t("action_check")} />
+          <BarAction icon="pen" onClick={() => openTab(studioResumeUrl(resume.id))} label={t("action_edit")} />
         </>
       }
     >

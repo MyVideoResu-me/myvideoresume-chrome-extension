@@ -10,9 +10,9 @@ import { useStore } from "../../state/store";
 import { openTab } from "../../platform/chrome";
 import { t } from "../../platform/i18n";
 import { webCandidateUrl, webTalentPoolUrl } from "../../platform/web-links";
-import { Button, Eyebrow, Spinner } from "../../ui/controls";
+import { Eyebrow, Spinner } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
-import { EmptyState, IconAction, ItemList, ItemRow, SelectedItem } from "../../ui/items";
+import { BarAction, EmptyState, IconAction, ItemList, ItemRow, SelectedItem } from "../../ui/items";
 import { ListSearch } from "../../ui/ListSearch";
 import { useCopy } from "../../ui/useCopy";
 import type { ContentTabProps } from "../content/tab";
@@ -54,20 +54,9 @@ export function CandidatesTab({ header }: ContentTabProps) {
             meta={[meta(selected), selected.email].filter(Boolean).join(" · ")}
             actions={
               <>
-                <Button size="sm" icon="send" disabled={!selected.email} onClick={() => selected.email && openTab(mailto(selected.email))}>
-                  {t("candidates_email")}
-                </Button>
-                <Button
-                  size="sm"
-                  icon={copiedKey === selected.id ? "check" : "clipboard"}
-                  disabled={!selected.email}
-                  onClick={() => selected.email && void copy(selected.id, selected.email)}
-                >
-                  {copiedKey === selected.id ? t("common_copied") : t("candidates_copyEmail")}
-                </Button>
-                <Button size="sm" icon="user" onClick={() => openTab(webCandidateUrl(selected.id))}>
-                  {t("candidates_profile")}
-                </Button>
+                <BarAction icon="send" disabled={!selected.email} onClick={() => selected.email && openTab(mailto(selected.email))} label={t("candidates_email")} />
+                <BarAction icon={copiedKey === selected.id ? "check" : "clipboard"} disabled={!selected.email} onClick={() => selected.email && void copy(selected.id, selected.email)} label={copiedKey === selected.id ? t("common_copied") : t("candidates_copyEmail")} />
+                <BarAction icon="user" onClick={() => openTab(webCandidateUrl(selected.id))} label={t("candidates_profile")} />
               </>
             }
           />
