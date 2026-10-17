@@ -5,6 +5,7 @@
 import {
   fetchResumeContent,
   fetchResumes,
+  letterRef,
   setActiveResume,
   uploadResumeFile,
   type ResumeSummary,
@@ -29,7 +30,8 @@ export async function loadResumes(force = false): Promise<void> {
   if (s.loading || (s.loaded && !force)) return;
   resumesStore.set({ loading: true });
   try {
-    const list = await fetchResumes();
+    const { list, documents } = await fetchResumes();
+    for (const [id, doc] of documents) contentCache.set(id, Promise.resolve(doc));
     const active = list.find((r) => r.isActive) ?? list.find((r) => r.isMaster) ?? null;
     resumesStore.set({ list, activeId: active?.id ?? null, loaded: true });
   } finally {
@@ -55,9 +57,13 @@ export function activeResume(state: ResumesState): ResumeSummary | null {
 /** Résumé documents are read often (letter, video, tailor) — keep one copy per id. */
 const contentCache = new Map<string, Promise<ResumeContent>>();
 
-/** After the panel itself saved a document, keep the cached copy in step. */
+/** After the panel itself saved a document, keep the cached copy (and the list's letter) in step. */
 export function cacheResumeContent(id: string, content: ResumeContent): void {
   contentCache.set(id, Promise.resolve(content));
+  resumesStore.set((s) => ({
+    ...s,
+    list: s.list.map((r) => (r.id === id && !r.isMaster ? { ...r, letter: letterRef(content) } : r)),
+  }));
 }
 
 export function resumeContent(id: string): Promise<ResumeContent> {

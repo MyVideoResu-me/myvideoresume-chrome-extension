@@ -97,3 +97,37 @@ export function setProjectVisibility(projectId: string, isPublic: boolean): Prom
     body: { isPublic },
   });
 }
+
+/** A Studio project as a list shows it. */
+export type StudioProjectItem = {
+  id: string;
+  title: string;
+  /** Draft | Processing | Publishing | Completed | Failed. */
+  status: string;
+  mediaKind: string;
+  thumbnailUrl: string | null;
+  videoUrl: string | null;
+  slug: string | null;
+  isPublic: boolean;
+  updatedAt: string | null;
+};
+
+const LIST_FIELDS = "id,title,status,mediaKind,thumbnailUrl,videoUrl,slug,isPublic,updateDateTime";
+
+const strOrNull = (v: unknown): string | null => (typeof v === "string" && v ? v : null);
+
+/** The person's Studio projects (every workspace they can act in). */
+export async function fetchStudioProjects(): Promise<StudioProjectItem[]> {
+  const raw = await request<Array<Record<string, unknown>>>("/api/studio/projects", { query: { fields: LIST_FIELDS } });
+  return (Array.isArray(raw) ? raw : []).map((p) => ({
+    id: String(p.id ?? ""),
+    title: strOrNull(p.title) ?? "",
+    status: strOrNull(p.status) ?? "Draft",
+    mediaKind: strOrNull(p.mediaKind) ?? "video",
+    thumbnailUrl: strOrNull(p.thumbnailUrl),
+    videoUrl: strOrNull(p.videoUrl),
+    slug: strOrNull(p.slug),
+    isPublic: p.isPublic === true,
+    updatedAt: strOrNull(p.updateDateTime),
+  })).filter((p) => p.id);
+}

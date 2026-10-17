@@ -27,15 +27,25 @@ export type ScreenName =
   | "candidateVideo"
   | "prospect"
   | "postReply"
-  | "pipeline"
+  | "content"
   | "analytics"
-  | "resumes"
   | "settings"
   | "profileImport";
 
 /** The tabs of the "Target this job" screen. */
 export const TARGET_TABS = ["resume", "cover", "apply"] as const;
 export type TargetTab = (typeof TARGET_TABS)[number];
+
+/** The tabs of "My content" — everything the person has made or tracked. */
+export const CONTENT_TABS = ["resumes", "letters", "videos", "jobs", "candidates"] as const;
+export type ContentTab = (typeof CONTENT_TABS)[number];
+
+/** A tab of whichever screen is showing. */
+export type ScreenTab = TargetTab | ContentTab;
+
+export function isTab<T extends string>(tabs: readonly T[], tab: string | null): tab is T {
+  return tab !== null && (tabs as readonly string[]).includes(tab);
+}
 
 /**
  * Entry points that open one tab of a screen ("Cover letter" opens the
@@ -45,11 +55,13 @@ export type TargetTab = (typeof TARGET_TABS)[number];
 export const ROUTE_ALIASES = {
   coverLetter: { screen: "target", tab: "cover" },
   apply: { screen: "target", tab: "apply" },
-} as const satisfies Record<string, { screen: ScreenName; tab: TargetTab }>;
+  resumes: { screen: "content", tab: "resumes" },
+  pipeline: { screen: "content", tab: "jobs" },
+} as const satisfies Record<string, { screen: ScreenName; tab: ScreenTab }>;
 
 export type RouteName = ScreenName | keyof typeof ROUTE_ALIASES;
 
-export function resolveRoute(route: RouteName): { screen: ScreenName; tab: TargetTab | null } {
+export function resolveRoute(route: RouteName): { screen: ScreenName; tab: ScreenTab | null } {
   if (route in ROUTE_ALIASES) {
     const alias = ROUTE_ALIASES[route as keyof typeof ROUTE_ALIASES];
     return { screen: alias.screen, tab: alias.tab };
@@ -73,9 +85,8 @@ export const ROUTE_STEP: Record<ScreenName, { step: Step | null; skips?: readonl
   candidateVideo: { step: "promote" },
   prospect: { step: "target", skips: ["strengthen"], appHeader: true },
   postReply: { step: "target", skips: ["strengthen"], appHeader: true },
-  pipeline: { step: null },
+  content: { step: null },
   analytics: { step: null },
-  resumes: { step: null },
   settings: { step: null },
   profileImport: { step: "strengthen" },
 };

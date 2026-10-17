@@ -101,12 +101,6 @@
   "account_free": {
     "message": "Free plan"
   },
-  "menu_pipeline": {
-    "message": "My pipeline"
-  },
-  "menu_resumes": {
-    "message": "My résumés"
-  },
   "menu_openSite": {
     "message": "Open hired.video"
   },
@@ -289,9 +283,6 @@
   },
   "pipeline_title": {
     "message": "Pipeline"
-  },
-  "pipeline_viewTitle": {
-    "message": "My pipeline"
   },
   "pipeline_status": {
     "message": "Status"
@@ -779,9 +770,6 @@
   "resumes_title": {
     "message": "My résumés"
   },
-  "resumes_subtitle": {
-    "message": "The one you pick is used everywhere in the panel"
-  },
   "resumes_none": {
     "message": "Add your résumé to start"
   },
@@ -800,23 +788,11 @@
   "resumes_openSite": {
     "message": "Edit on hired.video"
   },
-  "check_title": {
-    "message": "Check {resume}"
-  },
-  "check_intro": {
-    "message": "Score your résumé and see what to fix — no job needed."
-  },
-  "check_run": {
-    "message": "Check my résumé"
-  },
   "check_meterLabel": {
     "message": "Score {score} out of 100"
   },
   "check_unlock": {
     "message": "See every fix with Pro"
-  },
-  "check_fixInStudio": {
-    "message": "Fix it in Studio"
   },
   "pill_region": {
     "message": "hired.video"
@@ -1724,16 +1700,142 @@
   "resumes_all": {
     "message": "All résumés · {count}"
   },
-  "resumes_search": {
-    "message": "Find a résumé"
-  },
-  "resumes_searchHint": {
-    "message": "Search by title"
-  },
-  "resumes_noMatch": {
-    "message": "No résumé matches that search."
-  },
   "resumes_versions": {
     "message": "Versions ({count})"
+  },
+  "menu_content": {
+    "message": "My content"
+  },
+  "content_title": {
+    "message": "My content"
+  },
+  "content_tab_resumes": {
+    "message": "Résumés"
+  },
+  "content_tab_letters": {
+    "message": "Cover letters"
+  },
+  "content_tab_videos": {
+    "message": "Videos"
+  },
+  "content_tab_jobs": {
+    "message": "Jobs"
+  },
+  "content_tab_candidates": {
+    "message": "Candidates"
+  },
+  "content_selected": {
+    "message": "Selected"
+  },
+  "content_show": {
+    "message": "Show"
+  },
+  "content_search": {
+    "message": "Search"
+  },
+  "content_searchHint": {
+    "message": "Search by name"
+  },
+  "content_noMatch": {
+    "message": "Nothing matches that search."
+  },
+  "action_copyLink": {
+    "message": "Copy link"
+  },
+  "action_edit": {
+    "message": "Edit"
+  },
+  "action_check": {
+    "message": "Check"
+  },
+  "check_scoreTitle": {
+    "message": "Résumé score"
+  },
+  "resumes_use": {
+    "message": "Use this résumé"
+  },
+  "letters_selected": {
+    "message": "Selected letter"
+  },
+  "letters_write": {
+    "message": "Write a cover letter"
+  },
+  "letters_empty": {
+    "message": "No cover letters yet. Open a job and write one; it's saved with the résumé tailored to that job."
+  },
+  "letters_all": {
+    "message": "All cover letters · {count}"
+  },
+  "videos_untitled": {
+    "message": "Untitled video"
+  },
+  "videos_new": {
+    "message": "Make a video"
+  },
+  "videos_openStudio": {
+    "message": "Open the Studio on hired.video"
+  },
+  "videos_empty": {
+    "message": "No videos yet. Make one from your résumé or for a job."
+  },
+  "videos_all": {
+    "message": "All videos · {count}"
+  },
+  "videoStatus_draft": {
+    "message": "Draft"
+  },
+  "videoStatus_rendering": {
+    "message": "Rendering"
+  },
+  "videoStatus_ready": {
+    "message": "Ready"
+  },
+  "videoStatus_failed": {
+    "message": "Failed"
+  },
+  "jobs_openListing": {
+    "message": "Listing"
+  },
+  "jobs_onHiredVideo": {
+    "message": "On hired.video"
+  },
+  "jobs_workOn": {
+    "message": "Work on this job"
+  },
+  "candidates_openSite": {
+    "message": "Open your talent pool on hired.video"
+  },
+  "candidates_empty": {
+    "message": "No candidates yet. Open a profile and save the candidate."
+  },
+  "candidates_email": {
+    "message": "Email"
+  },
+  "candidates_copyEmail": {
+    "message": "Copy email"
+  },
+  "candidates_profile": {
+    "message": "Profile"
+  },
+  "candidates_all": {
+    "message": "All candidates · {count}"
+  },
+  "settings_openSite": {
+    "message": "Open settings on hired.video"
+  },
+  "check_title": {
+    "message": "Check {resume}"
+  },
+  "check_intro": {
+    "message": "Score your résumé and see what to fix — no job needed."
+  },
+  "check_run": {
+    "message": "Check my résumé"
+  },
+  "check_fixInStudio": {
+    "message": "Fix it in Studio"
+  },
+  "videos_watch": {
+    "message": "Watch"
   }
 }

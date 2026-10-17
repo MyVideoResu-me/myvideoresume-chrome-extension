@@ -22,3 +22,15 @@ export function t(key: MessageKey, vars?: Record<string, string | number>): stri
 export function uiLocale(): string {
   return chrome.i18n.getUILanguage() || "en";
 }
+
+/** "Oct 17, 2026" in the UI language; null for a missing or bad date. */
+export function shortDate(iso: string | null | undefined): string | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? null : d.toLocaleDateString(uiLocale(), { month: "short", day: "numeric", year: "numeric" });
+}
+
+/** "October 17, 2026" — how a letter is dated. */
+export function longDate(date: Date = new Date()): string {
+  return date.toLocaleDateString(uiLocale(), { year: "numeric", month: "long", day: "numeric" });
+}

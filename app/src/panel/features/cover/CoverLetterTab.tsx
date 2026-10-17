@@ -1,9 +1,8 @@
 /** Target › Cover letter: a letter for this job in the person's chosen tone, saved with the job. */
 import type { ComponentChildren } from "preact";
-import { useState } from "preact/hooks";
+import { useCopy } from "../../ui/useCopy";
 import type { CoverLetterTone } from "@shared/cover-letter";
 import { setTab } from "../../state/nav";
-import { copyText } from "../../platform/chrome";
 import { t, type MessageKey } from "../../platform/i18n";
 import { Button, Card, ProBadge, Spinner, TextArea } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
@@ -22,7 +21,8 @@ export function CoverLetterTab({ tabs }: { tabs: ComponentChildren }) {
   const { detected, job, ensure } = useJobContext();
   const resume = useWorkingResume(job?.id ?? null);
   const letter = useCoverLetter(resume, ensure);
-  const [copied, setCopied] = useState(false);
+  const { copy, copiedKey } = useCopy();
+  const copied = copiedKey === "letter";
   const ready = !!resume && !!(job || detected);
 
   return (
@@ -55,7 +55,7 @@ export function CoverLetterTab({ tabs }: { tabs: ComponentChildren }) {
               <Button size="sm" block busy={letter.write.busy} onClick={() => void letter.write.run()}>
                 {t("cover_regenerate")}
               </Button>
-              <Button size="sm" block icon={copied ? "check" : "clipboard"} onClick={() => void copyText(letter.text).then(setCopied)}>
+              <Button size="sm" block icon={copied ? "check" : "clipboard"} onClick={() => void copy("letter", letter.text)}>
                 {copied ? t("common_copied") : t("common_copy")}
               </Button>
               <Button

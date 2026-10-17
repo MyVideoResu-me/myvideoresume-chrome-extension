@@ -28,6 +28,7 @@ const PATHS = {
   upload: <><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" /><path d="m17 8-5-5-5 5M12 3v12" /></>,
   scan: <><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>,
   list: <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" />,
+  refresh: <><path d="M21 12a9 9 0 1 1-2.6-6.4L21 8" /><path d="M21 3v5h-5" /></>,
   play: <path d="M7 4v16l13-8z" />,
   alert: <><circle cx="12" cy="12" r="9" /><path d="M12 8v5M12 16h.01" /></>,
   chart: <path d="M4 20V10M10 20V4M16 20v-7M22 20H2" />,

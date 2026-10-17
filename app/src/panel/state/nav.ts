@@ -1,10 +1,10 @@
 /** Which screen is showing (and which of its tabs), with a back stack. */
-import { resolveRoute, type RouteName, type ScreenName, type TargetTab } from "../domain/routes";
+import { resolveRoute, type RouteName, type ScreenName, type ScreenTab } from "../domain/routes";
 import { createStore } from "./store";
 
-type Entry = { route: ScreenName; tab: TargetTab | null };
+type Entry = { route: ScreenName; tab: ScreenTab | null };
 
-export const navStore = createStore<{ route: ScreenName; tab: TargetTab | null; stack: Entry[] }>({
+export const navStore = createStore<{ route: ScreenName; tab: ScreenTab | null; stack: Entry[] }>({
   route: "home",
   tab: null,
   stack: [],
@@ -25,7 +25,7 @@ export function navigate(to: RouteName): void {
 }
 
 /** Switch tabs on the current screen (not a back-stack step). */
-export function setTab(tab: TargetTab): void {
+export function setTab(tab: ScreenTab): void {
   navStore.set({ tab });
 }
 

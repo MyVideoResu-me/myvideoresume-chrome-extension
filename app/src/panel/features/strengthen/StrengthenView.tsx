@@ -17,7 +17,7 @@ import { ErrorNotice, InfoNotice } from "../../ui/ErrorNotice";
 import { Icon } from "../../ui/Icon";
 import { PreviewSheet } from "../../ui/PreviewSheet";
 import { NeedsResume } from "../resumes/NeedsResume";
-import { ResumeCheckCard } from "../resumes/ResumeCheckCard";
+import { ResumeCheckCard } from "../resumes/ResumeCheck";
 import { NeedsJob } from "../job/NeedsJob";
 import { useJobContext } from "../job/useTrackedJob";
 import { changeLabel } from "./change-label";

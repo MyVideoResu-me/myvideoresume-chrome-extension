@@ -80,3 +80,32 @@ export async function enrichEmail(name: string, company: string): Promise<string
   });
   return out.enriched && out.email ? out.email : null;
 }
+
+/** A talent-pool candidate as a list shows them. */
+export type PoolCandidate = {
+  id: string;
+  name: string;
+  title: string;
+  company: string;
+  email: string | null;
+  status: string;
+  addedAt: string | null;
+};
+
+const POOL_FIELDS = "id,candidateName,candidateTitle,currentTitle,currentCompany,candidateEmail,status,createdAt";
+
+/** The recruiter's talent pool, newest first. */
+export async function fetchTalentPool(): Promise<PoolCandidate[]> {
+  const raw = await request<Array<Record<string, unknown>>>("/api/recruiter/talent-pool", { query: { fields: POOL_FIELDS } });
+  return (Array.isArray(raw) ? raw : [])
+    .map((c) => ({
+      id: str(c.id),
+      name: str(c.candidateName),
+      title: str(c.currentTitle) || str(c.candidateTitle),
+      company: str(c.currentCompany),
+      email: str(c.candidateEmail) || null,
+      status: str(c.status),
+      addedAt: str(c.createdAt) || null,
+    }))
+    .filter((c) => c.id);
+}

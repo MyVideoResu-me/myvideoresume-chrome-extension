@@ -12,6 +12,7 @@ import { ErrorNotice } from "../../ui/ErrorNotice";
 import { useAction } from "../../ui/useAction";
 import { NoJobInTabsError, captureJobFromOtherTab } from "./other-tab-job";
 import { useJobFits } from "./useJobFits";
+import { companyLine } from "../job/job-meta";
 
 /** Jobs scored + shown at a time; "Show more" adds another page. */
 const PAGE = 6;
@@ -93,7 +94,7 @@ export function JobPicker() {
             >
               <span class="job-opt-text">
                 <b>{job.title}</b>
-                <small>{[job.company, job.location].filter(Boolean).join(" · ")}</small>
+                <small>{companyLine(job)}</small>
               </span>
               <FitScore score={fitOf(job.id)} />
             </button>

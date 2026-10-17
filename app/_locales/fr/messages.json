@@ -101,12 +101,6 @@
   "account_free": {
     "message": "Forfait gratuit"
   },
-  "menu_pipeline": {
-    "message": "Mon suivi"
-  },
-  "menu_resumes": {
-    "message": "Mes CV"
-  },
   "menu_openSite": {
     "message": "Ouvrir hired.video"
   },
@@ -289,9 +283,6 @@
   },
   "pipeline_title": {
     "message": "Suivi"
-  },
-  "pipeline_viewTitle": {
-    "message": "Mon suivi"
   },
   "pipeline_status": {
     "message": "Statut"
@@ -779,9 +770,6 @@
   "resumes_title": {
     "message": "Mes CV"
   },
-  "resumes_subtitle": {
-    "message": "Celui que vous choisissez sert partout dans le panneau"
-  },
   "resumes_none": {
     "message": "Ajoutez votre CV pour commencer"
   },
@@ -800,23 +788,11 @@
   "resumes_openSite": {
     "message": "Modifier sur hired.video"
   },
-  "check_title": {
-    "message": "Vérifier {resume}"
-  },
-  "check_intro": {
-    "message": "Notez votre CV et voyez quoi corriger — sans offre."
-  },
-  "check_run": {
-    "message": "Vérifier mon CV"
-  },
   "check_meterLabel": {
     "message": "Score de {score} sur 100"
   },
   "check_unlock": {
     "message": "Voir toutes les corrections avec Pro"
-  },
-  "check_fixInStudio": {
-    "message": "Corriger dans Studio"
   },
   "pill_region": {
     "message": "hired.video"
@@ -1724,16 +1700,142 @@
   "resumes_all": {
     "message": "Tous les CV · {count}"
   },
-  "resumes_search": {
-    "message": "Trouver un CV"
-  },
-  "resumes_searchHint": {
-    "message": "Rechercher par titre"
-  },
-  "resumes_noMatch": {
-    "message": "Aucun CV ne correspond à cette recherche."
-  },
   "resumes_versions": {
     "message": "Versions ({count})"
+  },
+  "menu_content": {
+    "message": "Mon contenu"
+  },
+  "content_title": {
+    "message": "Mon contenu"
+  },
+  "content_tab_resumes": {
+    "message": "CV"
+  },
+  "content_tab_letters": {
+    "message": "Lettres"
+  },
+  "content_tab_videos": {
+    "message": "Vidéos"
+  },
+  "content_tab_jobs": {
+    "message": "Emplois"
+  },
+  "content_tab_candidates": {
+    "message": "Candidats"
+  },
+  "content_selected": {
+    "message": "Sélectionné"
+  },
+  "content_show": {
+    "message": "Afficher"
+  },
+  "content_search": {
+    "message": "Rechercher"
+  },
+  "content_searchHint": {
+    "message": "Rechercher par nom"
+  },
+  "content_noMatch": {
+    "message": "Aucun résultat pour cette recherche."
+  },
+  "action_copyLink": {
+    "message": "Copier le lien"
+  },
+  "action_edit": {
+    "message": "Modifier"
+  },
+  "action_check": {
+    "message": "Vérifier"
+  },
+  "check_scoreTitle": {
+    "message": "Score du CV"
+  },
+  "resumes_use": {
+    "message": "Utiliser ce CV"
+  },
+  "letters_selected": {
+    "message": "Lettre sélectionnée"
+  },
+  "letters_write": {
+    "message": "Rédiger une lettre de motivation"
+  },
+  "letters_empty": {
+    "message": "Aucune lettre pour l'instant. Ouvrez une offre et rédigez-en une ; elle est enregistrée avec le CV adapté à cette offre."
+  },
+  "letters_all": {
+    "message": "Toutes les lettres · {count}"
+  },
+  "videos_untitled": {
+    "message": "Vidéo sans titre"
+  },
+  "videos_new": {
+    "message": "Créer une vidéo"
+  },
+  "videos_openStudio": {
+    "message": "Ouvrir le Studio sur hired.video"
+  },
+  "videos_empty": {
+    "message": "Aucune vidéo pour l'instant. Créez-en une à partir de votre CV ou pour une offre."
+  },
+  "videos_all": {
+    "message": "Toutes les vidéos · {count}"
+  },
+  "videoStatus_draft": {
+    "message": "Brouillon"
+  },
+  "videoStatus_rendering": {
+    "message": "Rendu en cours"
+  },
+  "videoStatus_ready": {
+    "message": "Prête"
+  },
+  "videoStatus_failed": {
+    "message": "Échec"
+  },
+  "jobs_openListing": {
+    "message": "Annonce"
+  },
+  "jobs_onHiredVideo": {
+    "message": "Sur hired.video"
+  },
+  "jobs_workOn": {
+    "message": "Travailler sur cette offre"
+  },
+  "candidates_openSite": {
+    "message": "Ouvrir votre vivier sur hired.video"
+  },
+  "candidates_empty": {
+    "message": "Aucun candidat pour l'instant. Ouvrez un profil et enregistrez le candidat."
+  },
+  "candidates_email": {
+    "message": "E-mail"
+  },
+  "candidates_copyEmail": {
+    "message": "Copier l'e-mail"
+  },
+  "candidates_profile": {
+    "message": "Profil"
+  },
+  "candidates_all": {
+    "message": "Tous les candidats · {count}"
+  },
+  "settings_openSite": {
+    "message": "Ouvrir les paramètres sur hired.video"
+  },
+  "check_title": {
+    "message": "Vérifier {resume}"
+  },
+  "check_intro": {
+    "message": "Notez votre CV et voyez quoi corriger — sans offre."
+  },
+  "check_run": {
+    "message": "Vérifier mon CV"
+  },
+  "check_fixInStudio": {
+    "message": "Corriger dans Studio"
+  },
+  "videos_watch": {
+    "message": "Regarder"
   }
 }

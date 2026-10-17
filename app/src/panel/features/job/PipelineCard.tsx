@@ -10,7 +10,7 @@ import { ReminderRow } from "./ReminderRow";
 const ACTIVE: readonly PipelineStatus[] = ["tracked", "applied", "interviewing", "offered"];
 const CLOSED = PIPELINE_STATUSES.filter((s) => !ACTIVE.includes(s));
 
-const STATUS_LABEL: Record<PipelineStatus, MessageKey> = {
+export const STATUS_LABEL: Record<PipelineStatus, MessageKey> = {
   tracked: "status_tracked",
   applied: "status_applied",
   interviewing: "status_interviewing",

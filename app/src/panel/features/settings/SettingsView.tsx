@@ -11,6 +11,9 @@ import { t, type MessageKey } from "../../platform/i18n";
 import { ViewHeader } from "../../shell/ViewHeader";
 import { Card, Chip, Toggle } from "../../ui/controls";
 import { openUpgrade } from "../../ui/ErrorNotice";
+import { IconAction } from "../../ui/items";
+import { openTab } from "../../platform/chrome";
+import { webSettingsUrl } from "../../platform/web-links";
 
 type BoolKey = "autoDetect" | "showPill" | "autoScore" | "autoTailor" | "telemetryOptOut";
 
@@ -41,7 +44,11 @@ export function SettingsView() {
 
   return (
     <>
-      <ViewHeader title={t("settings_title")} subtitle={t("settings_subtitle")} />
+      <ViewHeader
+        title={t("settings_title")}
+        subtitle={t("settings_subtitle")}
+        actions={<IconAction icon="external" label={t("settings_openSite")} onClick={() => openTab(webSettingsUrl())} />}
+      />
       <div class="view-body">
         <Card>
           {TOGGLES.map((item) => (

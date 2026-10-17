@@ -101,12 +101,6 @@
   "account_free": {
     "message": "Plan gratuito"
   },
-  "menu_pipeline": {
-    "message": "Mis postulaciones"
-  },
-  "menu_resumes": {
-    "message": "Mis currículums"
-  },
   "menu_openSite": {
     "message": "Abrir hired.video"
   },
@@ -289,9 +283,6 @@
   },
   "pipeline_title": {
     "message": "Postulaciones"
-  },
-  "pipeline_viewTitle": {
-    "message": "Mis postulaciones"
   },
   "pipeline_status": {
     "message": "Estado"
@@ -779,9 +770,6 @@
   "resumes_title": {
     "message": "Mis currículums"
   },
-  "resumes_subtitle": {
-    "message": "El que elijas se usa en todo el panel"
-  },
   "resumes_none": {
     "message": "Agrega tu currículum para empezar"
   },
@@ -800,23 +788,11 @@
   "resumes_openSite": {
     "message": "Editar en hired.video"
   },
-  "check_title": {
-    "message": "Revisar {resume}"
-  },
-  "check_intro": {
-    "message": "Califica tu currículum y ve qué mejorar, sin necesidad de un empleo."
-  },
-  "check_run": {
-    "message": "Revisar mi currículum"
-  },
   "check_meterLabel": {
     "message": "Puntuación {score} de 100"
   },
   "check_unlock": {
     "message": "Ver todas las mejoras con Pro"
-  },
-  "check_fixInStudio": {
-    "message": "Corregirlo en Studio"
   },
   "pill_region": {
     "message": "hired.video"
@@ -1724,16 +1700,142 @@
   "resumes_all": {
     "message": "Todos los currículums · {count}"
   },
-  "resumes_search": {
-    "message": "Buscar un currículum"
-  },
-  "resumes_searchHint": {
-    "message": "Busca por título"
-  },
-  "resumes_noMatch": {
-    "message": "Ningún currículum coincide con la búsqueda."
-  },
   "resumes_versions": {
     "message": "Versiones ({count})"
+  },
+  "menu_content": {
+    "message": "Mi contenido"
+  },
+  "content_title": {
+    "message": "Mi contenido"
+  },
+  "content_tab_resumes": {
+    "message": "Currículums"
+  },
+  "content_tab_letters": {
+    "message": "Cartas"
+  },
+  "content_tab_videos": {
+    "message": "Videos"
+  },
+  "content_tab_jobs": {
+    "message": "Empleos"
+  },
+  "content_tab_candidates": {
+    "message": "Candidatos"
+  },
+  "content_selected": {
+    "message": "Seleccionado"
+  },
+  "content_show": {
+    "message": "Mostrar"
+  },
+  "content_search": {
+    "message": "Buscar"
+  },
+  "content_searchHint": {
+    "message": "Busca por nombre"
+  },
+  "content_noMatch": {
+    "message": "Nada coincide con la búsqueda."
+  },
+  "action_copyLink": {
+    "message": "Copiar enlace"
+  },
+  "action_edit": {
+    "message": "Editar"
+  },
+  "action_check": {
+    "message": "Revisar"
+  },
+  "check_scoreTitle": {
+    "message": "Puntuación del currículum"
+  },
+  "resumes_use": {
+    "message": "Usar este currículum"
+  },
+  "letters_selected": {
+    "message": "Carta seleccionada"
+  },
+  "letters_write": {
+    "message": "Escribir una carta de presentación"
+  },
+  "letters_empty": {
+    "message": "Aún no hay cartas. Abre un empleo y escribe una; se guarda con el currículum adaptado a ese empleo."
+  },
+  "letters_all": {
+    "message": "Todas las cartas · {count}"
+  },
+  "videos_untitled": {
+    "message": "Video sin título"
+  },
+  "videos_new": {
+    "message": "Crear un video"
+  },
+  "videos_openStudio": {
+    "message": "Abrir el Studio en hired.video"
+  },
+  "videos_empty": {
+    "message": "Aún no hay videos. Crea uno con tu currículum o para un empleo."
+  },
+  "videos_all": {
+    "message": "Todos los videos · {count}"
+  },
+  "videoStatus_draft": {
+    "message": "Borrador"
+  },
+  "videoStatus_rendering": {
+    "message": "Renderizando"
+  },
+  "videoStatus_ready": {
+    "message": "Listo"
+  },
+  "videoStatus_failed": {
+    "message": "Falló"
+  },
+  "jobs_openListing": {
+    "message": "Anuncio"
+  },
+  "jobs_onHiredVideo": {
+    "message": "En hired.video"
+  },
+  "jobs_workOn": {
+    "message": "Trabajar en este empleo"
+  },
+  "candidates_openSite": {
+    "message": "Abrir tu bolsa de talento en hired.video"
+  },
+  "candidates_empty": {
+    "message": "Aún no hay candidatos. Abre un perfil y guarda al candidato."
+  },
+  "candidates_email": {
+    "message": "Correo"
+  },
+  "candidates_copyEmail": {
+    "message": "Copiar correo"
+  },
+  "candidates_profile": {
+    "message": "Perfil"
+  },
+  "candidates_all": {
+    "message": "Todos los candidatos · {count}"
+  },
+  "settings_openSite": {
+    "message": "Abrir la configuración en hired.video"
+  },
+  "check_title": {
+    "message": "Revisar {resume}"
+  },
+  "check_intro": {
+    "message": "Califica tu currículum y ve qué mejorar, sin necesidad de un empleo."
+  },
+  "check_run": {
+    "message": "Revisar mi currículum"
+  },
+  "check_fixInStudio": {
+    "message": "Corregirlo en Studio"
+  },
+  "videos_watch": {
+    "message": "Ver"
   }
 }

@@ -1,7 +1,6 @@
 /**
- * "Me": the résumé the panel works with. Top to bottom: add or edit
- * (always in reach), the résumé in use with its actions, then every résumé
- * as a compact, searchable list.
+ * My content › Résumés: upload or open on hired.video (header), the résumé
+ * in use with its actions, then every résumé.
  */
 import { useEffect, useRef } from "preact/hooks";
 import { activeResume, chooseResume, loadResumes, resumesStore, uploadResume } from "../../state/resumes";
@@ -9,16 +8,17 @@ import { useStore } from "../../state/store";
 import { openTab } from "../../platform/chrome";
 import { webResumesUrl } from "../../platform/web-links";
 import { t } from "../../platform/i18n";
-import { ViewHeader } from "../../shell/ViewHeader";
 import { Button, Spinner } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
+import { EmptyState, IconAction } from "../../ui/items";
 import { useAction } from "../../ui/useAction";
-import { ActiveResumeCard } from "./ActiveResumeCard";
+import type { ContentTabProps } from "../content/tab";
 import { ResumeList } from "./ResumeList";
+import { SelectedResume } from "./SelectedResume";
 
 const ACCEPT = ".pdf,.doc,.docx,.txt,.rtf,.json";
 
-export function ResumesView() {
+export function ResumesTab({ header }: ContentTabProps) {
   const state = useStore(resumesStore, (s) => s);
   const active = activeResume(state);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -30,7 +30,12 @@ export function ResumesView() {
 
   return (
     <>
-      <ViewHeader title={t("resumes_title")} subtitle={t("resumes_subtitle")} />
+      {header(
+        <>
+          <IconAction icon="upload" primary label={t("resumes_add")} busy={upload.busy} onClick={() => fileRef.current?.click()} />
+          <IconAction icon="external" label={t("resumes_openSite")} onClick={() => openTab(webResumesUrl())} />
+        </>,
+      )}
       <div class="view-body">
         <input
           ref={fileRef}
@@ -44,21 +49,16 @@ export function ResumesView() {
             if (file) void upload.run(file);
           }}
         />
-        <div class="row resume-toolbar">
-          <Button size="sm" variant="primary" icon="upload" busy={upload.busy} onClick={() => fileRef.current?.click()}>
-            {t("resumes_add")}
-          </Button>
-          <Button size="sm" icon="external" onClick={() => openTab(webResumesUrl())}>
-            {t("resumes_openSite")}
-          </Button>
-        </div>
         <ErrorNotice error={upload.error} />
-
         {!state.loaded ? <Spinner label={t("common_loading")} /> : null}
-        {state.loaded && !state.list.length ? <p class="muted small">{t("resumes_none_hint")}</p> : null}
-
-        {active ? <ActiveResumeCard resume={active} /> : null}
-
+        {state.loaded && !state.list.length ? (
+          <EmptyState hint={t("resumes_none_hint")}>
+            <Button variant="primary" icon="upload" busy={upload.busy} onClick={() => fileRef.current?.click()}>
+              {t("resumes_add")}
+            </Button>
+          </EmptyState>
+        ) : null}
+        {active ? <SelectedResume key={active.id} resume={active} /> : null}
         {state.list.length ? <ResumeList list={state.list} activeId={state.activeId} onPick={(id) => void choose.run(id)} /> : null}
         <ErrorNotice error={choose.error} />
       </div>

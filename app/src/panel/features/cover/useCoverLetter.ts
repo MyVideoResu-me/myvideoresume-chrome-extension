@@ -22,17 +22,13 @@ import type { Job } from "../../api/jobs";
 import { updateResumeContent } from "../../api/resumes";
 import { setCoverLetterText } from "../../state/pair";
 import { cacheResumeContent, resumeContent } from "../../state/resumes";
-import { uiLocale } from "../../platform/i18n";
+import { longDate } from "../../platform/i18n";
 import { useAction } from "../../ui/useAction";
 
 type Draft = { job: Job; letter: CoverLetter; content: ResumeContent };
 
 /** The résumé the letter is written from: its id, and whether it is the version tailored to this job. */
 export type LetterResume = { id: string; tailored: boolean };
-
-function formattedDate(): string {
-  return new Date().toLocaleDateString(uiLocale(), { year: "numeric", month: "long", day: "numeric" });
-}
 
 /** The person's edits, back into a letter (the sender block + date are re-derived on render). */
 function letterFromText(text: string, base: CoverLetter): CoverLetter {
@@ -55,7 +51,7 @@ export function useCoverLetter(resume: LetterResume | null, getJob: () => Promis
 
   const show = (next: Draft) => {
     setDraft(next);
-    const body = coverLetterToText(next.letter, next.content, formattedDate());
+    const body = coverLetterToText(next.letter, next.content, longDate());
     setText(body);
     setGenerated(body);
     setCoverLetterText(next.job.id, body);

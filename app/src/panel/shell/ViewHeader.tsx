@@ -1,7 +1,8 @@
 /**
  * Header for a flow screen. Screens opened from the page (ROUTE_STEP
  * `appHeader`) show the app header above the stepper; the rest show
- * back, title, what it's for and the account menu.
+ * back, title, what it's for, the screen's own key actions (`actions`,
+ * `IconAction`s) and the account menu — then `below` (tabs) or the stepper.
  */
 import type { ComponentChildren } from "preact";
 import { ROUTE_STEP } from "../domain/routes";
@@ -13,7 +14,17 @@ import { AccountMenu } from "./AccountMenu";
 import { AppHeader } from "./AppHeader";
 import { Stepper } from "./Stepper";
 
-export function ViewHeader({ title, subtitle }: { title: string; subtitle?: ComponentChildren }) {
+export function ViewHeader({
+  title,
+  subtitle,
+  actions,
+  below,
+}: {
+  title: string;
+  subtitle?: ComponentChildren;
+  actions?: ComponentChildren;
+  below?: ComponentChildren;
+}) {
   const route = useStore(navStore, (s) => s.route);
   if (ROUTE_STEP[route].appHeader) {
     return (
@@ -36,8 +47,10 @@ export function ViewHeader({ title, subtitle }: { title: string; subtitle?: Comp
           <h1 class="view-title">{title}</h1>
           {subtitle ? <div class="view-subtitle">{subtitle}</div> : null}
         </div>
+        {actions ? <div class="view-header-actions">{actions}</div> : null}
         <AccountMenu />
       </div>
+      {below}
       <Stepper route={route} />
     </div>
   );

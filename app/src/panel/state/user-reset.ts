@@ -4,6 +4,7 @@
  * restored pair / route are kept.
  */
 import { resetAnswers } from "./apply-answers";
+import { candidates } from "./candidates";
 import { jobsStore } from "./jobs";
 import { loadLens } from "./lens";
 import { navStore } from "./nav";
@@ -11,6 +12,7 @@ import { pairStore, restorePair } from "./pair";
 import { remindersStore, startReminders } from "./reminders";
 import { loadResumes, resumesStore } from "./resumes";
 import { loadSettings } from "./settings";
+import { videos } from "./videos";
 
 export async function startUser(userId: string, switched: boolean): Promise<void> {
   if (switched) {
@@ -18,6 +20,8 @@ export async function startUser(userId: string, switched: boolean): Promise<void
     resumesStore.set({ list: [], activeId: null, loaded: false, loading: false });
     pairStore.set({ job: null, tailored: null, coverLetter: null, candidate: null, candidateResume: null });
     remindersStore.set({ all: {} });
+    videos.reset();
+    candidates.reset();
     resetAnswers();
     navStore.set({ route: "home", tab: null, stack: [] });
   }

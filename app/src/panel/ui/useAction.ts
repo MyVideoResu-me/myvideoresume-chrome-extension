@@ -26,3 +26,24 @@ export function useAction<A extends unknown[], R>(fn: (...args: A) => Promise<R>
 
   return { run, busy, error, clearError: () => setError(null) };
 }
+
+/**
+ * `useAction` for a list: one action, run for one row at a time — `busyKey`
+ * says which row is working so only its button spins.
+ */
+export function useKeyedAction<A extends unknown[], R>(fn: (key: string, ...args: A) => Promise<R>) {
+  const [busyKey, setBusyKey] = useState<string | null>(null);
+  const action = useAction(fn);
+  const run = useCallback(
+    async (key: string, ...args: A): Promise<R | undefined> => {
+      setBusyKey(key);
+      try {
+        return await action.run(key, ...args);
+      } finally {
+        setBusyKey(null);
+      }
+    },
+    [action.run],
+  );
+  return { run, busyKey, error: action.error, clearError: action.clearError };
+}

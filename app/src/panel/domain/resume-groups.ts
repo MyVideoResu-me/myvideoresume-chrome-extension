@@ -4,6 +4,7 @@
  * expanded) so it is never shown orphaned. Pure — no API or UI.
  */
 import type { ResumeSummary } from "../api/resumes";
+import { matchesQuery, newestFirst } from "./search";
 
 export type ResumeGroup = {
   master: ResumeSummary;
@@ -12,15 +13,14 @@ export type ResumeGroup = {
   matchedVersion: boolean;
 };
 
-const time = (r: ResumeSummary): number => (r.updatedAt ? Date.parse(r.updatedAt) || 0 : 0);
-const newestFirst = (a: ResumeSummary, b: ResumeSummary): number => time(b) - time(a);
+const byUpdated = newestFirst((r: ResumeSummary) => r.updatedAt);
 
 export function groupResumes(list: readonly ResumeSummary[], query = ""): ResumeGroup[] {
-  const q = query.trim().toLowerCase();
-  const matches = (r: ResumeSummary) => !q || r.title.toLowerCase().includes(q);
+  const q = query.trim();
+  const matches = (r: ResumeSummary) => matchesQuery(q, r.title);
   const groups: ResumeGroup[] = [];
   for (const master of list.filter((r) => r.isMaster)) {
-    const all = list.filter((r) => !r.isMaster && r.masterId === master.id).sort(newestFirst);
+    const all = list.filter((r) => !r.isMaster && r.masterId === master.id).sort(byUpdated);
     const hits = all.filter(matches);
     if (!matches(master) && !hits.length) continue;
     groups.push({
@@ -29,5 +29,5 @@ export function groupResumes(list: readonly ResumeSummary[], query = ""): Resume
       matchedVersion: !!q && hits.length > 0,
     });
   }
-  return groups.sort((a, b) => newestFirst(a.master, b.master));
+  return groups.sort((a, b) => byUpdated(a.master, b.master));
 }

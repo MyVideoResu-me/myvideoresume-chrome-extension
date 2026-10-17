@@ -5,6 +5,10 @@ import { t, uiLocale, type MessageKey } from "../../platform/i18n";
 import { ViewHeader } from "../../shell/ViewHeader";
 import { Card, Meter, Spinner } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
+import { IconAction } from "../../ui/items";
+import { useAction } from "../../ui/useAction";
+import { openTab } from "../../platform/chrome";
+import { webHomeUrl } from "../../platform/web-links";
 
 const STAGES: ReadonlyArray<{ key: FunnelStage; labelKey: MessageKey }> = [
   { key: "tracked", labelKey: "status_tracked" },
@@ -27,16 +31,25 @@ function Stat({ value, labelKey, delta }: { value: string | number; labelKey: Me
 
 export function AnalyticsView() {
   const [data, setData] = useState<ExtensionAnalytics | null>(null);
-  const [error, setError] = useState<unknown>(null);
+  const load = useAction(async () => setData(await fetchAnalytics()));
+  const error = load.error;
   useEffect(() => {
-    fetchAnalytics().then(setData, setError);
+    void load.run();
   }, []);
   const pct = (n: number) => new Intl.NumberFormat(uiLocale(), { style: "percent", maximumFractionDigits: 0 }).format(n / 100);
   const maxStage = data ? Math.max(1, ...STAGES.map((s) => data.funnel[s.key] ?? 0)) : 1;
 
   return (
     <>
-      <ViewHeader title={t("analytics_title")} />
+      <ViewHeader
+        title={t("analytics_title")}
+        actions={
+          <>
+            <IconAction icon="refresh" label={t("common_refresh")} busy={load.busy} onClick={() => void load.run()} />
+            <IconAction icon="external" label={t("menu_openSite")} onClick={() => openTab(webHomeUrl())} />
+          </>
+        }
+      />
       <div class="view-body">
         <ErrorNotice error={error} />
         {!data && !error ? <Spinner label={t("common_loading")} /> : null}

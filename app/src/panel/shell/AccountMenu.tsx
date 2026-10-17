@@ -11,9 +11,8 @@ import { Icon, type IconName } from "../ui/Icon";
 import { usePopover } from "../ui/usePopover";
 
 const MENU: ReadonlyArray<{ route: RouteName; icon: IconName; labelKey: MessageKey }> = [
-  { route: "pipeline", icon: "list", labelKey: "menu_pipeline" },
+  { route: "content", icon: "list", labelKey: "menu_content" },
   { route: "analytics", icon: "chart", labelKey: "menu_analytics" },
-  { route: "resumes", icon: "file", labelKey: "menu_resumes" },
   { route: "settings", icon: "settings", labelKey: "menu_settings" },
 ];
 

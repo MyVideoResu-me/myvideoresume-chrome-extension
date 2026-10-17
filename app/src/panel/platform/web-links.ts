@@ -20,3 +20,15 @@ export const webResumesUrl = (): string => webUrl("/resumes");
 
 /** A job's public page. */
 export const publicJobUrl = (jobId: string): string => webUrl(publicJobPath(jobId));
+
+/** The web Studio home (every project). */
+export const webStudioUrl = (): string => webUrl("/studio");
+
+/** The web settings page (the same settings the panel edits). */
+export const webSettingsUrl = (): string => webUrl("/settings");
+
+/** The recruiter's talent pool on the web. */
+export const webTalentPoolUrl = (): string => webUrl("/resumes?tab=sourced");
+
+/** One talent-pool candidate on the web. */
+export const webCandidateUrl = (talentPoolId: string): string => webUrl(`/services/candidates/${encodeURIComponent(talentPoolId)}`);

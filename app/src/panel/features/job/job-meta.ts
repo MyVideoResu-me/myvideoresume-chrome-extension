@@ -52,3 +52,16 @@ export function jobMetaChips(job: JobFacts): string[] {
 export function companyInitial(company: string): string {
   return (company.trim()[0] ?? "").toUpperCase();
 }
+
+/**
+ * "Acme · Detroit, MI". Some boards glue the address onto the company
+ * ("Acme407 Main St, Detroit"), so a location inside the company is dropped.
+ */
+export function companyLine(job: Pick<Job, "company" | "location">): string {
+  const location = job.location.trim();
+  let company = job.company.trim();
+  if (location && company !== location && company.includes(location)) {
+    company = company.replace(location, "").replace(/[\s·,|-]+$/, "").trim();
+  }
+  return [company, location].filter(Boolean).join(" · ");
+}

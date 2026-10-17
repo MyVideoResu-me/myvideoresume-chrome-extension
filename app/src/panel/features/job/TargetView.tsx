@@ -4,7 +4,7 @@
  * feature (resumes / cover / apply); this screen only switches between them.
  */
 import type { ComponentChildren, ComponentType } from "preact";
-import { TARGET_TABS, type TargetTab } from "../../domain/routes";
+import { TARGET_TABS, isTab, type TargetTab } from "../../domain/routes";
 import { navStore, setTab } from "../../state/nav";
 import { useStore } from "../../state/store";
 import { t, type MessageKey } from "../../platform/i18n";
@@ -29,7 +29,8 @@ const DEFAULT_TAB: TargetTab = "cover";
 export function TargetView() {
   const { job } = useJobContext();
   const resume = useWorkingResume(job?.id ?? null);
-  const tab = useStore(navStore, (s) => s.tab) ?? DEFAULT_TAB;
+  const navTab = useStore(navStore, (s) => s.tab);
+  const tab = isTab(TARGET_TABS, navTab) ? navTab : DEFAULT_TAB;
   const { Body } = TAB[tab];
 
   return (

@@ -14,16 +14,15 @@ import { Button, Spinner } from "../ui/controls";
 import { AnalyticsView } from "../features/analytics/AnalyticsView";
 import { CandidateView } from "../features/candidate/CandidateView";
 import { CandidateVideoView } from "../features/candidate/CandidateVideoView";
+import { ContentView } from "../features/content/ContentView";
 import { HomeView } from "../features/home/HomeView";
 import { JobView } from "../features/job/JobView";
 import { TargetView } from "../features/job/TargetView";
 import { OutreachView } from "../features/outreach/OutreachView";
-import { PipelineView } from "../features/pipeline/PipelineView";
 import { PostReplyView } from "../features/post/PostReplyView";
 import { ProfileImportView } from "../features/profile-import/ProfileImportView";
 import { PromoteView } from "../features/promote/PromoteView";
 import { ProspectView } from "../features/prospect/ProspectView";
-import { ResumesView } from "../features/resumes/ResumesView";
 import { SettingsView } from "../features/settings/SettingsView";
 import { StrengthenView } from "../features/strengthen/StrengthenView";
 import { AppHeader } from "./AppHeader";
@@ -41,15 +40,14 @@ const SCREENS: Record<ScreenName, ComponentType> = {
   candidateVideo: CandidateVideoView,
   prospect: ProspectView,
   postReply: PostReplyView,
-  pipeline: PipelineView,
+  content: ContentView,
   analytics: AnalyticsView,
-  resumes: ResumesView,
   settings: SettingsView,
   profileImport: ProfileImportView,
 };
 
 /** Screens that are lists, not pair work — no pair tray. */
-const NO_TRAY: ReadonlySet<ScreenName> = new Set(["pipeline", "analytics", "resumes", "settings"]);
+const NO_TRAY: ReadonlySet<ScreenName> = new Set(["content", "analytics", "settings"]);
 
 export function App() {
   const session = useStore(sessionStore, (s) => s.session);
