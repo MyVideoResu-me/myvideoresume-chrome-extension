@@ -1,25 +1,25 @@
 /**
  * My content › Videos: every video project. The selected one shows its
- * thumbnail with its actions; each row has the same actions.
+ * thumbnail with its actions; each row has the same actions (VideoActions —
+ * Publish until the video is published, then Watch).
  */
 import { useEffect, useState } from "preact/hooks";
-import type { StudioProjectItem } from "../../api/studio";
+import { publishProject, type StudioProjectItem } from "../../api/studio";
 import { VIDEO_STATUS_LABEL, listVideos } from "../../domain/videos";
 import { navigate } from "../../state/nav";
 import { useStore } from "../../state/store";
 import { videos } from "../../state/videos";
 import { openTab } from "../../platform/chrome";
 import { shortDate, t } from "../../platform/i18n";
-import { studioProjectUrl, videoWatchUrl, webStudioUrl } from "../../platform/web-links";
+import { webStudioUrl } from "../../platform/web-links";
 import { Button, Eyebrow, Spinner } from "../../ui/controls";
 import { ErrorNotice } from "../../ui/ErrorNotice";
-import { BarAction, EmptyState, IconAction, ItemList, ItemRow, SelectedItem } from "../../ui/items";
+import { EmptyState, IconAction, ItemList, ItemRow, SelectedItem } from "../../ui/items";
 import { ListSearch } from "../../ui/ListSearch";
-import { useCopy } from "../../ui/useCopy";
+import { useKeyedAction } from "../../ui/useAction";
 import type { ContentTabProps } from "../content/tab";
+import { VideoActions } from "./VideoActions";
 
-/** The hired.video watch page plays the project itself — no rendered file needed. */
-const watchUrl = (v: StudioProjectItem) => videoWatchUrl(v.slug ?? v.id);
 const title = (v: StudioProjectItem) => v.title || t("videos_untitled");
 const meta = (v: StudioProjectItem) =>
   [t(VIDEO_STATUS_LABEL[v.status] ?? "videoStatus_draft"), shortDate(v.updatedAt)].filter(Boolean).join(" · ");
@@ -28,7 +28,12 @@ export function VideosTab({ header }: ContentTabProps) {
   const { items, loaded, error } = useStore(videos.store, (s) => s);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const { copy, copiedKey } = useCopy();
+  // Publish, then reload so the row turns "Published" and offers Watch.
+  const publish = useKeyedAction(async (id: string) => {
+    await publishProject(id);
+    await videos.load(true);
+  });
+  const publishRow = (id: string) => void publish.run(id);
   useEffect(() => {
     void videos.load();
   }, []);
@@ -47,7 +52,7 @@ export function VideosTab({ header }: ContentTabProps) {
         </>,
       )}
       <div class="view-body">
-        <ErrorNotice error={error} />
+        <ErrorNotice error={error ?? publish.error} />
         {!loaded ? <Spinner label={t("common_loading")} /> : null}
         {loaded && !error && !all.length ? (
           <EmptyState hint={t("videos_empty")}>
@@ -64,13 +69,7 @@ export function VideosTab({ header }: ContentTabProps) {
             tone="video"
             title={title(selected)}
             meta={meta(selected)}
-            actions={
-              <>
-                <BarAction icon="play" onClick={() => openTab(watchUrl(selected))} label={t("videos_watch")} />
-                <BarAction icon={copiedKey === selected.id ? "check" : "link"} onClick={() => void copy(selected.id, watchUrl(selected))} label={copiedKey === selected.id ? t("common_copied") : t("action_copyLink")} />
-                <BarAction icon="pen" onClick={() => openTab(studioProjectUrl(selected.id))} label={t("action_edit")} />
-              </>
-            }
+            actions={<VideoActions video={selected} bar publish={publishRow} publishing={publish.busyKey === selected.id} />}
           >
             {selected.thumbnailUrl ? <img class="video-thumb" src={selected.thumbnailUrl} alt="" /> : null}
           </SelectedItem>
@@ -91,12 +90,7 @@ export function VideosTab({ header }: ContentTabProps) {
                   selected={v.id === selected?.id}
                   selectLabel={t("content_show")}
                   onSelect={() => setSelectedId(v.id)}
-                  actions={
-                    <>
-                      <IconAction icon="play" label={t("videos_watch")} onClick={() => openTab(watchUrl(v))} />
-                      <IconAction icon="pen" label={t("action_edit")} onClick={() => openTab(studioProjectUrl(v.id))} />
-                    </>
-                  }
+                  actions={<VideoActions video={v} publish={publishRow} publishing={publish.busyKey === v.id} />}
                 />
               ))}
             </ItemList>

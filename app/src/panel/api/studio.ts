@@ -98,6 +98,19 @@ export function setProjectVisibility(projectId: string, isPublic: boolean): Prom
   });
 }
 
+/**
+ * Put the project on the person's profile — what makes its watch link
+ * play (the watch page serves only published or public projects). No render
+ * needed: the page plays the saved project. The server holds candidate
+ * videos until the candidate approves (403 CONSENT_REQUIRED).
+ */
+export function publishProject(projectId: string): Promise<unknown> {
+  return request(`/api/studio/projects/${encodeURIComponent(projectId)}/status`, {
+    method: "PATCH",
+    body: { status: "published" },
+  });
+}
+
 /** A Studio project as a list shows it. */
 export type StudioProjectItem = {
   id: string;

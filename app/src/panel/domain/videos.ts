@@ -13,6 +13,11 @@ export const VIDEO_STATUS_LABEL: Record<string, MessageKey> = {
   Failed: "videoStatus_failed",
 };
 
+/** Its watch link plays — the watch page serves only published or public projects. */
+export function isWatchable(project: Pick<StudioProjectItem, "status" | "isPublic">): boolean {
+  return project.isPublic || project.status === "Published";
+}
+
 /** Video projects only (the Studio also makes podcasts, images, …), newest first. */
 export function listVideos(projects: readonly StudioProjectItem[], query = ""): StudioProjectItem[] {
   return projects

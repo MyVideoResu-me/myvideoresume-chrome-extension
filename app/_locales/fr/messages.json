@@ -1838,6 +1838,9 @@
   "videos_watch": {
     "message": "Regarder"
   },
+  "videos_publish": {
+    "message": "Publier"
+  },
   "videoStatus_published": {
     "message": "Publiée"
   }

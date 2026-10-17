@@ -57,7 +57,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "fonts/geist.woff2"
+        "fonts/geist.woff2",
+        "icons/icon48.png"
       ],
       "matches": [
         "<all_urls>"

@@ -45,6 +45,7 @@ const STYLE = `
   .pill { --pill-bg: #1e293b; --pill-line: #64748b; --pill-primary: #3b82f6; }
   .outline { --pill-outline: #60a5fa; --pill-outline-fill: rgba(96, 165, 250, 0.06); }
 }
+.logo { width: 18px; height: 18px; border-radius: 5px; flex: none; display: block; }
 .dot { width: 8px; height: 8px; border-radius: 99px; background: var(--pill-dot); flex: none; }
 .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 button {
@@ -139,11 +140,16 @@ function mount(): { show: (input: ShowInput) => void; hide: () => void } {
     pill.setAttribute("role", "region");
     pill.setAttribute("aria-label", t("pill_region"));
 
+    // The extension's own icon (the hired.video mark), so the bar says whose it is.
+    const logo = el("img", "logo") as HTMLImageElement;
+    logo.src = chrome.runtime.getURL("icons/icon48.png");
+    logo.alt = "";
+    logo.onerror = () => logo.remove();
     const dot = el("span", "dot");
     dot.setAttribute("aria-hidden", "true");
     const label = el("span", "label");
     label.textContent = t(PILL_LABEL[kind]);
-    pill.append(dot, label);
+    pill.append(logo, dot, label);
 
     PILL_ACTIONS[lens][kind].forEach((action, i) => {
       const btn = el("button", i === 0 ? "primary" : undefined) as HTMLButtonElement;
