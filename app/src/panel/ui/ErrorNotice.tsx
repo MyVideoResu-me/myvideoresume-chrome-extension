@@ -3,6 +3,7 @@
  * (upgrade, sign in, try again). Renders nothing when there is no error.
  */
 import type { ComponentChildren } from "preact";
+import { CANDIDATE_CONSENT_REQUIRED_CODE } from "@shared/candidate-video-consent";
 import { ApiError } from "../api/http";
 import { webUrl } from "../platform/config";
 import { openTab } from "../platform/chrome";
@@ -25,6 +26,8 @@ const KIND_MESSAGE: Record<ApiError["kind"], MessageKey> = {
 const CODE_MESSAGE: Readonly<Record<string, MessageKey>> = {
   CONSENT_EMAIL_MISMATCH: "error_consentEmailMismatch",
   CONSENT_EMAIL_NOT_ALLOWED: "error_consentEmailNotAllowed",
+  // A candidate video the candidate hasn't approved (or that changed since).
+  [CANDIDATE_CONSENT_REQUIRED_CODE]: "error_consentRequired",
 };
 
 /** Open the upgrade page (the API may hand back a relative or absolute URL). */

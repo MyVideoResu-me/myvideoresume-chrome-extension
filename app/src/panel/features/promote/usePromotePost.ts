@@ -50,10 +50,10 @@ export function usePromotePost(video: Video, social: Social, resumeId: string | 
     if (failures.length) throw failures[0];
   });
 
-  /** Save + open Studio to render; the posts go out when the render lands. */
+  /** Save + open Studio rendering it; the posts go out when the render lands. */
   const renderAndPost = useAction(async () => {
     setQueued([...checked]);
-    await video.openInStudio.run();
+    await video.openInStudio.run({ render: true });
   });
 
   useEffect(() => {

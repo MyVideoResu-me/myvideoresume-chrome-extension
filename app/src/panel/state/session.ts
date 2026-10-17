@@ -10,6 +10,7 @@ import { onStorageChange, storageGet, storageRemove, storageSet } from "../platf
 import { ROLE_KEY } from "./account-role";
 import { APPLY_ANSWERS_KEY } from "./apply-answers";
 import { REMINDERS_KEY } from "./reminders";
+import { VIDEO_PROJECT_IDS_KEY } from "./video-project-ids";
 import { createStore, useStore } from "./store";
 
 const LAST_USER_KEY = "lastUserId";
@@ -23,6 +24,7 @@ const USER_SCOPED_KEYS = [
   ROLE_KEY,
   REMINDERS_KEY,
   APPLY_ANSWERS_KEY,
+  VIDEO_PROJECT_IDS_KEY,
 ];
 
 export type SessionState =

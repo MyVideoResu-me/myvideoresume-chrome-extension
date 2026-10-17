@@ -34,6 +34,9 @@ export function useCandidateVideo(
     name: anonymous
       ? t("candidateVideo_nameAnon", { job: job.title })
       : t("candidateVideo_name", { name: candidate.profile.name, job: job.title }),
+    // One video per candidate × job × audience (named and blind are different
+    // videos), keyed by the talent-pool row — saved first when missing.
+    reuseKey: async () => `candidate:${await ensureCandidatePoolId()}:${job.id}:${audience}`,
     targetDuration: CANDIDATE_VIDEO_SECONDS,
     unlisted: true,
     subjects: async () => [{ kind: "talent_pool_candidate", id: await ensureCandidatePoolId() }],

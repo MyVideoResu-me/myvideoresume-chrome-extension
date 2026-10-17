@@ -27,6 +27,7 @@ import { useDailyCount } from "../message/useDailyCount";
 import { useRenderAndFill } from "../message/useRenderAndFill";
 import { useStickyEntity } from "../message/useStickyEntity";
 import { NeedsResume } from "../resumes/NeedsResume";
+import { pageKey, textKey } from "../../domain/video-reuse";
 import { useVideoProject, type VideoSpec } from "../video/useVideoProject";
 import { SkillPicker, useResumeSkills } from "./SkillPicker";
 import { useProfileSignals } from "./useProfileSignals";
@@ -47,6 +48,8 @@ function ProspectFlow({ prospect }: { prospect: DetectedProfile }) {
   const spec: VideoSpec = {
     purpose: "pitch",
     name: t("prospect_videoName", { name: prospect.name }),
+    // One pitch video per person.
+    reuseKey: `pitch:${pageKey(prospect.sourceUrl) || textKey(`${prospect.name}|${prospect.company}`)}`,
     targetDuration: PITCH_SECONDS,
     source: async () => {
       if (!resume) throw new Error("no résumé");

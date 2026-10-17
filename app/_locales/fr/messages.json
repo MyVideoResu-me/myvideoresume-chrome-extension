@@ -1676,6 +1676,9 @@
   "error_consentEmailNotAllowed": {
     "message": "Le candidat doit l’approuver lui-même — utilisez son adresse, pas la vôtre ni une adresse de votre entreprise."
   },
+  "error_consentRequired": {
+    "message": "Le candidat doit approuver cette vidéo avant qu’elle soit publique. Demandez-lui depuis l’écran de la vidéo du candidat."
+  },
   "candidateVideo_saveFirst": {
     "message": "Enregistrez d’abord {name} dans votre vivier de talents : ouvrez son profil, touchez Enregistrer, puis réessayez."
   },

@@ -6,6 +6,9 @@ export const studioResumeUrl = (resumeId: string): string => webUrl(`/studio/res
 
 export const studioProjectUrl = (projectId: string): string => webUrl(`/studio/${encodeURIComponent(projectId)}`);
 
+/** Studio, rendering + hosting the video as soon as it loads (`?render=1`). */
+export const studioRenderUrl = (projectId: string): string => `${studioProjectUrl(projectId)}?render=1`;
+
 /** The public watch page for a video (plays once it is published or public). */
 export const videoWatchUrl = (slugOrId: string): string => webUrl(publicVideoPath(slugOrId));
 

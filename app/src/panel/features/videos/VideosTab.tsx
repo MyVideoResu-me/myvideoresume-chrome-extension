@@ -4,7 +4,7 @@
  * Publish until the video is published, then Watch).
  */
 import { useEffect, useState } from "preact/hooks";
-import { publishProject, type StudioProjectItem } from "../../api/studio";
+import { setProjectVisibility, type StudioProjectItem } from "../../api/studio";
 import { VIDEO_STATUS_LABEL, listVideos } from "../../domain/videos";
 import { navigate } from "../../state/nav";
 import { useStore } from "../../state/store";
@@ -28,9 +28,9 @@ export function VideosTab({ header }: ContentTabProps) {
   const { items, loaded, error } = useStore(videos.store, (s) => s);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Publish, then reload so the row turns "Published" and offers Watch.
+  // Make it public, then reload so the row offers Watch.
   const publish = useKeyedAction(async (id: string) => {
-    await publishProject(id);
+    await setProjectVisibility(id, true);
     await videos.load(true);
   });
   const publishRow = (id: string) => void publish.run(id);

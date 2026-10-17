@@ -25,6 +25,7 @@ import { useMessageComposer } from "../message/useComposeMessage";
 import { useRenderAndFill } from "../message/useRenderAndFill";
 import { useStickyEntity } from "../message/useStickyEntity";
 import { NeedsResume } from "../resumes/NeedsResume";
+import { pageKey, textKey } from "../../domain/video-reuse";
 import { useVideoProject, type VideoSpec } from "../video/useVideoProject";
 
 /** Reply angles — data; the prompt text is localized with the label. */
@@ -46,6 +47,9 @@ function ReplyFlow({ post, angleId }: { post: DetectedPost; angleId: AngleId }) 
   const spec: VideoSpec = {
     purpose: "personal_brand",
     name: t("reply_videoName", { author }),
+    // One reply video per post: its page plus its text (a picked selection
+    // carries the feed's URL, shared by every post on it).
+    reuseKey: `reply:${pageKey(post.sourceUrl)}:${textKey(post.text)}`,
     targetDuration: REPLY_SECONDS,
     source: async () => {
       if (!resume) throw new Error("no résumé");

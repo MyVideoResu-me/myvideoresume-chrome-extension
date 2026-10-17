@@ -59,6 +59,11 @@ export type StudioProject = {
 };
 
 export function saveDraft(input: {
+  /** Update this project instead of creating one. */
+  projectId?: string;
+  /** null drops a timeline Studio saved earlier, so the new `script` is what
+   *  the project shows (Studio prefers a saved timeline over the script). */
+  timelineSpec?: null;
   name: string;
   resumeText: string;
   script: VideoScript;
@@ -76,6 +81,8 @@ export type ProjectStatus = {
   /** Draft | Processing | Publishing | Completed | Failed (mapStudioStatus). */
   status: string;
   videoUrl: string | null;
+  /** The hosted MP4 (null before the first render); new on every render. */
+  renderUrl: string | null;
 };
 
 export function fetchProjectStatus(projectId: string): Promise<ProjectStatus> {
@@ -90,24 +97,15 @@ export function addProjectSubject(projectId: string, subject: StudioSubject): Pr
   });
 }
 
-/** false = unlisted: only people with the link can watch. */
+/**
+ * true = public: the watch link plays for everyone (the watch page serves
+ * only public or published projects; no render needed). false = unlisted.
+ * The server holds candidate videos until the candidate approves.
+ */
 export function setProjectVisibility(projectId: string, isPublic: boolean): Promise<unknown> {
   return request(`/api/studio/projects/${encodeURIComponent(projectId)}/visibility`, {
     method: "PATCH",
     body: { isPublic },
-  });
-}
-
-/**
- * Put the project on the person's profile — what makes its watch link
- * play (the watch page serves only published or public projects). No render
- * needed: the page plays the saved project. The server holds candidate
- * videos until the candidate approves (403 CONSENT_REQUIRED).
- */
-export function publishProject(projectId: string): Promise<unknown> {
-  return request(`/api/studio/projects/${encodeURIComponent(projectId)}/status`, {
-    method: "PATCH",
-    body: { status: "published" },
   });
 }
 

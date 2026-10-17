@@ -8,6 +8,7 @@ import { socialPlatformMeta } from "@shared/social-platforms";
 import { jobDescriptionText } from "../../domain/job-text";
 import { resumeToText } from "../../domain/resume-docs";
 import { videoTitle } from "../../domain/video-meta";
+import { pageKey, textKey } from "../../domain/video-reuse";
 import { resumeContent } from "../../state/resumes";
 import { copyText, openTab } from "../../platform/chrome";
 import { t } from "../../platform/i18n";
@@ -35,6 +36,10 @@ export function PromoteView() {
   const spec: VideoSpec = {
     purpose: "resume",
     name: hasJob ? t("promote_fitName", { job: jobTitle }) : t("promote_resumeName", { resume: resume?.title ?? "" }),
+    // One video per job (or per résumé when there is no job).
+    reuseKey: hasJob
+      ? `promote:job:${pageKey(job?.sourceUrl || detected?.sourceUrl) || textKey(`${jobTitle}|${job?.company || detected?.company || ""}`)}`
+      : `promote:resume:${resume?.id ?? ""}`,
     targetDuration: 30,
     source: async () => {
       if (!resume) throw new Error("no résumé");

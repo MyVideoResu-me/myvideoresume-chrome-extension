@@ -1676,6 +1676,9 @@
   "error_consentEmailNotAllowed": {
     "message": "The candidate has to approve it themselves — use their email, not yours or one at your company."
   },
+  "error_consentRequired": {
+    "message": "The candidate has to approve this video before it can go public. Ask them from the candidate video screen."
+  },
   "candidateVideo_saveFirst": {
     "message": "Save {name} to your talent pool first: open their profile and tap Save, then try again."
   },

@@ -46,7 +46,7 @@ export function useRenderAndFill(video: VideoProject, composer: Composer, pageUr
     if (!video.script || !composer.body || video.project || video.openInStudio.busy) return;
     if (t.studio) return stop();
     t.studio = true;
-    void video.openInStudio.run();
+    void video.openInStudio.run({ render: true });
   }, [pending, video.script, video.write.busy, composer.body, composer.write.busy, video.project, video.openInStudio.busy]);
 
   // Step 4: the render landed → fill, but only on the page the flow is for.

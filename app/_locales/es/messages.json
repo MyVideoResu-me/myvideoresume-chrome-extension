@@ -1676,6 +1676,9 @@
   "error_consentEmailNotAllowed": {
     "message": "El candidato debe aprobarlo en persona: usa su correo, no el tuyo ni uno de tu empresa."
   },
+  "error_consentRequired": {
+    "message": "El candidato debe aprobar este video antes de que pueda hacerse público. Pídeselo desde la pantalla del video del candidato."
+  },
   "candidateVideo_saveFirst": {
     "message": "Primero guarda a {name} en tu banco de talento: abre su perfil, pulsa Guardar y vuelve a intentarlo."
   },
