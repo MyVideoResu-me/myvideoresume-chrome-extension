@@ -6,8 +6,10 @@ import { matchesQuery, newestFirst } from "./search";
 export const VIDEO_STATUS_LABEL: Record<string, MessageKey> = {
   Draft: "videoStatus_draft",
   Processing: "videoStatus_rendering",
+  Exported: "videoStatus_ready",
   Publishing: "videoStatus_rendering",
   Completed: "videoStatus_ready",
+  Published: "videoStatus_published",
   Failed: "videoStatus_failed",
 };
 
@@ -17,6 +19,3 @@ export function listVideos(projects: readonly StudioProjectItem[], query = ""): 
     .filter((p) => p.mediaKind === "video" && matchesQuery(query, p.title))
     .sort(newestFirst((p: StudioProjectItem) => p.updatedAt));
 }
-
-/** A finished video has somewhere to watch it. */
-export const canWatch = (p: StudioProjectItem): boolean => p.status === "Completed" && !!p.videoUrl;

@@ -102,7 +102,7 @@ export function setProjectVisibility(projectId: string, isPublic: boolean): Prom
 export type StudioProjectItem = {
   id: string;
   title: string;
-  /** Draft | Processing | Publishing | Completed | Failed. */
+  /** Draft | Processing | Exported | Publishing | Completed | Published | Failed (mapStudioStatus). */
   status: string;
   mediaKind: string;
   thumbnailUrl: string | null;

@@ -1837,5 +1837,8 @@
   },
   "videos_watch": {
     "message": "Ver"
+  },
+  "videoStatus_published": {
+    "message": "Publicado"
   }
 }

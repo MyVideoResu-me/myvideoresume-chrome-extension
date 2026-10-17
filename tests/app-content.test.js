@@ -10,7 +10,7 @@ const { loadTs } = require("./helpers/load-ts");
 
 const { contentTabsFor, defaultContentTab } = loadTs("app/src/panel/domain/content-tabs.ts");
 const { listLetters } = loadTs("app/src/panel/domain/letters.ts");
-const { listVideos, canWatch } = loadTs("app/src/panel/domain/videos.ts");
+const { listVideos, VIDEO_STATUS_LABEL } = loadTs("app/src/panel/domain/videos.ts");
 const { matchesQuery } = loadTs("app/src/panel/domain/search.ts");
 
 const resume = (id, title, letter, updatedAt) => ({ id, title, isMaster: !letter, isActive: false, masterId: "m1", updatedAt, letter });
@@ -58,9 +58,8 @@ describe("listVideos", () => {
   it("keeps video projects only, newest first", () => {
     assert.deepEqual(listVideos(projects).map((v) => v.id), ["c", "a"]);
   });
-  it("only a finished video with a file can be watched", () => {
-    assert.equal(canWatch(projects[2]), true);
-    assert.equal(canWatch(projects[0]), false);
+  it("labels every status the API sends", () => {
+    for (const st of ["Draft", "Processing", "Exported", "Publishing", "Completed", "Published", "Failed"]) assert.ok(VIDEO_STATUS_LABEL[st], st);
   });
 });
 

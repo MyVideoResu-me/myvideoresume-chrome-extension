@@ -4,7 +4,7 @@
  */
 import { useEffect, useState } from "preact/hooks";
 import type { StudioProjectItem } from "../../api/studio";
-import { VIDEO_STATUS_LABEL, canWatch, listVideos } from "../../domain/videos";
+import { VIDEO_STATUS_LABEL, listVideos } from "../../domain/videos";
 import { navigate } from "../../state/nav";
 import { useStore } from "../../state/store";
 import { videos } from "../../state/videos";
@@ -18,6 +18,7 @@ import { ListSearch } from "../../ui/ListSearch";
 import { useCopy } from "../../ui/useCopy";
 import type { ContentTabProps } from "../content/tab";
 
+/** The hired.video watch page plays the project itself — no rendered file needed. */
 const watchUrl = (v: StudioProjectItem) => videoWatchUrl(v.slug ?? v.id);
 const title = (v: StudioProjectItem) => v.title || t("videos_untitled");
 const meta = (v: StudioProjectItem) =>
@@ -65,8 +66,8 @@ export function VideosTab({ header }: ContentTabProps) {
             meta={meta(selected)}
             actions={
               <>
-                <BarAction icon="play" disabled={!canWatch(selected)} onClick={() => openTab(watchUrl(selected))} label={t("videos_watch")} />
-                <BarAction icon={copiedKey === selected.id ? "check" : "link"} disabled={!canWatch(selected)} onClick={() => void copy(selected.id, watchUrl(selected))} label={copiedKey === selected.id ? t("common_copied") : t("action_copyLink")} />
+                <BarAction icon="play" onClick={() => openTab(watchUrl(selected))} label={t("videos_watch")} />
+                <BarAction icon={copiedKey === selected.id ? "check" : "link"} onClick={() => void copy(selected.id, watchUrl(selected))} label={copiedKey === selected.id ? t("common_copied") : t("action_copyLink")} />
                 <BarAction icon="pen" onClick={() => openTab(studioProjectUrl(selected.id))} label={t("action_edit")} />
               </>
             }
@@ -92,7 +93,7 @@ export function VideosTab({ header }: ContentTabProps) {
                   onSelect={() => setSelectedId(v.id)}
                   actions={
                     <>
-                      <IconAction icon="play" label={t("videos_watch")} disabled={!canWatch(v)} onClick={() => openTab(watchUrl(v))} />
+                      <IconAction icon="play" label={t("videos_watch")} onClick={() => openTab(watchUrl(v))} />
                       <IconAction icon="pen" label={t("action_edit")} onClick={() => openTab(studioProjectUrl(v.id))} />
                     </>
                   }
