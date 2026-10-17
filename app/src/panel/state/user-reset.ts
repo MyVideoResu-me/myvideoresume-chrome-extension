@@ -14,7 +14,7 @@ import { loadSettings } from "./settings";
 
 export async function startUser(userId: string, switched: boolean): Promise<void> {
   if (switched) {
-    jobsStore.set({ saved: [], loaded: false, loading: false });
+    jobsStore.set({ saved: [], links: {}, loaded: false, loading: false });
     resumesStore.set({ list: [], activeId: null, loaded: false, loading: false });
     pairStore.set({ job: null, tailored: null, coverLetter: null, candidate: null, candidateResume: null });
     remindersStore.set({ all: {} });

@@ -3,29 +3,52 @@
  * already tracked?". One cached list per panel session; mutations update
  * it in place instead of re-fetching.
  */
-import { matchTrackedJob } from "../../../../shared/job-url-match";
+import { matchTrackedJob, normalizeJobUrlForMatch } from "../../../../shared/job-url-match";
+import { storageGet, storageSet } from "../platform/chrome";
 import { fetchSavedJobs, setJobStatus, updateJobDetails, type Job, type JobDetails, type PipelineStatus } from "../api/jobs";
 import { pairStore, setPairJob } from "./pair";
 import { createStore } from "./store";
 
-export type JobsState = { saved: Job[]; loaded: boolean; loading: boolean };
+/**
+ * `links`: page URL → the job id Track returned for it. Track can answer
+ * with an existing job listed under another URL (the same posting seen on
+ * another board), so the page alone can't find it in `saved`.
+ */
+export type JobsState = { saved: Job[]; links: Readonly<Record<string, string>>; loaded: boolean; loading: boolean };
 
-export const jobsStore = createStore<JobsState>({ saved: [], loaded: false, loading: false });
+const LINKS_KEY = "trackedPageLinks";
+const MAX_LINKS = 300;
+
+export const jobsStore = createStore<JobsState>({ saved: [], links: {}, loaded: false, loading: false });
 
 export async function loadSavedJobs(force = false): Promise<void> {
   const s = jobsStore.get();
   if (s.loading || (s.loaded && !force)) return;
   jobsStore.set({ loading: true });
   try {
-    jobsStore.set({ saved: await fetchSavedJobs(), loaded: true });
+    const [saved, links] = await Promise.all([fetchSavedJobs(), storageGet<Record<string, string>>(LINKS_KEY)]);
+    jobsStore.set({ saved, links: { ...(links ?? {}), ...jobsStore.get().links }, loaded: true });
   } finally {
     jobsStore.set({ loading: false });
   }
 }
 
-/** The tracked job for a page URL (listing or apply page). */
-export function findTrackedJob(saved: readonly Job[], url: string): Job | null {
-  return matchTrackedJob(saved, url)?.job ?? null;
+/** The tracked job for a page URL (listing or apply page, or the job Track returned for it). */
+export function findTrackedJob(saved: readonly Job[], url: string, links: JobsState["links"] = {}): Job | null {
+  const matched = matchTrackedJob(saved, url)?.job;
+  if (matched) return matched;
+  const linkedId = links[normalizeJobUrlForMatch(url)];
+  return linkedId ? (saved.find((j) => j.id === linkedId) ?? null) : null;
+}
+
+/** Remember that `pageUrl` is `job`, so the page shows as tracked. */
+export function linkPageToJob(pageUrl: string, job: Job): void {
+  const key = normalizeJobUrlForMatch(pageUrl);
+  if (!key || matchTrackedJob([job], pageUrl)) return;
+  const entries = Object.entries({ ...jobsStore.get().links, [key]: job.id }).slice(-MAX_LINKS);
+  const links = Object.fromEntries(entries);
+  jobsStore.set({ links });
+  void storageSet({ [LINKS_KEY]: links });
 }
 
 export function upsertSavedJob(job: Job): void {

@@ -107,4 +107,13 @@ describe("tracked job matching", () => {
   it("misses other jobs", () => {
     assert.equal(jobs.findTrackedJob(saved, "https://www.linkedin.com/jobs/view/999/"), null);
   });
+  it("matches an Indeed search page by its job key, and not its neighbours", () => {
+    const indeed = [{ id: "7", sourceUrl: "https://www.indeed.com/viewjob?jk=aaa111" }];
+    assert.equal(jobs.findTrackedJob(indeed, "https://www.indeed.com/jobs?q=cto&l=Detroit&vjk=aaa111")?.id, "7");
+    assert.equal(jobs.findTrackedJob(indeed, "https://www.indeed.com/jobs?q=cto&l=Detroit&vjk=bbb222"), null);
+  });
+  it("finds the job Track returned for a page listed under another URL", () => {
+    const links = { "https://www.indeed.com/viewjob?jk=ccc333": "1" };
+    assert.equal(jobs.findTrackedJob(saved, "https://www.indeed.com/jobs?q=cto&vjk=ccc333", links)?.id, "1");
+  });
 });

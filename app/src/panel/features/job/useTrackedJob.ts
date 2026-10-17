@@ -10,10 +10,11 @@ import { useStore } from "../../state/store";
 
 export function useTrackedJobFor(url: string | null | undefined): Job | null {
   const saved = useStore(jobsStore, (s) => s.saved);
+  const links = useStore(jobsStore, (s) => s.links);
   useEffect(() => {
     void loadSavedJobs().catch(() => undefined);
   }, []);
-  return url ? findTrackedJob(saved, url) : null;
+  return url ? findTrackedJob(saved, url, links) : null;
 }
 
 /** The detected job on the page, if the page shows one. */

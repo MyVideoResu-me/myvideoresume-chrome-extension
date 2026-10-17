@@ -2,24 +2,14 @@
  * job-url-match — is this page the same job as a tracked one? (imported
  * by the unified app panel).
  *
- * LinkedIn's many URL shapes go through the platform's canonicalizer;
- * everything else drops the hash, tracking params and trailing slashes.
+ * Uses the platform's own URL normalizer (canonical LinkedIn / Indeed job
+ * URLs, tracking params dropped), so a page matches exactly the sourceUrl
+ * the API stored for it.
  */
-import { canonicalizeJobUrl } from "../../hired.video/shared/scraping/urls.js";
-
-const TRACKING_PARAMS = ["utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term", "ref", "fbclid", "gclid", "trk"];
+import { normalizeJobUrl } from "../../hired.video/shared/scraping/urls.js";
 
 export function normalizeJobUrlForMatch(raw: string | null | undefined): string {
-  if (!raw) return "";
-  const canonical = canonicalizeJobUrl(raw);
-  try {
-    const u = new URL(canonical);
-    u.hash = "";
-    for (const p of TRACKING_PARAMS) u.searchParams.delete(p);
-    return u.toString().replace(/\/+$/, "");
-  } catch {
-    return canonical.replace(/\/+$/, "").split("#")[0];
-  }
+  return (normalizeJobUrl(raw) ?? "").replace(/\/+$/, "");
 }
 
 /** The tracked job whose listing (preferred) or apply URL is `url`. */
