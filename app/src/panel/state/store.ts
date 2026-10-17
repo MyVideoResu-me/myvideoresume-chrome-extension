@@ -35,12 +35,16 @@ export function useStore<T extends object, S>(store: Store<T>, select: (state: T
   valueRef.current = value;
   const [, rerender] = useReducer((n: number) => n + 1, 0);
 
-  useEffect(
-    () =>
-      store.subscribe(() => {
-        if (!Object.is(selectRef.current(store.get()), valueRef.current)) rerender(0);
-      }),
-    [store],
-  );
+  useEffect(() => {
+    const check = () => {
+      if (!Object.is(selectRef.current(store.get()), valueRef.current)) rerender(0);
+    };
+    const unsubscribe = store.subscribe(check);
+    // The effect runs after paint: a set() between render and subscribe
+    // would otherwise be missed (e.g. the session resolving "signed out"
+    // before the panel subscribes — the panel then sat on "Loading…").
+    check();
+    return unsubscribe;
+  }, [store]);
   return value;
 }

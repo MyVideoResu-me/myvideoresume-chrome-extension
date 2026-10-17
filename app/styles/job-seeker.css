@@ -6,12 +6,7 @@
 .text-3 { color: var(--text-3); }
 .text-strong { color: var(--text); font-weight: 600; }
 
-/* Header: the logo is the way home; flow screens opened from the page keep the stepper under it. */
-.brand-home {
-  display: inline-flex; align-items: center; gap: 8px; margin-right: auto; padding: 0;
-  border: 0; background: transparent; border-radius: var(--radius-sm);
-}
-.brand-home .brand { margin-right: 0; }
+/* Flow screens opened from the page keep the stepper under the header. */
 .view-header-steps { padding-top: 0; }
 .view-header-steps .steps { margin-top: 10px; }
 .view-header-row .account { margin-left: 4px; }
