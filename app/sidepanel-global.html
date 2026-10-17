@@ -8,7 +8,9 @@
 </head>
 <body>
   <div id="app"></div>
-  <!-- API / web base URLs (single source shared with login.html). -->
+  <!-- API base URL (api-client.js) + web base URL (constants.js), shared
+       with login.html and the service worker. -->
+  <script src="api-client.js"></script>
   <script src="constants.js"></script>
   <!-- Session telemetry + learned picker selectors (window.HiredVideoTelemetry). -->
   <script src="extension-telemetry.js"></script>

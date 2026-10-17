@@ -20,9 +20,8 @@ const REFRESH_ALARM = 'hiredVideoTokenRefresh';
 const REFRESH_PERIOD_MINUTES = 60;        // check hourly
 const REFRESH_THRESHOLD_SECONDS = 24 * 60 * 60; // refresh when < 24h left
 
-// API base — kept in sync with constants.js. Service workers can't
-// import non-module scripts, so it's duplicated here.
-const API_BASE = 'https://api.hired.video';
+// API calls go through api-client.js (hvApiFetch), which the build
+// concatenates ahead of this file.
 
 // Hosts the seeker Vendor Sync flow can pull profile HTML from. Mirrors
 // `PROFILE_SITE_PARSERS.*.hostPatterns` in shared/profile-parsers.js —
@@ -70,17 +69,15 @@ function matchVendorForUrl(url) {
  * authed if one is present. Closes gap #1453.
  */
 function reportSelectorMiss({ vendorId, selector, blockSection, errCode, host }) {
-  chrome.storage.local.get(['settings', 'recruiterSettings', 'jwtToken'], async (data) => {
+  chrome.storage.local.get(['settings', 'recruiterSettings'], async (data) => {
     const optedOut = !!(data?.settings?.telemetryOptOut || data?.recruiterSettings?.telemetryOptOut);
     if (optedOut) return;
     try {
-      const headers = { 'Content-Type': 'application/json' };
-      if (data.jwtToken) headers.Authorization = `Bearer ${data.jwtToken}`;
-      await fetch(API_BASE + '/api/extension/sessions', {
+      await hvApiFetch('/api/extension/sessions', {
         method: 'POST',
-        headers,
+        auth: 'optional',
         keepalive: true,
-        body: JSON.stringify({
+        body: {
           sessionId: crypto.randomUUID(),
           extension: chrome.runtime.getManifest()?.name?.toLowerCase().includes('recruiter')
             ? 'recruiter' : 'jobseeker',
@@ -91,7 +88,7 @@ function reportSelectorMiss({ vendorId, selector, blockSection, errCode, host })
             host,
             payload: { vendorId, selector, blockSection, errCode },
           }],
-        }),
+        },
       });
     } catch {
       // Telemetry is best-effort — never block the user flow.
@@ -320,10 +317,7 @@ async function refreshTokenIfNeeded() {
   if (secondsLeft > REFRESH_THRESHOLD_SECONDS) return;
 
   try {
-    const response = await fetch(`${API_BASE}/api/auth/refresh`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${jwtToken}` },
-    });
+    const response = await hvApiFetch('/api/auth/refresh', { method: 'POST', token: jwtToken });
 
     if (response.status === 401) {
       // Token rejected outright — clear and let the user sign in again.

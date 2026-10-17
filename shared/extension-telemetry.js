@@ -3,7 +3,7 @@
  *
  * Two unrelated concerns bundled in one file because both live entirely
  * in the side panel and both need access to chrome.storage.local and
- * `apiBase`:
+ * the API (via api-client.js, loaded first):
  *
  *   1. Session telemetry  — buffers events client-side, flushes to
  *      `/api/extension/sessions` on a timer, on visibilitychange, on
@@ -122,28 +122,10 @@
   // open for hours). Re-attempts continue but on a slower cadence.
   const FAILURE_DROP_THRESHOLD = 5;
 
-  function endpoint() {
-    // `apiBase` is a global set by constants.js → updateConfiguration().
-    if (typeof apiBase !== "string") return null;
-    return apiBase + "/api/extension/sessions";
-  }
-
-  function authHeader() {
-    // Best-effort — sidepanel.js stores the JWT in localStorage under
-    // jwtTokenKey. We don't await chrome.storage because we want telemetry
-    // to be synchronous-ish on unload.
-    try {
-      const token = localStorage.getItem("jwtToken");
-      return token ? { Authorization: `Bearer ${token}` } : {};
-    } catch {
-      return {};
-    }
-  }
+  const SESSIONS_PATH = "/api/extension/sessions";
 
   async function flush(useBeacon = false) {
     if (!buffer.length) return;
-    const url = endpoint();
-    if (!url) return;
     const events = buffer.splice(0, buffer.length);
     const payload = {
       sessionId: SESSION_ID,
@@ -156,7 +138,7 @@
       // sendBeacon doesn't carry headers — server's optionalAuth tolerates
       // missing auth; we still attribute the user via later batches.
       try {
-        navigator.sendBeacon(url, new Blob([body], { type: "application/json" }));
+        navigator.sendBeacon(hvApiUrl(SESSIONS_PATH), new Blob([body], { type: "application/json" }));
         consecutiveFailures = 0;
         return;
       } catch {
@@ -164,12 +146,9 @@
       }
     }
     try {
-      const res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...authHeader() },
-        body,
-        keepalive: true,
-      });
+      // auth "optional": the server's optionalAuth attributes the user
+      // when a JWT is stored, and accepts anonymous batches otherwise.
+      const res = await hvApiFetch(SESSIONS_PATH, { method: "POST", auth: "optional", body, keepalive: true });
       if (!res.ok) throw new Error(`telemetry post ${res.status}`);
       consecutiveFailures = 0;
     } catch (err) {

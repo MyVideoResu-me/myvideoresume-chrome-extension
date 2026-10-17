@@ -11,14 +11,10 @@ const trackedJobKey = 'currentTrackedJob';
 // in so we can wipe user-scoped caches (selected resume, tracked job,
 // score/tailoring caches) instead of leaking them into the new session.
 const lastUserIdKey = 'lastUserId';
-const isDevelopment = false;
 const showConsoleAlerts = false;
 
-// API Base URLs
-// Dev: run `npm run dev` in /api — Node.js server on port 5000
-// Prod: Cloudflare Worker at api.hired.video
-const apiBaseDev = 'http://localhost:5000';
-const apiBaseProd = 'https://api.hired.video';
+// API base URL + the `isDevelopment` switch live in api-client.js (the one
+// request helper), which every page loads BEFORE this file.
 
 // Web App Base URLs (used to delegate login flows that the extension
 // itself can't host — OAuth, magic link, 2FA, etc.)
@@ -73,11 +69,9 @@ const PATHS = {
 };
 
 // Active endpoints — populated by updateConfiguration() at startup.
-let apiBase = apiBaseDev;
+let apiBase = HIRED_API_BASE;
 let webBase = webBaseDev;
-let login;
 let matchAnalyze;
-let matchTailor;
 let masterResumeGroups;
 let resumeBase;
 let resumesBase;
@@ -88,19 +82,13 @@ let jobsBase;
 let jobsExtractUrl;
 let jobsSavedUrl;
 let meUrl;
-let magicLinkUrl;
-let verifyTwoFactorUrl;
-let resendTwoFactorUrl;
 let oauthStartUrl;
-let extensionPreferencesUrl;
 
 function updateConfiguration() {
-    apiBase = isDevelopment ? apiBaseDev : apiBaseProd;
+    apiBase = HIRED_API_BASE;
     webBase = isDevelopment ? webBaseDev : webBaseProd;
 
-    login = apiBase + PATHS.login;
     matchAnalyze = apiBase + PATHS.matchAnalyze;
-    matchTailor = apiBase + PATHS.matchTailor;
     masterResumeGroups = apiBase + PATHS.resumeMasterGroups;
     resumeBase = apiBase + PATHS.resumeBase;
     resumesBase = apiBase + PATHS.resumes;
@@ -111,20 +99,7 @@ function updateConfiguration() {
     jobsExtractUrl = apiBase + PATHS.jobsExtract;
     jobsSavedUrl = apiBase + PATHS.jobsSaved;
     meUrl = apiBase + PATHS.me;
-    magicLinkUrl = apiBase + PATHS.magicLink;
-    verifyTwoFactorUrl = apiBase + PATHS.verifyTwoFactor;
-    resendTwoFactorUrl = apiBase + PATHS.resendTwoFactor;
     oauthStartUrl = apiBase + PATHS.oauthStart;
-    extensionPreferencesUrl = apiBase + PATHS.extensionPreferences;
-}
-
-// Helper: build /api/resumes/{id}/{action}?{queryParams}
-function buildResumeUrl(resumeId, action, queryParams = '') {
-    let url = `${resumeBase}/${resumeId}/${action}`;
-    if (queryParams) {
-        url += `?${queryParams}`;
-    }
-    return url;
 }
 
 // Helper: build /api/jobs/{id}/{action}

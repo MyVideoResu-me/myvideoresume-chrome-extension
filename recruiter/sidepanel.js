@@ -86,7 +86,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      getJwtToken().then((token) => { if (token) loadUserProfile(token); });
+      hvGetToken().then((token) => { if (token) loadUserProfile(token); });
     }
   });
 });
@@ -112,7 +112,7 @@ function wireLoginButtons() {
 // ---- Initialization -----------------------------------------------------
 
 async function initializeApp() {
-  const token = await getJwtToken();
+  const token = await hvGetToken();
   if (!token) {
     showSignedOutState();
     return;
@@ -141,11 +141,9 @@ function showSignedInState() {
 }
 
 async function loadUserProfile(token) {
-  const res = await fetch(apiBase + PATHS.me, {
-    headers: { 'Authorization': `Bearer ${token}` },
-  });
+  const res = await hvApiFetch(PATHS.me, { token });
   if (res.status === 401) {
-    chrome.storage.local.remove('jwtToken');
+    chrome.storage.local.remove(JWT_STORAGE_KEY);
     throw new Error('Token expired');
   }
   if (!res.ok) throw new Error('Failed to load profile');
@@ -214,11 +212,9 @@ async function loadSettings() {
  */
 async function loadSettingsFromServer() {
   try {
-    const jwtToken = await getJwtToken();
+    const jwtToken = await hvGetToken();
     if (!jwtToken) return;
-    const resp = await fetch(extensionPreferencesUrl, {
-      headers: { Authorization: `Bearer ${jwtToken}` },
-    });
+    const resp = await hvApiFetch(PATHS.extensionPreferences, { token: jwtToken });
     if (!resp.ok) return;
     const data = await resp.json();
     const server = data?.data?.recruiter;
@@ -311,7 +307,7 @@ function saveSettings() {
  */
 async function saveSettingsToServer() {
   try {
-    const jwtToken = await getJwtToken();
+    const jwtToken = await hvGetToken();
     if (!jwtToken) return;
     const payload = {
       recruiter: {
@@ -324,14 +320,7 @@ async function saveSettingsToServer() {
         telemetryOptOut: !!settings.telemetryOptOut,
       },
     };
-    const resp = await fetch(extensionPreferencesUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${jwtToken}`,
-      },
-      body: JSON.stringify(payload),
-    });
+    const resp = await hvApiFetch(PATHS.extensionPreferences, { method: 'PUT', token: jwtToken, body: payload });
     if (!resp.ok) return;
     chrome.runtime.sendMessage({
       action: 'broadcastToWebApp',
@@ -565,7 +554,7 @@ function switchTab(tab) {
 }
 
 async function loadTabData(tab) {
-  const token = await getJwtToken();
+  const token = await hvGetToken();
   if (!token) return;
 
   switch (tab) {
@@ -1855,7 +1844,7 @@ async function loadCompanies() {
 
   try {
     // Use the existing companies endpoint
-    const res = await apiFetch(apiBase + '/api/companies');
+    const res = await apiFetch('/api/companies');
     if (!res.ok) throw new Error('Failed to load companies');
     const data = await res.json();
     companiesList = data.data || [];

@@ -1,10 +1,11 @@
 /**
- * API + web base URLs. The single source of truth is shared/constants.js
- * (also used by login.html and the legacy builds); the panel HTML loads it
- * before this bundle, so we read its globals rather than redeclare them.
+ * API + web base URLs. The panel HTML loads shared/api-client.js (API base,
+ * resolved once as `HIRED_API_BASE`) and shared/constants.js (web base)
+ * before this bundle — the same sources login.html and the service worker
+ * use — so we read their globals rather than redeclare them.
  */
 
-declare const apiBase: string;
+declare const HIRED_API_BASE: string;
 declare const webBase: string;
 declare function updateConfiguration(): void;
 
@@ -17,8 +18,7 @@ function ensureConfigured(): void {
 }
 
 export function apiUrl(path: string): string {
-  ensureConfigured();
-  return apiBase + path;
+  return HIRED_API_BASE + path;
 }
 
 export function webUrl(path: string): string {

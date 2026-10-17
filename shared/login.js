@@ -102,11 +102,7 @@ async function handleEmailPasswordLogin(event) {
   }
 
   try {
-    const response = await fetch(login, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    });
+    const response = await hvApiFetch(PATHS.login, { method: 'POST', auth: 'none', body: { email, password } });
 
     const data = await response.json().catch(() => ({}));
     consoleAlerts('Login response: ' + JSON.stringify(data));
@@ -123,7 +119,7 @@ async function handleEmailPasswordLogin(event) {
     // step-up (AuthService.handleLogin: captchaFailed → requiresMfa).
     // Either way we host the OTP entry inline so the user doesn't
     // have to start over in a new tab.
-    const envelope = unwrapApiResponse(data);
+    const envelope = hvUnwrapEnvelope(data) || {};
     if (envelope.requiresTwoFactor) {
       pendingTwoFactor = {
         tempAuthToken: envelope.tempAuthToken,
@@ -220,31 +216,16 @@ async function handleMagicLink(event) {
 async function sendMagicLink(email) {
   if (!email) return false;
   try {
-    const response = await fetch(magicLinkUrl, {
+    const response = await hvApiFetch(PATHS.magicLink, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, redirect: '/dashboard' }),
+      auth: 'none',
+      body: { email, redirect: '/dashboard' },
     });
     return response.ok;
   } catch (err) {
     console.error('Magic link error:', err);
     return false;
   }
-}
-
-/**
- * Normalises both wire shapes the API uses for auth responses:
- *   • Current:  { success, data: { token | requiresTwoFactor | ... } }
- *   • Legacy:   { token | requiresTwoFactor | ... } at the top level
- * Returns the inner payload (or the original object when there is no
- * `data` envelope) so callers can read flags without `?.data ?? data`
- * littered at every read site.
- */
-function unwrapApiResponse(body) {
-  if (body && typeof body === 'object' && body.data && typeof body.data === 'object') {
-    return body.data;
-  }
-  return body || {};
 }
 
 function showLoginError(message) {
@@ -307,13 +288,13 @@ async function handleTwoFactorSubmit(event) {
   errorBox.classList.add('hidden');
 
   try {
-    const response = await fetch(verifyTwoFactorUrl, {
+    const response = await hvApiFetch(PATHS.verifyTwoFactor, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
+      auth: 'none',
+      body: {
         tempAuthToken: pendingTwoFactor.tempAuthToken,
         verificationCode: code,
-      }),
+      },
     });
 
     const data = await response.json().catch(() => ({}));
@@ -324,7 +305,7 @@ async function handleTwoFactorSubmit(event) {
       return;
     }
 
-    const token = unwrapApiResponse(data).token || null;
+    const token = (hvUnwrapEnvelope(data) || {}).token || null;
     if (!token) {
       showTwoFactorError('Verification succeeded but no session was issued. Please try again.');
       return;
@@ -347,10 +328,10 @@ async function handleTwoFactorResend() {
   const errorBox = document.getElementById('twoFactorError');
   errorBox.classList.add('hidden');
   try {
-    const response = await fetch(resendTwoFactorUrl, {
+    const response = await hvApiFetch(PATHS.resendTwoFactor, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ tempAuthToken: pendingTwoFactor.tempAuthToken }),
+      auth: 'none',
+      body: { tempAuthToken: pendingTwoFactor.tempAuthToken },
     });
     const data = await response.json().catch(() => ({}));
     if (!response.ok) {
@@ -358,7 +339,7 @@ async function handleTwoFactorResend() {
       return;
     }
     // Backend issues a fresh code and a fresh tempAuthToken — adopt it.
-    const next = unwrapApiResponse(data).tempAuthToken;
+    const next = (hvUnwrapEnvelope(data) || {}).tempAuthToken;
     if (next) pendingTwoFactor.tempAuthToken = next;
     errorBox.textContent = 'New code sent. Check your email.';
     errorBox.className = 'alert alert-success';

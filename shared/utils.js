@@ -6,14 +6,6 @@
  * sidepanel.js.
  */
 
-// ---- Auth ---------------------------------------------------------------
-
-async function getJwtToken() {
-  return new Promise((resolve) => {
-    chrome.storage.local.get(jwtTokenKey, (data) => resolve(data.jwtToken || null));
-  });
-}
-
 // ---- DOM helpers --------------------------------------------------------
 
 function showElement(id) {
@@ -74,73 +66,17 @@ function capitalizeFirst(str) {
 // ---- API helpers --------------------------------------------------------
 
 /**
- * Make an authenticated API request. Returns the fetch Response.
- * Handles 401 by clearing the stored token.
+ * Authenticated API request for the side panel (built by hvApiFetch in
+ * api-client.js). Returns the fetch Response; a 401 clears the stored
+ * token and throws so the panel falls back to its signed-out state.
  */
 async function apiFetch(url, options = {}) {
-  const token = await getJwtToken();
-  if (!token) throw new Error('Not authenticated');
-  const res = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-      ...(options.headers || {}),
-    },
-  });
+  const res = await hvApiFetch(url, options);
   if (res.status === 401) {
-    chrome.storage.local.remove('jwtToken');
+    chrome.storage.local.remove(JWT_STORAGE_KEY);
     throw new Error('Session expired — please sign in again');
   }
   return res;
-}
-
-/**
- * Check a fetch Response for 429 USAGE_LIMIT_EXCEEDED. Renders
- * a usage bar + upgrade CTA into `targetId`. Returns true when
- * handled so the caller can short-circuit.
- *
- * Usage:  if (await check429(resp, 'quickStatus')) return;
- */
-async function check429(response, targetId) {
-  if (response.status !== 429) return false;
-  try {
-    const data = await response.json();
-    const err = data?.error;
-    if (err?.code !== 'USAGE_LIMIT_EXCEEDED') {
-      showQuickStatus('Rate limit reached. Please wait and try again.', 'warning');
-      return true;
-    }
-    const used = err?.usage?.used ?? 0;
-    const limit = err?.usage?.limit ?? 10;
-    const pct = Math.min(100, Math.round((used / Math.max(limit, 1)) * 100));
-    const upgradeUrl = typeof buildWebUrl === 'function'
-      ? buildWebUrl(err.upgradeUrl || '/pricing')
-      : err.upgradeUrl || '/pricing';
-
-    const container = document.getElementById(targetId);
-    if (container) {
-      container.innerHTML = `
-        <div class="usage-limit-alert">
-          <strong>⚠️ Free plan limit reached</strong>
-          ${escapeHtml(err.message || 'Upgrade to keep using AI features.')}
-          <div class="usage-limit-bar">
-            <div class="usage-limit-bar-fill" style="width:${pct}%"></div>
-          </div>
-          <div class="text-xs text-muted">${used} / ${limit} requests used this month</div>
-          <button class="btn btn-primary usage-limit-upgrade" data-url="${escapeHtml(upgradeUrl)}">⭐ Upgrade to Pro</button>
-        </div>
-      `;
-      container.classList.remove('hidden');
-      container.querySelector('.usage-limit-upgrade')?.addEventListener('click', () => {
-        chrome.tabs.create({ url: upgradeUrl });
-      });
-    }
-    return true;
-  } catch {
-    showQuickStatus('Rate limit reached. Please wait and try again.', 'warning');
-    return true;
-  }
 }
 
 // ---- Job context capture (DRY — used by all pipeline entry points) ----
@@ -280,58 +216,6 @@ function renderResumeAsMarkdown(resume) {
   return lines.join('\n');
 }
 
-// ---- Save variation (for manual imports / non-tailor flows) ----
-
-/**
- * Save a resume variation under the user's master. Used by the manual
- * "Save as Variation" flow that accepts a structured ResumeContent
- * blob (preferred) or a raw markdown string (fallback, for imports).
- *
- * The tailor pipeline does NOT call this — POST /api/match/tailor now
- * persists the variation server-side in the same call and returns the
- * new variationId directly.
- *
- * @param {string} masterId  - The master resume ID
- * @param {object} params    - { name, description, content?, resumeData?, jobId?, sourceUrl? }
- * @returns {string|null}    - The new variation ID, or null on failure
- */
-async function saveAsVariation(masterId, params) {
-  const body = {
-    name: (params.name || 'Tailored Resume').slice(0, 200),
-    description: params.description || '',
-    jobId: params.jobId,
-    sourceUrl: params.sourceUrl,
-  };
-  if (params.content && typeof params.content === 'object') {
-    body.content = params.content;
-  } else {
-    body.resumeData = params.resumeData || '';
-  }
-  const res = await apiFetch(buildResumeUrl(masterId, 'createvariation'), {
-    method: 'POST',
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) return null;
-  const data = await res.json();
-  return (data?.data || data?.result || data)?.id || null;
-}
-
-/**
- * Determine the master resume ID from the selected resume.
- */
-function getMasterResumeId(resume) {
-  if (!resume) return null;
-  return resume.isMaster || !resume.parentId ? resume.id : resume.parentId;
-}
-
-/**
- * Unwrap an API response payload. The backend sometimes wraps in
- * { data: ... } or { result: ... }; this normalises the variation.
- */
-function unwrapResponse(data) {
-  return data?.data || data?.result || data;
-}
-
 /**
  * Build a canonical tracked-job object from a raw API response or
  * detected payload. Keeps every call site consistent.
@@ -345,59 +229,6 @@ function buildTrackedJobObj(raw, fallbacks = {}) {
     sourceUrl: raw.sourceUrl || fallbacks.sourceUrl || '',
     applyUrl: raw.applyUrl || fallbacks.applyUrl || raw.sourceUrl || fallbacks.sourceUrl || '',
   };
-}
-
-/**
- * Shared tailor flow.
- *
- * Calls POST /api/match/tailor. The server tailors the resume AND
- * persists it as a variation in the same call, returning
- * `{ oldScore, newScore, tailoredResume, changes, summaryRecommendations,
- *    variationId, variationTitle, sourceUrl }`. We just update the local
- * caches and hand the result back to the caller.
- *
- * @param {object} opts
- * @param {string} opts.jobId          - The tracked job to tailor against
- * @param {object} opts.selectedResume - The active resume object
- * @returns {{ tailored, variationId, variationName }} or throws
- */
-async function tailorAndSaveVariation(opts) {
-  const { jobId, selectedResume: resume } = opts;
-
-  const jwtToken = await getJwtToken();
-  if (!jwtToken) throw new Error('Not authenticated');
-
-  // Backend derives sourceUrl from the jobItems row and priorRecommendations
-  // from the resume_match_scores cache — don't echo either back.
-  const payload = { jobId, resumeId: resume.id };
-
-  const tailorResp = await fetch(matchTailor, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${jwtToken}` },
-    body: JSON.stringify(payload),
-  });
-  if (tailorResp.status === 401) { handleTokenExpired(); throw new Error('Session expired'); }
-  if (tailorResp.status === 429) {
-    await check429(tailorResp, 'quickStatus');
-    throw new Error('Rate limit reached');
-  }
-  if (!tailorResp.ok) throw new Error('Tailor failed');
-
-  const tailored = unwrapResponse(await tailorResp.json());
-  const variationId = tailored.variationId || null;
-  const variationName = tailored.variationTitle || 'Tailored Resume';
-  const masterId = getMasterResumeId(resume);
-
-  if (variationId) {
-    const newScore = tailored.newScore ?? tailored.score ?? null;
-    const masterName = resume?.name || resume?.title || 'Resume';
-    saveJobTailoring(jobId, variationId, masterId, newScore, variationName, masterName);
-    if (newScore != null) {
-      saveJobScore(jobId, newScore, tailored.summaryRecommendations || '', variationName);
-    }
-  }
-
-  return { tailored, variationId, variationName };
 }
 
 // ---- Version footer -----------------------------------------------------

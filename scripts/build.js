@@ -47,7 +47,8 @@ const EXTENSIONS = {
   app: {
     src: path.join(ROOT, 'app'),
     dist: path.join(DIST_DIR, 'app'),
-    serviceWorkerFiles: ['service-worker-base.js', 'service-worker-detection.js', 'service-worker.js'],
+    // api-client.js first: the worker's API calls go through it.
+    serviceWorkerFiles: ['api-client.js', 'service-worker-base.js', 'service-worker-detection.js', 'service-worker.js'],
     // Bundled per-target entries (on top of the shared TS_ENTRYPOINTS).
     tsEntrypoints: {
       'sidepanel.js': path.join(APP_SRC, 'panel', 'main.tsx'),
@@ -78,7 +79,7 @@ const EXTENSIONS = {
   recruiter: {
     src: path.join(ROOT, 'recruiter'),
     dist: path.join(DIST_DIR, 'recruiter'),
-    serviceWorkerFiles: ['service-worker-base.js', 'service-worker-detection.js'],
+    serviceWorkerFiles: ['api-client.js', 'service-worker-base.js', 'service-worker-detection.js'],
   },
 };
 
