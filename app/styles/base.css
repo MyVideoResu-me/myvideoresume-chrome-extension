@@ -47,9 +47,13 @@ button:disabled { cursor: not-allowed; opacity: 0.55; }
 }
 
 /* ---- App header ---- */
+/* Sits flush under Chrome's own side-panel title bar (icon, name, pin, close
+   are browser chrome an extension can't add to), so it reads as one header:
+   no divider, minimal padding, controls right-aligned on the same line. */
 .app-header {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 12px; border-bottom: 1px solid var(--border); background: var(--bg);
+  position: sticky; top: 0; z-index: 10;
+  display: flex; align-items: center; gap: 6px;
+  padding: 0 12px 4px; background: var(--bg);
 }
 .app-header-fill { flex: 1; }
 
