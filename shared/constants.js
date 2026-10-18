@@ -44,10 +44,12 @@ const PATHS = {
 
   // Resumes
   resumes: '/api/resumes',
-  resumeMasterGroups: '/api/resumes/mastergroups',
+  resumeMasterGroups: '/api/resumes?owner=me&view=groups',
   resumeParse: '/api/resumes/parse',
-  resumeCreateFromFile: '/api/resumes/createfromfile',
-  resumeCreateFromText: '/api/resumes/createfromtext',
+  // Every create is POST /api/resumes: a multipart body is a file create,
+  // a JSON body picks its strategy with `source` ("text" → { text, title? }).
+  resumeCreateFromFile: '/api/resumes',
+  resumeCreateFromText: '/api/resumes',
   // Per-resume actions append the id and verb: /api/resumes/{id}/{action}
   resumeBase: '/api/resumes',
 

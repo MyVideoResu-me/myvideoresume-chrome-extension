@@ -59,7 +59,7 @@ function toSummary(raw: RawResume, masterId: string, isMaster: boolean, doc: Res
 }
 
 export async function fetchResumes(): Promise<ResumeLibrary> {
-  const groups = await request<RawGroup[]>("/api/resumes/mastergroups");
+  const groups = await request<RawGroup[]>("/api/resumes", { query: { owner: "me", view: "groups" } });
   const list: ResumeSummary[] = [];
   const documents: Array<[string, ResumeContent]> = [];
   const add = (raw: RawResume, masterId: string, isMaster: boolean) => {
@@ -82,19 +82,21 @@ export async function fetchResumeContent(id: string): Promise<ResumeContent> {
   return documentOf(raw) ?? ({} as ResumeContent);
 }
 
-export function setActiveResume(id: string): Promise<void> {
-  return request(`/api/resumes/${encodeURIComponent(id)}/setactive`, { method: "POST" });
+export async function setActiveResume(id: string): Promise<void> {
+  await request(`/api/resumes/${encodeURIComponent(id)}`, { method: "PATCH", body: { isActive: true } });
 }
 
 /** Save `content` as a new version under `masterId`; the master is untouched. */
-export function saveVersion(
+export async function saveVersion(
   masterId: string,
   input: { content: ResumeContent; title: string; description?: string },
 ): Promise<{ resumeId: string; title: string; masterId: string }> {
-  return request(`/api/resume-versions/${encodeURIComponent(masterId)}/versions`, {
+  // A version is a create: POST /api/resumes { source: "variation" } → the new résumé + its masterId.
+  const created = await request<RawResume>("/api/resumes", {
     method: "POST",
-    body: input,
+    body: { source: "variation", sourceId: masterId, ...input },
   });
+  return { resumeId: str(created.id), title: str(created.title), masterId: str(created.masterId) || masterId };
 }
 
 /**
@@ -108,7 +110,9 @@ export function updateResumeContent(id: string, content: ResumeContent): Promise
 export function uploadResumeFile(file: File): Promise<RawResume> {
   const form = new FormData();
   form.append("file", file);
-  return request<RawResume>("/api/resumes/createfromfile", { method: "POST", form });
+  form.append("source", "file");
+  // Any multipart POST /api/resumes is a file create.
+  return request<RawResume>("/api/resumes", { method: "POST", form });
 }
 
 export type ResumeExport = { kind: "url"; url: string } | { kind: "file"; blob: Blob; filename: string };

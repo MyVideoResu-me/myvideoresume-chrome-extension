@@ -24,7 +24,7 @@ if (typeof PATHS !== 'undefined') {
   PATHS.recruiterInteractions = '/api/recruiter/interactions';
   PATHS.recruiterSubmissions = '/api/recruiter/submissions';
   PATHS.recruiterPlacements = '/api/recruiter/placements';
-  PATHS.recruiterPipeline = '/api/recruiter/pipeline';
+  PATHS.recruiterPipeline = '/api/pipeline/submissions';
   PATHS.recruiterMatchScoreCandidates = '/api/recruiter/match/score-candidates';
   PATHS.recruiterMatchScoreJobs = '/api/recruiter/match/score-jobs';
   PATHS.recruiterMatchScores = '/api/recruiter/match/scores';

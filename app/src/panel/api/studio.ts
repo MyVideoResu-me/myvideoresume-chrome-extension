@@ -85,8 +85,11 @@ export type ProjectStatus = {
   renderUrl: string | null;
 };
 
-export function fetchProjectStatus(projectId: string): Promise<ProjectStatus> {
-  return request<ProjectStatus>(`/api/studio/status/${encodeURIComponent(projectId)}`);
+/** The project's render status, read from the canonical project read
+ *  (GET /api/studio/projects/:id — its DTO carries status/videoUrl/renderUrl). */
+export async function fetchProjectStatus(projectId: string): Promise<ProjectStatus> {
+  const p = await request<ProjectStatus>(`/api/studio/projects/${encodeURIComponent(projectId)}`);
+  return { id: p.id, status: p.status, videoUrl: p.videoUrl ?? null, renderUrl: p.renderUrl ?? null };
 }
 
 /** Link the project to what it is about (a résumé → it shows on that résumé's page). */
@@ -103,7 +106,7 @@ export function addProjectSubject(projectId: string, subject: StudioSubject): Pr
  * The server holds candidate videos until the candidate approves.
  */
 export function setProjectVisibility(projectId: string, isPublic: boolean): Promise<unknown> {
-  return request(`/api/studio/projects/${encodeURIComponent(projectId)}/visibility`, {
+  return request(`/api/studio/projects/${encodeURIComponent(projectId)}`, {
     method: "PATCH",
     body: { isPublic },
   });

@@ -2,6 +2,7 @@
  * Résumé tools that don't need a job: the résumé check (scorer). Free
  * accounts get the score + one recommendation; Pro gets every fix.
  */
+import { aiToolPath } from "@shared/ai-tools/tool-ids";
 import { request } from "./http";
 
 export type ResumeCheck = {
@@ -23,7 +24,7 @@ type RawCheck = {
 };
 
 export async function checkResume(resumeId: string): Promise<ResumeCheck> {
-  const raw = await request<RawCheck>("/api/resumescorer/score", { method: "POST", body: { resumeId } });
+  const raw = await request<RawCheck>(aiToolPath("resume-score"), { method: "POST", body: { resumeId } });
   const recs = raw.recommendations
     ? raw.recommendations.map((r) => ({ title: r.title ?? "", description: r.description ?? "" }))
     : raw.teaserRecommendation?.title
